@@ -1,7 +1,36 @@
 /* ============================================================
-   ThirdBrain v1 — 클린 라이트 테마
+   ThirdBrain — 클린 라이트 테마
    기조: 흰 배경 · 시스템 산세리프 · 보라 그라데이션 포인트
    ============================================================ */
+
+/* ── Sootball SVG 공통 ─────────────────────────────────────── */
+.tb-dropzone-face svg,
+.tb-progress-sootball svg,
+.tb-settings-logo svg,
+.tb-loading-sootball svg { image-rendering: pixelated; }
+
+/* ── Settings 헤더 ─────────────────────────────────────────── */
+.tb-settings-header { text-align: center; padding: 1.5rem 0 1rem; }
+.tb-settings-logo { display: flex; justify-content: center; }
+.tb-settings-title { font-size: 1.1em; font-weight: 600; margin-top: 0.5rem; color: var(--text-normal); }
+
+/* ── Onboarding ────────────────────────────────────────────── */
+.tb-ob-card-desc-preline { white-space: pre-line; }
+
+/* ── 드래그 핸들 ───────────────────────────────────────────── */
+.tb-draggable-handle { cursor: move; }
+
+/* ── Pipeline 모달 바디 ────────────────────────────────────── */
+.tb-pipeline-modal-body { overflow-y: auto; max-height: 80vh; }
+
+/* ── Analysis Result 컨테이너 ──────────────────────────────── */
+.tb-analysis-result-container {
+	max-width: min(640px, 92vw);
+	width: 100%;
+	overflow-x: hidden;
+	overflow-y: auto;
+	max-height: 85vh;
+}
 
 .tb-root {
 	--tb-bg:        #ffffff;
