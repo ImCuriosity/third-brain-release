@@ -137,8 +137,7 @@ export class ThirdBrainView extends ItemView {
 		const hdr = root.createEl('div', { cls: 'tb-header' });
 
 		const titleRow = hdr.createEl('div', { cls: 'tb-header-title' });
-		titleRow.createEl('span', { cls: 'tb-header-name', text: 'Third-Brain' });
-		titleRow.createEl('span', { cls: 'tb-header-badge', text: 'v2' });
+		titleRow.createEl('span', { cls: 'tb-header-name', text: 'ThirdBrain' });
 
 		// 후원 QR 버튼
 		const donateWrap = titleRow.createEl('div', { cls: 'tb-donate-wrap' });

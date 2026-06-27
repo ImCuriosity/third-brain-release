@@ -2069,8 +2069,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
   buildHeader(root) {
     const hdr = root.createEl("div", { cls: "tb-header" });
     const titleRow = hdr.createEl("div", { cls: "tb-header-title" });
-    titleRow.createEl("span", { cls: "tb-header-name", text: "Third-Brain" });
-    titleRow.createEl("span", { cls: "tb-header-badge", text: "v2" });
+    titleRow.createEl("span", { cls: "tb-header-name", text: "ThirdBrain" });
     const donateWrap = titleRow.createEl("div", { cls: "tb-donate-wrap" });
     const donateBtn = donateWrap.createEl("button", { cls: "tb-donate-btn", text: "\u{1F366}" });
     const donatePopup = donateWrap.createEl("div", { cls: "tb-donate-popup" });
