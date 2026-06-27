@@ -291,3 +291,32 @@
 - [x] 모달 헤더 — 분석 모드 pill + 사용자 목적 표시
 - [x] 분석 결과 저장 파일명 — `모드+intent` 포함으로 중복 방지 (`깊은분석_모순탐지_2026-06-27`)
 - [x] 저장 파일 내 `종합 결론` 섹션 추가
+
+---
+
+## 배포 준비 (Pre-release Audit → v0.1.0)
+
+> 공개 배포 전 전면 정제. 개인 경로·로그·TODO 전부 제거.
+> "코드가 배포 전 보안 감사를 통과해야 한다" — 이 세션에서 실행.
+
+### 코드 정제
+- [x] `cli-bridge.ts` — console.log/warn/error 7개 제거, API 키 경고 → throw 전환
+- [x] `serial-pipeline.ts` — console.log 2개 제거 (LLM 원시 응답 노출 포함)
+- [x] `graph-store.ts` — console 3개 제거, catch (err) → catch {} 정제
+- [x] `view.ts` — console.error/warn 3개 제거, TODO 주석 제거
+- [x] `package.json` — build 스크립트에서 개인 로컬 경로 (`C:/workspace/obsi/...`) 완전 제거
+
+### manifest / 공개 메타데이터
+- [x] `name`: `ThirdBrain v2 (GNN 위상 최적화)` → `ThirdBrain`
+- [x] `author`: `ThirdBrain` → `ImCuriosity`
+- [x] `description`: 한국어 CLI 전용 설명 → 영문 멀티 프로바이더 설명
+- [x] `authorUrl` 추가 (`https://github.com/ImCuriosity`)
+- [x] `id`: `thirdbrain-v2` → `thirdbrain` (Obsidian ID 가이드라인 — 버전 포함 금지)
+- [x] 헤더 `v2` 배지 제거 → `ThirdBrain` 단일 명칭으로 통일
+
+### 배포 자산
+- [x] `README.md` 작성 — 영문, 설치/사용법/AI 설정 3종 안내
+- [x] `LICENSE` 추가 — MIT (ImCuriosity 2026)
+- [x] `third-brain-release` GitHub repo 구성 (소스 + 빌드 산출물)
+- [x] GitHub Release v0.1.0 — `main.js` / `manifest.json` / `styles.css` 3종 에셋
+- [x] Obsidian Community Directory 제출 (community.obsidian.md) → **심사 Pending**
