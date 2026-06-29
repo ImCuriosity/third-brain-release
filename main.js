@@ -31036,11 +31036,15 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     });
     const graphBtn = actions.createEl("button", { cls: "tb-btn-secondary", text: this.t("btn_graph") });
     graphBtn.addEventListener("click", () => {
-      new GraphViewModal(this.app, this.getFolderPaths(), (f, exc) => this.openNativeGraph(f, exc), this.plugin.settings.lang).open();
+      new GraphViewModal(this.app, this.getFolderPaths(), (f, exc) => {
+        void this.openNativeGraph(f, exc);
+      }, this.plugin.settings.lang).open();
     });
     this.bridgeBtn = actions.createEl("button", { cls: "tb-btn-secondary", text: this.t("btn_bridge") });
     this.bridgeBtn.addEventListener("click", () => {
-      new BridgeModal(this.app, this.getFolderPaths(), (a, b) => this.runBridgeWithFolders(a, b), this.plugin.settings.lang).open();
+      new BridgeModal(this.app, this.getFolderPaths(), (a, b) => {
+        void this.runBridgeWithFolders(a, b);
+      }, this.plugin.settings.lang).open();
     });
     this.fileCountEl = actions.createEl("div", { cls: "tb-file-count", text: this.vaultCountText() });
   }
@@ -32629,11 +32633,9 @@ ${query}`);
         folderBPath,
         this.store,
         this.plugin.settings.lang,
-        (folders) => this.openNativeGraph(
-          [`${this.plugin.settings.rootFolder}/raw`, ...folders],
-          true
-          // 모순 노드 제외
-        )
+        (folders) => {
+          void this.openNativeGraph([`${this.plugin.settings.rootFolder}/raw`, ...folders], true);
+        }
       ).open();
     } catch (e) {
       this.hideProgress();
@@ -33904,7 +33906,9 @@ var OnboardingModal = class extends import_obsidian4.Modal {
     skipLink.addEventListener("click", () => this.close());
     const confirmBtn = footer.createEl("button", { cls: "tb-ob-confirm mod-cta", text: t("ob_confirm") });
     confirmBtn.disabled = true;
-    confirmBtn.addEventListener("click", () => this.confirm(confirmBtn));
+    confirmBtn.addEventListener("click", () => {
+      void this.confirm(confirmBtn);
+    });
     this.onProviderSelect = (provider) => {
       this.selected = provider;
       confirmBtn.disabled = false;

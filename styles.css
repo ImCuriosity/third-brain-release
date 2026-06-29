@@ -2306,6 +2306,7 @@
 .tb-transplant-file-icon { flex-shrink: 0; font-size: 11px; }
 .tb-transplant-file-name { font-weight: 500; color: #111827; flex: 1; }
 .tb-transplant-file-name.is-selected { color: #7c3aed; }
+.tb-transplant-file-path { font-size: 11px; color: #9ca3af; margin-left: 4px; }
 
 /* 루트 파일 (폴더 없는 것) */
 .tb-transplant-root-file {
