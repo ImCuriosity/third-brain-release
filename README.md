@@ -76,7 +76,7 @@ ThirdBrain supports three AI backends. Set your preferred provider on first laun
 
 ### Manual
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](../../releases/latest)
-2. Copy to `{vault}/.obsidian/plugins/thirdbrain-v2/`
+2. Copy to `{vault}/.obsidian/plugins/thirdbrain/`
 3. Enable in **Settings → Community plugins**
 
 ---
@@ -84,9 +84,9 @@ ThirdBrain supports three AI backends. Set your preferred provider on first laun
 ## Usage
 
 1. Open the ThirdBrain panel (click the sootball icon in the ribbon, or run **Open ThirdBrain panel** from the command palette)
-2. Paste text into the input area and click **✦ 생성** to generate graph nodes
-3. Use **🔍 분석** to analyze a folder and get a synthesized insight report
-4. Use **🌉 연결** to find cross-folder bridges
+2. Paste text into the input area and click **✦ Generate** to run the pipeline
+3. Use **🔍 Analyze** to analyze a folder and get a synthesized insight report
+4. Use **🌉 Bridge** to find cross-folder connections
 
 ---
 
