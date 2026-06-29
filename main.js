@@ -30973,8 +30973,9 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     faceEl.appendChild((0, import_obsidian2.sanitizeHTMLToDom)(SOOTBALL_WAITING));
     const dropLabel = dropZone.createEl("div", { cls: "tb-dropzone-label", text: this.t("dropzone_label") });
     const fileInput = dropZone.createEl("input", {
-      attr: { type: "file", accept: ".md,.txt,.pdf", multiple: true, style: "display:none" }
+      attr: { type: "file", accept: ".md,.txt,.pdf", multiple: true }
     });
+    fileInput.hide();
     const fileBtn = dropZone.createEl("button", { cls: "tb-file-btn", text: this.t("file_btn") });
     fileBtn.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", (e) => this.handleFileSelect(e));
@@ -31715,8 +31716,10 @@ ${diagMsg}`
       statusRow.createEl("span", { cls: "tb-action-deadline", text: node.deadline.slice(0, 10) });
     statusSel.addEventListener("change", async () => {
       const newStatus = statusSel.value;
-      card.className = `tb-action-card is-${newStatus}`;
-      statusSel.className = `tb-action-status-sel is-${newStatus}`;
+      card.classList.remove("is-pending", "is-in_progress", "is-done", "is-blocked");
+      card.classList.add(`is-${newStatus}`);
+      statusSel.classList.remove("is-pending", "is-in_progress", "is-done", "is-blocked");
+      statusSel.classList.add(`is-${newStatus}`);
       const file = this.app.vault.getFileByPath(node.filePath);
       if (file)
         await this.store.updateActionStatus(file, newStatus);
@@ -32414,7 +32417,7 @@ ${theme.description}
       const v = leaf.view;
       try {
         const cur = v.getState?.()?.settings ?? {};
-        await v.setState({ settings: { ...cur, search: query } }, { history: false });
+        await v.setState?.({ settings: { ...cur, search: query } }, { history: false });
         v.renderer?.changed?.();
         if (v.getState?.()?.settings?.search === query) {
           applied = true;
@@ -34013,7 +34016,7 @@ var ThirdBrainPlugin = class extends import_obsidian5.Plugin {
       void this.activateView();
     });
     this.addCommand({
-      id: "open-thirdbrain",
+      id: "open",
       name: "Open panel",
       callback: () => {
         void this.activateView();

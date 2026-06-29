@@ -147,7 +147,6 @@
 	gap: 10px;
 	flex-shrink: 0;
 	padding: 14px 14px 0;
-	flex-shrink: 0;
 	margin-top: 12px;
 }
 
@@ -1285,8 +1284,8 @@
 }
 
 /* ── 분석 결과 모달 ─────────────────────────────────────── */
-.tb-analysis-result-modal {
-	padding: 0 !important;
+.modal-content.tb-analysis-result-modal {
+	padding: 0;
 	width: 100%;
 	max-width: 100%;
 	box-sizing: border-box;
@@ -1754,7 +1753,7 @@
 .tb-popup-folder-item:hover { background: #f3eeff; }
 .tb-popup-folder-header { cursor: default; opacity: 0.55; pointer-events: none; }
 .tb-popup-folder-header:hover { background: none; }
-.tb-popup-folder-header .tb-popup-folder-name { color: inherit !important; }
+.tb-popup-folder-item.tb-popup-folder-header .tb-popup-folder-name { color: inherit; }
 .tb-popup-folder-item:has(.tb-popup-cb:checked) {
 	background: #f3eeff;
 }
@@ -2636,9 +2635,9 @@
 }
 
 /* tb_conflict 마킹된 노드 빨간 링 */
-.tb-chip.is-conflict,
-.tb-card.is-conflict {
-	border: 2px solid #dc2626 !important;
+.tb-view .tb-chip.is-conflict,
+.tb-view .tb-card.is-conflict {
+	border: 2px solid #dc2626;
 	animation: tb-conflict-pulse 2s ease-in-out infinite;
 }
 
