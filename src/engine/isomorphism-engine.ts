@@ -44,13 +44,13 @@ export function extractFeatureVectorV2(
 	const clusteringCoeff = k > 1 ? neighborLinks / (k * (k - 1)) : 0;
 
 	// edgeTypeDistribution: 10축 분포 비율
-	const dist = new Array(10).fill(0);
+	const dist: number[] = new Array<number>(10).fill(0);
 	for (const e of confirmed) {
 		const idx = ALL_RELATIONS.indexOf(e.label);
 		if (idx >= 0) dist[idx]++;
 	}
 	const total = confirmed.length;
-	const edgeTypeDistribution = total > 0 ? dist.map(d => d / total) : dist;
+	const edgeTypeDistribution: number[] = total > 0 ? dist.map(d => d / total) : dist;
 
 	return {
 		nodeId: node.id,

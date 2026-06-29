@@ -1,4 +1,6 @@
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { AIProvider } from '../types';
 
 // Obsidian requestUrl (v0 호환 방식)
@@ -9,6 +11,15 @@ type RequestUrlFn = (options: {
 	body?: string;
 	throw?: boolean;
 }) => Promise<{ status: number; json: unknown }>;
+
+interface AnthropicApiResponse {
+	error?: { message?: string };
+	content?: Array<{ type: string; text?: string }>;
+}
+interface GeminiApiResponse {
+	error?: { message?: string };
+	candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+}
 
 let _requestUrl: RequestUrlFn | null = null;
 
@@ -65,8 +76,6 @@ function resolveCliBin(cliBin: string): string {
 	if (cliBin !== 'claude' && cliBin.includes('\\')) return cliBin;
 	// 알려진 설치 위치에서 최신 버전 탐색
 	try {
-		const fs = require('fs') as typeof import('fs');
-		const path = require('path') as typeof import('path');
 		const base = path.join(
 			process.env.LOCALAPPDATA ?? '',
 			'Packages', 'Claude_pzs8sxrjxfjjc',
@@ -81,7 +90,8 @@ function resolveCliBin(cliBin: string): string {
 			const exe = path.join(base, v, 'claude.exe');
 			if (fs.existsSync(exe)) return exe;
 		}
-	} catch {}
+	// eslint-disable-next-line no-empty -- claude.exe path resolution failed; fall back to original bin
+	} catch { }
 	return cliBin;
 }
 
@@ -120,11 +130,6 @@ export async function callClaude(prompt: string, cliBin = 'claude'): Promise<unk
 // ── 모델 라우팅 (효율성 최적화) ────────────────────────────
 
 export type ModelTier = 'fast' | 'standard';
-
-const MODEL_MAP: Record<ModelTier, string> = {
-	fast:     'claude-haiku-4-5-20251001',      // 경량 작업 (분절, 구조 추출)
-	standard: 'claude-sonnet-4-6',              // 복잡 작업 (논리 추론)
-};
 
 const CLAUDE_API_MODEL_MAP: Record<ModelTier, string> = {
 	fast:     'claude-haiku-4-5-20251001',      // Claude Haiku 4.5
@@ -185,26 +190,26 @@ async function callClaudeAPI(
 			throw new Error('요청 한도 초과 (HTTP 429) - 잠시 후 다시 시도하세요');
 		}
 		if (response.status >= 400) {
-			const errorMsg = (response.json as any)?.error?.message || `HTTP ${response.status}`;
+			const errData = response.json as AnthropicApiResponse;
+			const errorMsg = errData?.error?.message ?? `HTTP ${response.status}`;
 			throw new Error(`Anthropic API 오류: ${errorMsg}`);
 		}
 
-
 		// 응답 파싱
-		const data = response.json as any;
+		const data = response.json as AnthropicApiResponse;
 		const content = data?.content?.[0];
 
 		if (content?.type === 'text') {
 			try {
-				return JSON.parse(content.text);
+				return JSON.parse(content.text ?? '');
 			} catch {
 				return content.text;
 			}
 		}
 
-		return content || data;
-	} catch (err: any) {
-		const msg = err?.message || String(err);
+		return content ?? data;
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(`Claude API 호출 실패: ${msg}`);
 	}
 }
@@ -254,13 +259,13 @@ async function callGeminiAPI(
 			throw new Error('요청 한도 초과 (HTTP 429) - 잠시 후 다시 시도하세요');
 		}
 		if (response.status >= 400) {
-			const errorMsg = (response.json as any)?.error?.message || `HTTP ${response.status}`;
+			const errData = response.json as GeminiApiResponse;
+			const errorMsg = errData?.error?.message ?? `HTTP ${response.status}`;
 			throw new Error(`Gemini API 오류: ${errorMsg}`);
 		}
 
-
 		// 응답 파싱
-		const data = response.json as any;
+		const data = response.json as GeminiApiResponse;
 		const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
 		if (text) {
@@ -272,8 +277,8 @@ async function callGeminiAPI(
 		}
 
 		return data;
-	} catch (err: any) {
-		const msg = err?.message || String(err);
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(`Gemini API 호출 실패: ${msg}`);
 	}
 }
@@ -306,7 +311,7 @@ export async function callClaudeWithModel(
 			return callGeminiAPI(prompt, geminiApiKey, model);
 
 		default:
-			throw new Error(`지원하지 않는 AI 제공자: ${provider}`);
+			throw new Error(`지원하지 않는 AI 제공자: ${provider as string}`);
 	}
 }
 

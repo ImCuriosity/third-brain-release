@@ -1,6 +1,6 @@
 {
 	"name": "thirdbrain-v2",
-	"version": "0.1.0",
+	"version": "0.1.15",
 	"description": "ThirdBrain — 로컬 지식 그래프 IDE for Obsidian",
 	"main": "main.js",
 	"scripts": {
@@ -13,15 +13,20 @@
 	"devDependencies": {
 		"@types/d3": "^7.4.0",
 		"@types/node": "^20.11.0",
-		"builtin-modules": "^3.3.0",
+		"@typescript-eslint/eslint-plugin": "^8.62.0",
+		"@typescript-eslint/parser": "^8.62.0",
 		"esbuild": "^0.20.0",
+		"eslint": "^10.6.0",
+		"eslint-plugin-no-unsanitized": "^4.1.5",
+		"eslint-plugin-obsidianmd": "^0.3.0",
 		"obsidian": "latest",
 		"tslib": "^2.6.2",
 		"typescript": "^5.4.0"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.24.3",
-		"@google/generative-ai": "^0.17.0",
-		"d3": "^7.9.0"
+		"@anthropic-ai/sdk": "0.24.3",
+		"@google/generative-ai": "0.17.0",
+		"d3": "7.9.0",
+		"pdfjs-dist": "6.0.227"
 	}
 }

@@ -18,21 +18,19 @@ export default class ThirdBrainPlugin extends Plugin {
 		);
 
 		this.addRibbonIcon('sootball', 'ThirdBrain', () => {
-			this.activateView();
+			void this.activateView();
 		});
 
 		this.addCommand({
-			id: 'open-thirdbrain',
-			name: 'Open ThirdBrain panel',
-			callback: () => this.activateView(),
+			id: 'open',
+			name: 'Open panel',
+			callback: () => { void this.activateView(); },
 		});
 
 		this.addSettingTab(new ThirdBrainSettingTab(this.app, this));
 	}
 
-	onunload() {
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE);
-	}
+	onunload() { /* leaves are managed by Obsidian */ }
 
 	async activateView() {
 		const { workspace } = this.app;
@@ -41,7 +39,7 @@ export default class ThirdBrainPlugin extends Plugin {
 			leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
 			await leaf.setViewState({ type: VIEW_TYPE, active: true });
 		}
-		workspace.revealLeaf(leaf);
+		void workspace.revealLeaf(leaf);
 
 		// 온보딩: 최초 실행이고 claude CLI도 없는 경우에만 표시
 		if (!this.settings.onboardingComplete) {
@@ -55,8 +53,13 @@ export default class ThirdBrainPlugin extends Plugin {
 		}
 	}
 
+	async refreshView() {
+		this.app.workspace.detachLeavesOfType(VIEW_TYPE);
+		await this.activateView();
+	}
+
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<ThirdBrainSettings>);
 	}
 
 	async saveSettings() {

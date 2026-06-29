@@ -2,7 +2,7 @@
 // mouth interior dark: #1a0808  eye white: #f2f2e8  body: #2b2b2b
 
 // 입 살짝 열고 기다리는 표정 (4px wide × 2px tall mouth)
-export const SOOTBALL_WAITING = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="56" height="56" shape-rendering="crispEdges" style="image-rendering:pixelated">
+export const SOOTBALL_WAITING = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="56" height="56" shape-rendering="crispEdges" class="tb-sootball-svg">
   <rect x="32" y="8"   width="16" height="8"  fill="#2b2b2b"/>
   <rect x="80" y="8"   width="16" height="8"  fill="#2b2b2b"/>
   <rect x="24" y="16"  width="80" height="8"  fill="#2b2b2b"/>
@@ -34,7 +34,7 @@ export const SOOTBALL_WAITING = `<svg xmlns="http://www.w3.org/2000/svg" viewBox
 </svg>`;
 
 // 입 쫘악 벌린 배고픈 표정 (10px wide × 3px tall mouth, 드래그 오버 시)
-export const SOOTBALL_HUNGRY = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="56" height="56" shape-rendering="crispEdges" style="image-rendering:pixelated">
+export const SOOTBALL_HUNGRY = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="56" height="56" shape-rendering="crispEdges" class="tb-sootball-svg">
   <rect x="32" y="8"   width="16" height="8"  fill="#2b2b2b"/>
   <rect x="80" y="8"   width="16" height="8"  fill="#2b2b2b"/>
   <rect x="24" y="16"  width="80" height="8"  fill="#2b2b2b"/>
@@ -93,7 +93,7 @@ export const SOOTBALL_ICON = `
 `;
 
 // Full SVG for the settings tab logo (128×128, pixel=8)
-export const SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64" shape-rendering="crispEdges" style="image-rendering:pixelated">
+export const SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64" shape-rendering="crispEdges" class="tb-sootball-svg">
   <rect x="32" y="8"   width="16" height="8" fill="#2b2b2b"/>
   <rect x="80" y="8"   width="16" height="8" fill="#2b2b2b"/>
   <rect x="24" y="16"  width="80" height="8" fill="#2b2b2b"/>

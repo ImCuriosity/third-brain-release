@@ -9,19 +9,16 @@
 //  뷰어: summarizeSubgraph()   — 폴더 핵심 서브그래프 요약 (풍부한 분석)
 // ============================================================
 
-import { callClaude, callClaudeWithModel, type ModelTier } from './cli-bridge';
+import { callClaude, callClaudeWithModel } from './cli-bridge';
+import { jsonLangInstr, type Lang } from '../i18n';
 import { toRelation } from '../types';
 import type {
 	ContextLayer,
 	Insight,
 	Proposition,
 	LogicEdge,
-	LogicLayer,
-	ActionNetResult,
 	EdgeCandidate,
-	IngestResult,
 	PropositionRole,
-	FolderBridgeNode,
 	BridgeEdge,
 	FolderBridgeResult,
 	SummaryResult,
@@ -38,7 +35,8 @@ import {
 	formatCandidatesForPrompt,
 } from './topology-engine';
 
-export const DISTILL_THRESHOLD = 10000;  // 압축 분할 기준 높여서 덜 압축하도록
+export const DISTILL_THRESHOLD = 10000;  // 하위 호환 — 더 이상 메인 플로우에서 사용 안 함
+export const CHUNK_SIZE = 5000;           // 청크별 풀파이프라인 분할 기준 (cmd.exe 8191자 한계 대응)
 
 // ── 0차: 대용량 입력 핵심 압축 ───────────────────────────
 
@@ -123,13 +121,12 @@ const SYSTEM_CONTEXT = `당신은 'Third-Brain'의 문맥 정제 엔진입니다
 - context를 1개만 반환하는 것은 오답 — 반드시 거부하고 재분절
 - 전체 문서를 하나의 context로 묶지 말 것
 
-목표: 같은 텍스트에서 최소 3~5개 이상의 다층적 문맥 추출
-모두 한국어. JSON만 반환(코드블록 없이).`;
+목표: 같은 텍스트에서 최소 3~5개 이상의 다층적 문맥 추출`;
 
 export async function extractContexts(text: string, settings: ThirdBrainSettings): Promise<ContextLayer[]> {
 	const today = new Date().toISOString().split('T')[0];
 	const prompt =
-		`${SYSTEM_CONTEXT}\n\n오늘 날짜: ${today}\n\n` +
+		`${SYSTEM_CONTEXT}\n${jsonLangInstr(settings.lang)}\n\n오늘 날짜: ${today}\n\n` +
 		`다음 텍스트를 의미 단위별로 정제하라:\n\n` +
 		`{"contexts":[{"title":"...","date":"YYYY-MM-DD","summary":"...","tags":["..."],"keywords":["..."]}]}\n\n` +
 		`---\n\n${text}`;
@@ -148,19 +145,19 @@ export async function extractContexts(text: string, settings: ThirdBrainSettings
 	const mapped = list
 		.filter(c => c && c.title && typeof c.summary === 'string' && c.summary.trim().length > 20)
 		.map((c, i) => assignContextId({
-			title: typeof c.title === 'string' ? c.title.trim() : '제목 없음',
+			title: typeof c.title === 'string' ? c.title.trim() : (settings.lang === 'en' ? 'Untitled' : '제목 없음'),
 			date: typeof c.date === 'string' ? c.date.trim() : today,
 			summary: typeof c.summary === 'string' ? c.summary : '',
 			tags: Array.isArray(c.tags)
-				? (c.tags as string[]).filter(t => typeof t === 'string').slice(0, 6)
+				? (c.tags).filter(t => typeof t === 'string').slice(0, 6)
 				: [],
 			keywords: Array.isArray(c.keywords)
-				? (c.keywords as string[]).filter(k => typeof k === 'string').slice(0, 10)
+				? (c.keywords).filter(k => typeof k === 'string').slice(0, 10)
 				: [],
 		}, i));
 
-	// LLM이 1개로 뭉쳤으면 더 강한 프롬프트로 재시도 (구조 무관, 내용 기반 분절)
-	if (mapped.length <= 1) {
+	// LLM이 0개 반환 시에만 재시도 — 1개도 유효한 결과로 수용
+	if (mapped.length === 0) {
 		return retryContextSplit(text, today, settings);
 	}
 	return mapped;
@@ -170,47 +167,45 @@ async function retryContextSplit(text: string, today: string, settings: ThirdBra
 	const prompt =
 		`텍스트를 반드시 3~6개의 독립 의미 단위로 분절하라.\n` +
 		`헤딩·제목이 없어도 된다. 주제 전환, 관점 변화, 시간 변화, 내용 범주 차이로 나눠라.\n` +
-		`1개로 반환하는 것은 절대 허용하지 않는다.\n\n` +
-		`JSON만 반환(코드블록 없이):\n` +
+		`1개로 반환하는 것은 절대 허용하지 않는다.\n` +
+		`${jsonLangInstr(settings.lang)}\n` +
 		`{"contexts":[{"title":"...","date":"${today}","summary":"...","tags":[],"keywords":[]}]}\n\n` +
 		`텍스트:\n${text.slice(0, 6000)}`;
 
-	try {
-		const raw = await callClaudeWithModel(
-			prompt,
-			settings.cliBin,
-			'fast',
-			settings.aiProvider,
-			settings.claudeApiKey,
-			settings.geminiApiKey
-		);
-		const parsed = parseJson<{ contexts?: Partial<ContextLayer>[] }>(raw, { contexts: [] });
-		const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
-		const result = list
-			.filter(c => c && c.title && typeof c.summary === 'string' && c.summary.trim().length > 20)
-			.map((c, i) => assignContextId({
-				title: typeof c.title === 'string' ? c.title.trim() : '단락',
-				date: typeof c.date === 'string' ? c.date.trim() : today,
-				summary: typeof c.summary === 'string' ? c.summary : '',
-				tags: Array.isArray(c.tags) ? (c.tags as string[]).slice(0, 6) : [],
-				keywords: Array.isArray(c.keywords) ? (c.keywords as string[]).slice(0, 10) : [],
-			}, i));
-		// 재시도도 실패하면 단락 기반 청크
-		if (result.length <= 1) return chunkByParagraph(text, today);
-		return result;
-	} catch {
-		return chunkByParagraph(text, today);
-	}
+	// CLI/API 에러는 throw — chunkByParagraph 폴백은 LLM 응답 불량 시에만 사용
+	const raw = await callClaudeWithModel(
+		prompt,
+		settings.cliBin,
+		'fast',
+		settings.aiProvider,
+		settings.claudeApiKey,
+		settings.geminiApiKey
+	);
+	const parsed = parseJson<{ contexts?: Partial<ContextLayer>[] }>(raw, { contexts: [] });
+	const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
+	const result = list
+		.filter(c => c && c.title && typeof c.summary === 'string' && c.summary.trim().length > 20)
+		.map((c, i) => assignContextId({
+			title: typeof c.title === 'string' ? c.title.trim() : (settings.lang === 'en' ? 'Paragraph' : '단락'),
+			date: typeof c.date === 'string' ? c.date.trim() : today,
+			summary: typeof c.summary === 'string' ? c.summary : '',
+			tags: Array.isArray(c.tags) ? (c.tags).slice(0, 6) : [],
+			keywords: Array.isArray(c.keywords) ? (c.keywords).slice(0, 10) : [],
+		}, i));
+	if (result.length === 0) return chunkByParagraph(text, today, settings.lang);
+	return result;
 }
 
-function chunkByParagraph(text: string, today: string): ContextLayer[] {
+function chunkByParagraph(text: string, today: string, lang?: Lang): ContextLayer[] {
+	const isEn = lang === 'en';
 	const paragraphs = text.split(/\n{2,}/).map(p => p.trim()).filter(p => p.length > 30);
-	if (paragraphs.length === 0) return [assignContextId({ title: '전체', date: today, summary: text.slice(0, 800), tags: [], keywords: [] }, 0)];
+	if (paragraphs.length === 0) return [assignContextId({ title: isEn ? 'All' : '전체', date: today, summary: text.slice(0, 800), tags: [], keywords: [] }, 0)];
 	const chunkSize = Math.ceil(paragraphs.length / 4);
 	const chunks: ContextLayer[] = [];
 	for (let i = 0; i < paragraphs.length; i += chunkSize) {
 		const body = paragraphs.slice(i, i + chunkSize).join('\n\n');
-		chunks.push(assignContextId({ title: `단락 ${chunks.length + 1}`, date: today, summary: body.slice(0, 800), tags: [], keywords: [] }, chunks.length));
+		const title = isEn ? `Paragraph ${chunks.length + 1}` : `단락 ${chunks.length + 1}`;
+		chunks.push(assignContextId({ title, date: today, summary: body.slice(0, 800), tags: [], keywords: [] }, chunks.length));
 	}
 	return chunks;
 }
@@ -260,84 +255,130 @@ export async function extractInsights(contexts: ContextLayer[], cliBin: string):
 	}
 }
 
-// ── 2차: 명제 추출 (엣지 없음, 인사이트 가이드) ──────────
+// ── 2차: 명제 추출 — 단락 우선 출처 (Paragraph-First Provenance) ──────
 
 const ALLOWED_ROLES: readonly PropositionRole[] = [
 	'claim', 'premise', 'conclusion', 'example', 'contrast', 'application',
 ] as const;
 
-const SYSTEM_PROPOSITIONS = `당신은 'Third-Brain'의 명제 추출 엔진입니다.
-문맥 단위(들)를 받아, 각 문맥 내 단위 명제만 추출합니다. 엣지는 추출하지 않는다.
+const SYSTEM_PROP_PARA = `당신은 'Third-Brain'의 명제 추출 엔진입니다.
+주어진 단락 하나에서 핵심 명제를 최대 3개까지 추출합니다.
 
-명제 규칙:
-- 각 명제: 하나의 검증 가능한 단일 주장.
-- id: p1, p2, ... | title: 8~20자 명사구 | text: 완결된 한 문장
+규칙:
+- 검증 가능한 주장·사실·판단·결정을 모두 추출하라 (최대 3개).
+- 불릿·목록도 각 항목이 주장이면 개별 명제로 추출한다.
+- 단순 인사말·날짜·장소·서식만이면 {"propositions": []} 반환.
+- id: p1~p3 | title: 8~20자 명사구 | text: 완결된 한 문장
 - role: claim | premise | conclusion | example | contrast | application
-- context: 이 명제가 속한 문맥 단위 제목 (반드시 채울 것)
-- is_core_concept: 각 문맥 내 핵심 명제만 true (최대 2~3개)
-- source_span.text: 원문(summary)에서 이 명제를 뒷받침하는 구절을 그대로 인용 (반드시 비어 있지 않아야 함)
-- source_span.offset: 인용 구절이 시작되는 문자 위치 (모르면 0)
+- context: 아래 문맥 단위 목록에서 가장 적합한 제목 선택
+- is_core_concept: 이 문맥의 핵심 주장이면 true
 
-★ source_span 규칙 (엄격):
-- text가 빈 문자열("")이면 해당 명제는 무효다. 반드시 원문 구절을 인용하라.
-- 없는 내용을 지어내지 말 것 — summary에서 실제로 근거가 되는 문장/구절만.
+★ source_span 필드는 작성하지 마라 — 시스템이 이 단락 자체를 출처로 기록한다.`;
 
-★ 구성 원칙:
-1. 각 문맥 단위 안에서 premise→claim→conclusion 논리 사슬이 가능한 명제를 구성하라.
-2. 독립적인 주장, 핵심 사실, 결론만 추출.
-3. 총 명제 수: 문맥 단위당 3~6개, 전체 15개 초과 금지.
+/**
+ * rawText를 단락 단위로 분리한다.
+ * 반환값의 offset은 rawText 내 해당 단락의 시작 위치 (trim 후 첫 글자 기준).
+ */
+export function splitIntoParagraphs(text: string, minLen = 50): { text: string; offset: number }[] {
+	const result: { text: string; offset: number }[] = [];
+	const re = /\n{2,}/g;
+	let lastIndex = 0;
+	let match: RegExpExecArray | null;
 
-인사이트는 생성하지 마라. 일반 명제만 추출.
-모두 한국어. JSON만 반환(코드블록 없이).`;
+	while ((match = re.exec(text)) !== null) {
+		const segment = text.slice(lastIndex, match.index);
+		const trimmed = segment.trim();
+		if (trimmed.length >= minLen) {
+			const leadingWS = segment.length - segment.trimStart().length;
+			result.push({ text: trimmed, offset: lastIndex + leadingWS });
+		}
+		lastIndex = match.index + match[0].length;
+	}
+	const last = text.slice(lastIndex);
+	const lastTrimmed = last.trim();
+	if (lastTrimmed.length >= minLen) {
+		const leadingWS = last.length - last.trimStart().length;
+		result.push({ text: lastTrimmed, offset: lastIndex + leadingWS });
+	}
+	return result;
+}
 
 export async function extractPropositions(
 	contexts: ContextLayer[],
+	rawText: string,
 	settings: ThirdBrainSettings
 ): Promise<Proposition[]> {
-	const contextBlock = contexts
-		.map((c, i) => {
-			const keywords = c.keywords.length > 0 ? `\n【키워드】${c.keywords.join(', ')}` : '';
-			return `### 단위 ${i + 1}: ${c.title}\n${c.summary}${keywords}`;
-		})
-		.join('\n\n');
+	const paragraphs = splitIntoParagraphs(rawText);
+	if (paragraphs.length === 0) {
+		throw new Error('[명제 추출 0개]\n단락 분리 결과 없음 (rawText가 비어있거나 단락 구분이 없음)');
+	}
 
-	const schemaExample = `{"propositions":[{"id":"p1","title":"...","text":"...","role":"claim","context":"...","is_core_concept":false,"source_span":{"text":"원문 인용 구절","offset":0}}]}`;
-	const prompt =
-		`${SYSTEM_PROPOSITIONS}\n\n` +
-		`다음 ${contexts.length}개 문맥 단위에서 명제를 추출하라:\n\n` +
-		`${schemaExample}\n\n` +
-		`---\n\n${contextBlock}`;
+	const contextList = contexts.map((c, i) => `[${i + 1}] ${c.title}`).join('\n');
+	const schema = `{"propositions":[{"id":"p1","title":"명사구","text":"한 문장 주장","role":"claim","context":"문맥 단위 제목","is_core_concept":false},{"id":"p2","title":"명사구2","text":"한 문장 주장2","role":"claim","context":"문맥 단위 제목","is_core_concept":false}]}`;
 
-	const raw = await callClaudeWithModel(
-		prompt,
-		settings.cliBin,
-		'fast',
-		settings.aiProvider,
-		settings.claudeApiKey,
-		settings.geminiApiKey
-	);
-	type RawProp = Proposition & { source_span?: { text?: string; offset?: number } };
-	const parsed = parseJson<{ propositions?: RawProp[] }>(raw, { propositions: [] });
+	type RawProp = { id?: string; title?: string; text?: string; role?: string; context?: string; is_core_concept?: boolean };
+	type ParaResult = { para: { text: string; offset: number }; props: RawProp[] };
 
-	return (parsed.propositions ?? [])
-		.filter(p => {
-			if (!p || !p.id || !p.text) return false;
-			const spanText = p.source_span?.text ?? '';
-			return spanText.trim().length > 0; // source_span.text 빈 문자열 → Reject
-		})
-		.slice(0, 15)
-		.map(p => ({
-			id: String(p.id),
-			title: String(p.title || p.text).trim().slice(0, 40),
-			text: String(p.text).trim(),
-			role: (ALLOWED_ROLES.includes(p.role as PropositionRole) ? p.role : 'claim') as PropositionRole,
-			context: typeof p.context === 'string' ? p.context.trim() : '',
-			is_core_concept: p.is_core_concept === true,
-			source_span: {
-				text: String(p.source_span?.text ?? '').trim(),
-				offset: typeof p.source_span?.offset === 'number' ? p.source_span.offset : 0,
-			},
-		}));
+	let paraResults: ParaResult[] = [];
+	let lastError: string | null = null;
+	let errorCount = 0;
+
+	const callPara = async (para: { text: string; offset: number }): Promise<ParaResult> => {
+		const prompt =
+			`${SYSTEM_PROP_PARA}\n${jsonLangInstr(settings.lang)}\n\n` +
+			`[문맥 단위 목록 — context 필드 선택용]\n${contextList}\n\n` +
+			`[단락]\n${para.text}\n\n` +
+			schema;
+		try {
+			const raw = await callClaudeWithModel(
+				prompt, settings.cliBin, 'fast',
+				settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey
+			);
+			const parsed = parseJson<{ propositions?: RawProp[] }>(raw, { propositions: [] });
+			return { para, props: (parsed.propositions ?? []).filter(p => p && p.text?.trim()) };
+		} catch (e) {
+			lastError = e instanceof Error ? e.message : String(e);
+			errorCount++;
+			return { para, props: [] };
+		}
+	};
+
+	if (settings.aiProvider === 'claude-cli') {
+		// CLI: 순차 처리 (프로세스 과다 생성 방지)
+		for (const para of paragraphs) {
+			paraResults.push(await callPara(para));
+		}
+	} else {
+		// API: 전체 병렬
+		paraResults = await Promise.all(paragraphs.map(callPara));
+	}
+
+	// 수집
+	const allProps: Proposition[] = [];
+	let propIdx = 1;
+	for (const r of paraResults) {
+		for (const p of r.props) {
+			allProps.push({
+				id: `p${propIdx++}`,
+				title: String(p.title || p.text).trim().slice(0, 40),
+				text: String(p.text).trim(),
+				role: (ALLOWED_ROLES.includes(p.role as PropositionRole) ? p.role : 'claim') as PropositionRole,
+				context: typeof p.context === 'string' ? p.context.trim() : '',
+				is_core_concept: p.is_core_concept === true,
+				source_span: { text: r.para.text, offset: r.para.offset },
+			});
+		}
+	}
+
+	if (allProps.length === 0) {
+		if (lastError && errorCount > 0) {
+			const errMsg: string = lastError ?? '';
+			throw new Error(`[AI 호출 실패] ${errorCount}개 단락에서 오류:\n${errMsg}`);
+		}
+		throw new Error(`[명제 추출 0개]\n단락 ${paragraphs.length}개 처리 후 유효한 명제 없음`);
+	}
+
+	return allProps.slice(0, 20);
 }
 
 // ── 2.5차: 엣지 추출 (명제 간 크로스-컨텍스트) ──────────
@@ -363,9 +404,7 @@ Axis 4 (위상 교차): analogous_to | isomorphic_to
 ★ 중요:
 - 고립 노드는 허용됨 — 억지 연결로 채우지 말 것. confidence가 0.75 미만이면 해당 엣지는 소거된다.
 - 명확하게 성립하는 관계만 포함 (confidence >= 0.75 기준으로 자기 검토)
-- conflicts_with는 실제 모순이 존재할 때만 사용
-
-모두 한국어. JSON만 반환(코드블록 없이).`;
+- conflicts_with는 실제 모순이 존재할 때만 사용`;
 
 export async function extractEdges(
 	allPropositions: Proposition[],
@@ -391,7 +430,7 @@ export async function extractEdges(
 
 	const edgeSchema = `{"edges":[{"source":"p1","target":"p2","relation":"supports","reason":"...","axiom_basis":"이 관계를 선택한 근거 원문","confidence":0.85}]}`;
 	const prompt =
-		`${SYSTEM_EDGES}\n\n` +
+		`${SYSTEM_EDGES}\n${jsonLangInstr(settings.lang)}\n\n` +
 		`[명제 목록]\n${propBlock}\n\n` +
 		`[원본 문맥 요약 (reason/axiom_basis 근거로 활용)]\n${contextBlock}\n\n` +
 		edgeSchema;
@@ -414,24 +453,28 @@ export async function extractEdges(
 			pIndexMap.set(`p${idx + 1}`, p.id);
 		});
 
-		const seen = new Set<string>();
+		type ValidEdge = { source: string; target: string; relation: ReturnType<typeof toRelation>; reason: string; axiom_basis: string; confidence: number };
 
-		return (parsed.edges ?? [])
+		// 1단계: 기본 유효성 검사 (중복·자기루프·노드 누락·axiom_basis 없음 제거)
+		const seen = new Set<string>();
+		const validEdges: ValidEdge[] = (parsed.edges ?? [])
 			.map(e => {
 				const source = pIndexMap.get(String(e.source)) || String(e.source);
 				const target = pIndexMap.get(String(e.target)) || String(e.target);
 				const confidence = typeof e.confidence === 'number' ? e.confidence : 0.0;
-				const axiom_basis = typeof e.axiom_basis === 'string' ? e.axiom_basis.trim() : '';
+				const reason = String(e.reason ?? '').trim();
+				const axiom_basis = (typeof e.axiom_basis === 'string' && e.axiom_basis.trim())
+					? e.axiom_basis.trim()
+					: reason;
 				try {
-					return { source, target, relation: toRelation(String(e.relation)), reason: String(e.reason ?? ''), axiom_basis, confidence };
+					return { source, target, relation: toRelation(String(e.relation)), reason, axiom_basis, confidence };
 				} catch {
 					return null;
 				}
 			})
-			.filter((e): e is NonNullable<typeof e> => {
+			.filter((e): e is ValidEdge => {
 				if (!e) return false;
-				if (e.axiom_basis.length === 0) return false;  // axiom_basis 빈 문자열 → Reject
-				if (e.confidence < 0.75) return false;         // confidence 임계값 필터 (폴백 없음)
+				if (e.axiom_basis.length === 0) return false;
 				const hasSource = allPropositions.some(p => p.id === e.source);
 				const hasTarget = allPropositions.some(p => p.id === e.target);
 				if (!hasSource || !hasTarget) return false;
@@ -440,15 +483,29 @@ export async function extractEdges(
 				if (seen.has(key)) return false;
 				seen.add(key);
 				return true;
-			})
-			.map(e => ({
-				source: e.source,
-				target: e.target,
-				relation: e.relation,
-				reason: e.reason.trim(),
-				axiom_basis: e.axiom_basis,
-				confidence: e.confidence,
-			}));
+			});
+
+		// 2단계: confidence >= 0.75 필터
+		const highConf = validEdges.filter(e => e.confidence >= 0.75);
+
+		// 3단계: 고립 노드 폴백 — 연결 없는 명제에 최고 신뢰도 엣지 1개 연결 (CLAUDE.md 스펙)
+		const connected = new Set(highConf.flatMap(e => [e.source, e.target]));
+		for (const prop of allPropositions) {
+			if (connected.has(prop.id)) continue;
+			const fallback = validEdges
+				.filter(e => e.source === prop.id || e.target === prop.id)
+				.sort((a, b) => b.confidence - a.confidence)[0];
+			if (fallback) highConf.push(fallback);
+		}
+
+		return highConf.map(e => ({
+			source: e.source,
+			target: e.target,
+			relation: e.relation,
+			reason: e.reason.trim(),
+			axiom_basis: e.axiom_basis,
+			confidence: e.confidence,
+		}));
 	} catch {
 		return [];
 	}
@@ -524,7 +581,7 @@ export async function extractActions(
 		return (parsed.actions ?? [])
 			.filter((a): a is RawAction & { title: string } => !!a.title?.trim())
 			.map(a => {
-				const id = sanitizeActionId(a.title!);
+				const id = sanitizeActionId(a.title);
 				const linkType: ActionLinkType =
 					a.link_type === 'investigates' ? 'investigates' : 'implements';
 				const motivationIds = (a.motivation_prop_titles ?? [])
@@ -535,7 +592,7 @@ export async function extractActions(
 					.filter((id): id is string => !!id);
 				return {
 					id,
-					title:                   a.title!.trim().slice(0, 60),
+					title:                   a.title.trim().slice(0, 60),
 					content:                 typeof a.content === 'string' ? a.content : '',
 					owner:                   typeof a.owner === 'string' ? a.owner : '',
 					deadline:                typeof a.deadline === 'string' ? a.deadline : '',
@@ -653,8 +710,7 @@ const SYSTEM_BRIDGE = `당신은 'Third-Brain'의 폴더 브리지 엔진입니�
 출력 규칙:
 - edges: 최대 10개, 연관도 높은 순.
 - insight: 두 폴더 교차 시 나오는 새로운 통찰 2~3문장.
-- relation: isomorphic_to | analogous_to | supports | contrasts_with | causes | applies_to | exemplifies | precondition_of
-- JSON만 반환(코드블록 없이).`;
+- relation: isomorphic_to | analogous_to | supports | contrasts_with | causes | applies_to | exemplifies | precondition_of`;
 
 export async function bridgeFolders(
 	nodesA: TBNode[],
@@ -690,7 +746,7 @@ export async function bridgeFolders(
 		`후보 ${pairs.length}쌍 → LLM 분석 중... (standard 모델)`
 	);
 
-	const prompt = `${SYSTEM_BRIDGE}\n\n${candidatesText}\n\n` +
+	const prompt = `${SYSTEM_BRIDGE}\n${jsonLangInstr(settings.lang)}\n\n${candidatesText}\n\n` +
 		`JSON 응답 예시:\n{"edges":[{"source_title":"폴더A 노드 제목","target_title":"폴더B 노드 제목","relation":"isomorphic_to","confidence":0.85,"reason":"근거 한 줄"}],"insight":"통찰 2~3문장"}`;
 
 	// Phase 12: 모델 라우팅 추가 (standard 티어)
@@ -709,11 +765,11 @@ export async function bridgeFolders(
 	const edges: BridgeEdge[] = (parsed.edges ?? [])
 		.filter(e => e && (e['source_title'] || e['source_file']) && (e['target_title'] || e['target_file']))
 		.map(e => ({
-			source_title: e['source_title'] ? String(e['source_title']) : undefined,
-			target_title: e['target_title'] ? String(e['target_title']) : undefined,
-			source_file:  e['source_file']  ? String(e['source_file'])  : String(e['source_title'] ?? '') + '.md',
-			target_file:  e['target_file']  ? String(e['target_file'])  : String(e['target_title'] ?? '') + '.md',
-			relation: toRelation(String(e['relation'] || 'analogous_to')),
+			source_title: typeof e['source_title'] === 'string' ? e['source_title'] : undefined,
+			target_title: typeof e['target_title'] === 'string' ? e['target_title'] : undefined,
+			source_file:  typeof e['source_file'] === 'string' ? e['source_file'] : (typeof e['source_title'] === 'string' ? e['source_title'] + '.md' : ''),
+			target_file:  typeof e['target_file'] === 'string' ? e['target_file'] : (typeof e['target_title'] === 'string' ? e['target_title'] + '.md' : ''),
+			relation: toRelation(typeof e['relation'] === 'string' ? e['relation'] : 'analogous_to'),
 			confidence: typeof e['confidence'] === 'number' ? e['confidence'] : 0.5,
 			reason: typeof e['reason'] === 'string' ? e['reason'] : '',
 		}));
@@ -754,9 +810,7 @@ const SYSTEM_SUMMARY = `당신은 지식 그래프에서 실제 인사이트를 
 ## 절대 금지
 - "이 폴더는", "데이터가", "노드들이" 같은 메타 언어로 시작하는 문장
 - 내용 없이 구조만 설명하는 문장 ("A와 B가 연결되어 있습니다")
-- 모든 메타 코멘트 ("분석이 어렵습니다", "더 많은 데이터가 필요합니다")
-
-모두 한국어. JSON만 반환(코드블록 없이).`;
+- 모든 메타 코멘트 ("분석이 어렵습니다", "더 많은 데이터가 필요합니다")`;
 
 export async function summarizeSubgraph(
 	digest: string,
@@ -782,7 +836,7 @@ synthesis 마지막 문장은 반드시 이 목적에 대한 직접적 결론이
 		: '';
 
 	const prompt =
-		`${SYSTEM_SUMMARY}\n\n${modeDirective}\n${intentDirective}\n` +
+		`${SYSTEM_SUMMARY}\n${jsonLangInstr(settings.lang)}\n\n${modeDirective}\n${intentDirective}\n` +
 		`다음 핵심 서브그래프 다이제스트를 요약하라:\n\n` +
 		`{"synthesis":"...","overview":"...","themes":[{"title":"...","description":"..."}],"highlights":["..."],"link_contexts":[{"source":"...","target":"...","relation":"...","context":"..."}]}\n\n` +
 		`---\n\n${digest}`;
@@ -1070,8 +1124,10 @@ function repairJson(raw: string): string {
 function parseJson<T>(raw: unknown, fallback: T): T {
 	if (raw !== null && typeof raw === 'object') return raw as T;
 	if (typeof raw !== 'string') return fallback;
+	// CLI가 마크다운 코드펜스로 감싸서 반환하는 경우 제거
+	const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
 	try {
-		return JSON.parse(repairJson(raw)) as T;
+		return JSON.parse(repairJson(stripped)) as T;
 	} catch {
 		return fallback;
 	}
@@ -1178,11 +1234,70 @@ ${contextBBlock}
 		return (parsed.pairs ?? [])
 			.filter(p => p.new_idx >= 0 && p.existing_idx >= 0)
 			.map(p => ({
-				ctxNew: contextsA[p.new_idx]!,
-				ctxExisting: contextsB[p.existing_idx]!,
+				ctxNew: contextsA[p.new_idx],
+				ctxExisting: contextsB[p.existing_idx],
 				similarity: p.similarity,
 			}))
 			.sort((a, b) => b.similarity - a.similarity);
+	} catch {
+		return [];
+	}
+}
+
+// ── 모순 해소: 엣지 재분류 ──────────────────────────────────────
+
+export interface EdgeRank {
+	relation: TBEdgeRelation;
+	confidence: number;
+	reason: string;
+}
+
+/**
+ * 두 명제 사이의 관계를 conflicts_with 제외 9종 중에서 재평가.
+ * 신뢰도 내림차순 상위 4개를 반환한다.
+ */
+export async function rankEdgeRelations(
+	nodeA: { title: string; content?: string },
+	nodeB: { title: string; content?: string },
+	evidence: string,
+	settings: ThirdBrainSettings
+): Promise<EdgeRank[]> {
+	const prompt =
+`두 명제 사이의 관계를 분석하라. conflicts_with(모순)일 가능성도 있지만, 더 정확한 관계가 있을 수 있다.
+
+명제 A: "${nodeA.title}"${nodeA.content ? `\n내용: ${nodeA.content.slice(0, 300)}` : ''}
+명제 B: "${nodeB.title}"${nodeB.content ? `\n내용: ${nodeB.content.slice(0, 300)}` : ''}
+기존 모순 근거: "${evidence}"
+
+아래 9종 관계 중 이 두 명제에 맞는 것을 신뢰도 내림차순으로 최대 4개 반환하라.
+(conflicts_with는 제외 — 이미 그렇게 분류됨)
+
+관계 목록:
+causes | precedes | precondition_of | supports | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
+
+JSON만 반환 (코드블록 없이):
+{"relations":[{"relation":"supports","confidence":0.85,"reason":"A가 B의 근거를 제공한다"}]}`;
+
+	try {
+		const raw = await callClaudeWithModel(
+			prompt,
+			settings.cliBin,
+			'standard',
+			settings.aiProvider,
+			settings.claudeApiKey,
+			settings.geminiApiKey
+		);
+		const parsed = parseJson<{ relations?: Array<{ relation: string; confidence: number; reason: string }> }>(raw, { relations: [] });
+		return (parsed.relations ?? [])
+			.slice(0, 4)
+			.map(r => {
+				try {
+					return { relation: toRelation(r.relation), confidence: r.confidence ?? 0, reason: r.reason ?? '' };
+				} catch {
+					return null;
+				}
+			})
+			.filter((r): r is EdgeRank => r !== null);
 	} catch {
 		return [];
 	}

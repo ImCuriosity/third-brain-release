@@ -111,7 +111,7 @@ export class GraphView {
 		svg.call(
 			d3.zoom<SVGSVGElement, unknown>()
 				.scaleExtent([0.1, 6])
-				.on('zoom', ev => g.attr('transform', ev.transform))
+				.on('zoom', (ev: d3.D3ZoomEvent<SVGSVGElement, unknown>) => g.attr('transform', ev.transform.toString()))
 		);
 
 		const linkG = g.append('g').attr('class', 'tb-g-links');
@@ -206,9 +206,9 @@ export class GraphView {
 		const linked = new Set<string>();
 		for (const l of this.simLinks) {
 			const src = typeof l.source === 'object'
-				? (l.source as SimNode).id : String(l.source);
+				? (l.source).id : String(l.source);
 			const tgt = typeof l.target === 'object'
-				? (l.target as SimNode).id : String(l.target);
+				? (l.target).id : String(l.target);
 			if (src === nodeId) linked.add(tgt);
 		}
 		if (linked.size === 0) return;
@@ -260,13 +260,14 @@ export class GraphView {
 	// ── 드래그 ──────────────────────────────────────────────
 
 	private makeDrag() {
+		type DragEv = d3.D3DragEvent<SVGCircleElement, SimNode, SimNode>;
 		return d3.drag<SVGCircleElement, SimNode>()
-			.on('start', (ev, d) => {
+			.on('start', (ev: DragEv, d) => {
 				if (!ev.active) this.simulation.alphaTarget(0.3).restart();
 				d.fx = d.x; d.fy = d.y;
 			})
-			.on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-			.on('end', (ev, d) => {
+			.on('drag', (ev: DragEv, d) => { d.fx = ev.x; d.fy = ev.y; })
+			.on('end', (ev: DragEv, d) => {
 				if (!ev.active) this.simulation.alphaTarget(0);
 				d.fx = null; d.fy = null;
 			});

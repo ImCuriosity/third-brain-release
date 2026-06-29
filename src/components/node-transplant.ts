@@ -1,9 +1,10 @@
-import { App, Modal, Notice, TFile, normalizePath } from 'obsidian';
+import { App, Modal, Notice, TFile, normalizePath, sanitizeHTMLToDom } from 'obsidian';
 import type ThirdBrainPlugin from '../main';
 import { GraphStore } from '../engine/graph-store';
+import type { TBFrontMatter } from '../engine/graph-store';
 import { bridgeFolders } from '../engine/serial-pipeline';
 import { toRelation } from '../types';
-import type { TBNode, TBEdge, TBEdgeRelation, BridgeEdge } from '../types';
+import type { TBNode, TBEdge, BridgeEdge } from '../types';
 import { SOOTBALL_LOGO } from '../sootball';
 import { ThirdBrainView, VIEW_TYPE } from '../view';
 
@@ -11,21 +12,20 @@ import { ThirdBrainView, VIEW_TYPE } from '../view';
 
 function makeDraggable(modal: HTMLElement, handle: HTMLElement) {
 	let ox = 0, oy = 0;
-	handle.style.cursor = 'move';
+	handle.addClass('tb-draggable-handle');
 	handle.addEventListener('mousedown', (e) => {
 		e.preventDefault();
 		ox = modal.offsetLeft - e.clientX;
 		oy = modal.offsetTop  - e.clientY;
 		const onMove = (ev: MouseEvent) => {
-			modal.style.left = `${ev.clientX + ox}px`;
-			modal.style.top  = `${ev.clientY + oy}px`;
+			modal.setCssStyles({ left: `${ev.clientX + ox}px`, top: `${ev.clientY + oy}px` });
 		};
 		const onUp = () => {
-			document.removeEventListener('mousemove', onMove);
-			document.removeEventListener('mouseup', onUp);
+			activeDocument.removeEventListener('mousemove', onMove);
+			activeDocument.removeEventListener('mouseup', onUp);
 		};
-		document.addEventListener('mousemove', onMove);
-		document.addEventListener('mouseup', onUp);
+		activeDocument.addEventListener('mousemove', onMove);
+		activeDocument.addEventListener('mouseup', onUp);
 	});
 }
 
@@ -65,14 +65,14 @@ export class NodeTransplantModal extends Modal {
 		const fileSearch = step1.createEl('input', {
 			cls: 'tb-transplant-search',
 			attr: { type: 'text', placeholder: '파일명 검색 (비우면 폴더 트리)...' },
-		}) as HTMLInputElement;
+		});
 
 		const fileList = step1.createEl('div', { cls: 'tb-transplant-file-list' });
 		let selectedFile: TFile | null = null;
 
 		// 파일 선택 시 TB 노드 여부 배지 표시
 		const modeEl = step1.createEl('div', { cls: 'tb-transplant-mode-badge' });
-		modeEl.style.display = 'none';
+		modeEl.hide();
 
 		const allMdFiles = this.app.vault.getMarkdownFiles()
 			.sort((a, b) => {
@@ -92,8 +92,9 @@ export class NodeTransplantModal extends Modal {
 			nameEl.classList.add('is-selected');
 
 			const isTB = isTBNode(this.app, f);
-			modeEl.style.display = '';
-			modeEl.className = `tb-transplant-mode-badge ${isTB ? 'is-tb' : 'is-raw'}`;
+			modeEl.show();
+			modeEl.removeClass('is-tb', 'is-raw');
+			modeEl.addClass(isTB ? 'is-tb' : 'is-raw');
 			modeEl.textContent = isTB
 				? '🔷 TB 노드 — 이동 후 브릿지 연결 탐색'
 				: '📄 일반 노트 — 전체 인제스트 파이프라인 실행';
@@ -109,7 +110,7 @@ export class NodeTransplantModal extends Modal {
 			indentPx?: number
 		) => {
 			const item = container.createEl('div', { cls: `tb-transplant-file-item${extraCls ? ' ' + extraCls : ''}` });
-			if (indentPx !== undefined) item.style.paddingLeft = `${indentPx}px`;
+			if (indentPx !== undefined) item.setCssStyles({ paddingLeft: `${indentPx}px` });
 			item.createEl('span', { cls: 'tb-transplant-file-icon', text: fileIcon(f) });
 			const nameEl = item.createEl('span', { cls: 'tb-transplant-file-name', text: f.basename });
 			item.addEventListener('click', () => selectFile(f, nameEl));
@@ -133,11 +134,11 @@ export class NodeTransplantModal extends Modal {
 				const depth = folder.split('/').length - 1;
 
 				const folderRow = fileList.createEl('div', { cls: 'tb-transplant-folder-row' });
-				folderRow.style.paddingLeft = `${10 + depth * 14}px`;
+				folderRow.setCssStyles({ paddingLeft: `${10 + depth * 14}px` });
 				const chevron = folderRow.createEl('span', { cls: 'tb-transplant-folder-chevron', text: '▶' });
 				folderRow.createEl('span', { text: '📁 ' + (folder.split('/').pop() ?? folder) });
 				folderRow.createEl('span', {
-					attr: { style: 'margin-left:4px; font-size:11px; color:#9ca3af; font-weight:400' },
+					cls: 'tb-transplant-folder-count',
 					text: ` (${files.length})`,
 				});
 
@@ -171,10 +172,7 @@ export class NodeTransplantModal extends Modal {
 				const item = fileList.createEl('div', { cls: 'tb-transplant-file-item tb-transplant-root-file' });
 				item.createEl('span', { cls: 'tb-transplant-file-icon', text: fileIcon(f) });
 				const nameEl = item.createEl('span', { cls: 'tb-transplant-file-name', text: f.basename });
-				item.createEl('span', {
-					attr: { style: 'font-size:11px; color:#9ca3af; margin-left:4px;' },
-					text: f.parent?.path ?? '',
-				});
+				item.createEl('span', { cls: 'tb-transplant-file-path', text: f.parent?.path ?? '' });
 				item.addEventListener('click', () => selectFile(f, nameEl));
 			}
 			if (filtered.length === 0) {
@@ -193,7 +191,7 @@ export class NodeTransplantModal extends Modal {
 		const step2 = contentEl.createEl('div', { cls: 'tb-transplant-section' });
 		step2.createEl('div', { cls: 'tb-transplant-label', text: '2. 대상 폴더 선택' });
 
-		const folderSelect = step2.createEl('select', { cls: 'tb-transplant-folder-select' }) as HTMLSelectElement;
+		const folderSelect = step2.createEl('select', { cls: 'tb-transplant-folder-select' });
 		folderSelect.createEl('option', { value: '', text: '🏠 루트 (최상위)' });
 		for (const folder of this.folders) {
 			const depth = folder.split('/').length - 1;
@@ -229,7 +227,7 @@ export class NodeTransplantModal extends Modal {
 
 		const loadingEl = contentEl.createEl('div', { cls: 'tb-loading-overlay' });
 		const sootEl = loadingEl.createEl('div', { cls: 'tb-loading-sootball' });
-		sootEl.innerHTML = SOOTBALL_LOGO;
+		sootEl.appendChild(sanitizeHTMLToDom(SOOTBALL_LOGO));
 		const statusEl = loadingEl.createEl('div', { cls: 'tb-loading-status' });
 		const setStatus = (msg: string) => { statusEl.textContent = msg; };
 
@@ -428,7 +426,7 @@ export class NodeTransplantModal extends Modal {
 		try {
 			// 이식된 노드에 선택된 엣지 주입
 			if (selectedEdges.length > 0) {
-				await this.app.fileManager.processFrontMatter(movedFile, (fm) => {
+				await this.app.fileManager.processFrontMatter(movedFile, (fm: TBFrontMatter) => {
 					const existing: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
 					for (const e of selectedEdges) {
 						if (!existing.find(ex => ex.target === e.target)) existing.push(e);
@@ -444,7 +442,7 @@ export class NodeTransplantModal extends Modal {
 					if (!targetNode) continue;
 					const targetFile = this.app.vault.getFileByPath(targetNode.filePath);
 					if (!targetFile) continue;
-					await this.app.fileManager.processFrontMatter(targetFile, (fm) => {
+					await this.app.fileManager.processFrontMatter(targetFile, (fm: TBFrontMatter) => {
 						const existing: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
 						const back: TBEdge = {
 							target: `[[${movedFile.basename}]]`,

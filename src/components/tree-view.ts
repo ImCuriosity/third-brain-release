@@ -93,10 +93,8 @@ export class TreeView {
 		const li = ul.createEl('li', { cls: 'tb-tree-li' });
 		const hasChildren = item.children.length > 0;
 
-		const row = li.createEl('div', {
-			cls: `tb-tree-item is-${item.node.type}`,
-			attr: { style: `padding-left: ${8 + depth * 14}px` },
-		});
+		const row = li.createEl('div', { cls: `tb-tree-item is-${item.node.type}` });
+		row.setCssStyles({ paddingLeft: `${8 + depth * 14}px` });
 
 		const chevron = row.createEl('span', {
 			cls: 'tb-tree-chevron',

@@ -1,6 +1,9 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, sanitizeHTMLToDom } from 'obsidian';
 import type ThirdBrainPlugin from './main';
 import { SOOTBALL_LOGO } from './sootball';
+import { getT } from './i18n';
+import type { Lang } from './i18n';
+import type { AIProvider } from './types';
 
 export class ThirdBrainSettingTab extends PluginSettingTab {
 	constructor(app: App, private plugin: ThirdBrainPlugin) {
@@ -11,25 +14,43 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		const header = containerEl.createDiv({ attr: { style: 'text-align:center; padding: 1.5rem 0 1rem;' } });
-		header.innerHTML = SOOTBALL_LOGO
-			+ `<div style="font-size:1.1em; font-weight:600; margin-top:0.5rem; color:var(--text-normal);">ThirdBrain</div>`;
+		const t = getT(this.plugin.settings.lang);
+
+		const header = containerEl.createDiv({ cls: 'tb-settings-header' });
+		const logoEl = header.createEl('div', { cls: 'tb-settings-logo' });
+		logoEl.appendChild(sanitizeHTMLToDom(SOOTBALL_LOGO));
+		header.createEl('div', { cls: 'tb-settings-title', text: 'ThirdBrain' });
 
 		new Setting(containerEl)
-			.setName('노드 저장 폴더')
-			.setDesc('인제스트된 노드 .md 파일이 생성될 vault 폴더명')
-			.addText(text => text
-				.setPlaceholder('ThirdBrain')
-				.setValue(this.plugin.settings.nodeFolder)
+			.setName(t('settings_lang_name'))
+			.setDesc(t('settings_lang_desc'))
+			.addDropdown(dropdown => dropdown
+				.addOption('ko', '한국어')
+				.addOption('en', 'English')
+				.setValue(this.plugin.settings.lang ?? 'en')
 				.onChange(async (value) => {
-					this.plugin.settings.nodeFolder = value || 'ThirdBrain';
+					this.plugin.settings.lang = value as Lang;
+					await this.plugin.saveSettings();
+					this.display();
+					void this.plugin.refreshView();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName(t('settings_root_folder_name'))
+			.setDesc(t('settings_root_folder_desc'))
+			.addText(text => text
+				.setPlaceholder('ThirdBrainRoot')
+				.setValue(this.plugin.settings.rootFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.rootFolder = value || 'ThirdBrainRoot';
 					await this.plugin.saveSettings();
 				})
 			);
 
 		new Setting(containerEl)
-			.setName('claude CLI 경로')
-			.setDesc('claude 실행 파일 경로. PATH에 있으면 기본값(claude) 사용.')
+			.setName(t('settings_cli_name'))
+			.setDesc(t('settings_cli_desc'))
 			.addText(text => text
 				.setPlaceholder('claude')
 				.setValue(this.plugin.settings.cliBin)
@@ -40,8 +61,8 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('최대 엣지 후보 수')
-			.setDesc('AI가 제안하는 최대 엣지 후보 개수 (2~5 권장)')
+			.setName(t('settings_max_edge_name'))
+			.setDesc(t('settings_max_edge_desc'))
 			.addSlider(slider => slider
 				.setLimits(1, 5, 1)
 				.setValue(this.plugin.settings.maxEdgeCandidates)
@@ -53,8 +74,8 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('브리지 후보 수 (노드당)')
-			.setDesc('폴더 브리지 시 노드당 LLM에 전달할 최대 후보 수 (1~5 권장, 낮을수록 빠름)')
+			.setName(t('settings_bridge_top_k_name'))
+			.setDesc(t('settings_bridge_top_k_desc'))
 			.addSlider(slider => slider
 				.setLimits(1, 5, 1)
 				.setValue(this.plugin.settings.bridgeTopKPerNode ?? 3)
@@ -66,15 +87,15 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('AI 제공자')
-			.setDesc('사용할 LLM 제공자 선택')
+			.setName(t('settings_ai_provider_name'))
+			.setDesc(t('settings_ai_provider_desc'))
 			.addDropdown(dropdown => dropdown
-				.addOption('claude-cli', 'Claude CLI (로컬, 기본값)')
-				.addOption('claude-api', 'Claude API (API 키 필요)')
-				.addOption('gemini', 'Gemini (API 키 필요)')
+				.addOption('claude-cli', this.plugin.settings.lang === 'en' ? 'Claude CLI (local, default)' : 'Claude CLI (로컬, 기본값)')
+				.addOption('claude-api', this.plugin.settings.lang === 'en' ? 'Claude API (API key required)' : 'Claude API (API 키 필요)')
+				.addOption('gemini', this.plugin.settings.lang === 'en' ? 'Gemini (API key required)' : 'Gemini (API 키 필요)')
 				.setValue(this.plugin.settings.aiProvider)
 				.onChange(async (value) => {
-					this.plugin.settings.aiProvider = value as any;
+					this.plugin.settings.aiProvider = value as AIProvider;
 					await this.plugin.saveSettings();
 					this.display();
 				})
@@ -82,8 +103,8 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 
 		if (this.plugin.settings.aiProvider === 'claude-api') {
 			new Setting(containerEl)
-				.setName('Claude API 키')
-				.setDesc('Anthropic API 키. https://console.anthropic.com')
+				.setName(t('settings_claude_api_key_name'))
+				.setDesc(t('settings_claude_api_key_desc'))
 				.addText(text => text
 					.setPlaceholder('sk-ant-...')
 					.setValue(this.plugin.settings.claudeApiKey || '')
@@ -96,8 +117,8 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 
 		if (this.plugin.settings.aiProvider === 'gemini') {
 			new Setting(containerEl)
-				.setName('Gemini API 키')
-				.setDesc('Google Generative AI 키. https://aistudio.google.com')
+				.setName(t('settings_gemini_api_key_name'))
+				.setDesc(t('settings_gemini_api_key_desc'))
 				.addText(text => text
 					.setPlaceholder('AIza...')
 					.setValue(this.plugin.settings.geminiApiKey || '')

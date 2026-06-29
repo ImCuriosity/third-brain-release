@@ -403,7 +403,7 @@ export interface ActionNode {
 export type AIProvider = 'claude-cli' | 'claude-api' | 'gemini';
 
 export interface ThirdBrainSettings {
-	nodeFolder: string;
+	rootFolder: string;               // 모든 ThirdBrain 파일의 최상위 폴더
 	cliBin: string;
 	maxEdgeCandidates: number;
 	aiProvider: AIProvider;           // AI 제공자 선택
@@ -411,13 +411,15 @@ export interface ThirdBrainSettings {
 	geminiApiKey?: string;            // Gemini API 키
 	bridgeTopKPerNode?: number;       // 폴더 브리지 위상 필터링 - 노드당 후보 수 (기본 3)
 	onboardingComplete?: boolean;     // 최초 설정 완료 여부
+	lang?: 'en' | 'ko';              // UI 및 AI 출력 언어
 }
 
 export const DEFAULT_SETTINGS: ThirdBrainSettings = {
-	nodeFolder: 'ThirdBrain',
+	rootFolder: 'ThirdBrainRoot',
 	cliBin: 'claude',
 	maxEdgeCandidates: 3,
 	aiProvider: 'claude-cli',
 	bridgeTopKPerNode: 3,
 	onboardingComplete: false,
+	lang: 'en',
 };
