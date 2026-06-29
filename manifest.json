@@ -3,7 +3,7 @@
 	"name": "ThirdBrain",
 	"version": "0.1.7",
 	"minAppVersion": "1.7.2",
-	"description": "Turn your notes into a contradiction-free knowledge graph. Extract propositions, detect logical conflicts, and analyze connections using Gemini, Claude API, or Claude Code.",
+	"description": "Extract propositions from any text, connect them with typed logical edges, auto-link to your existing graph, and resolve contradictions — all locally with your choice of AI.",
 	"author": "ImCuriosity",
 	"authorUrl": "https://github.com/ImCuriosity",
 	"isDesktopOnly": true
