@@ -197,6 +197,7 @@ var KO = {
   label_no_iso: "\uAD6C\uC870\uC801 \uC720\uC0AC \uC30D\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
   label_motiv: "\uB3D9\uAE30: ",
   // content type modal
+  ingest_placeholder: "\uC608) \uC6B0\uB9AC \uC11C\uBE44\uC2A4\uB294 \uC0AC\uC6A9\uC790\uAC00 \uCCAB \uB178\uD2B8\uB97C \uC4F0\uAE30 \uC804\uAE4C\uC9C0 \uC544\uBB34 \uAC00\uCE58\uB3C4 \uC8FC\uC9C0 \uBABB\uD55C\uB2E4...",
   modal_content_type_title: "\uCF58\uD150\uCE20 \uD0C0\uC785",
   modal_content_type_sub: "\uC774 \uB0B4\uC6A9\uC758 \uC131\uACA9\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
   modal_content_type_info: "\u{1F4F0} \uC815\uBCF4\xB7\uC9C0\uC2DD",
@@ -416,6 +417,7 @@ var EN = {
   label_isomorphism: "Topology Isomorphism Approximation (NP-Complete approx \xB7 Cosine similarity)",
   label_no_iso: "No structurally similar pairs found.",
   label_motiv: "Motivation: ",
+  ingest_placeholder: "e.g. Our service delivers no value until the user writes their first note...",
   modal_content_type_title: "Content Type",
   modal_content_type_sub: "Select the type of this content.",
   modal_content_type_info: "\u{1F4F0} Information",
@@ -31013,7 +31015,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     sep.createEl("span", { cls: "tb-or-line" });
     this.ingestTextarea = panel.createEl("textarea", {
       cls: "tb-ingest-textarea",
-      attr: { placeholder: "\uC608) \uC6B0\uB9AC \uC11C\uBE44\uC2A4\uB294 \uC0AC\uC6A9\uC790\uAC00 \uCCAB \uB178\uD2B8\uB97C \uC4F0\uAE30 \uC804\uAE4C\uC9C0 \uC544\uBB34 \uAC00\uCE58\uB3C4 \uC8FC\uC9C0 \uBABB\uD55C\uB2E4..." }
+      attr: { placeholder: this.t("ingest_placeholder") }
     });
     this.charCountEl = panel.createEl("div", { cls: "tb-char-count", text: `0${this.t("char_suffix")}` });
     this.ingestTextarea.addEventListener("input", () => {
@@ -33789,7 +33791,7 @@ var ThirdBrainSettingTab = class extends import_obsidian3.PluginSettingTab {
     logoEl.appendChild((0, import_obsidian3.sanitizeHTMLToDom)(SOOTBALL_LOGO));
     header.createEl("div", { cls: "tb-settings-title", text: "ThirdBrain" });
     new import_obsidian3.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
-      (dropdown) => dropdown.addOption("ko", "\uD55C\uAD6D\uC5B4").addOption("en", "English").setValue(this.plugin.settings.lang ?? "ko").onChange(async (value) => {
+      (dropdown) => dropdown.addOption("ko", "\uD55C\uAD6D\uC5B4").addOption("en", "English").setValue(this.plugin.settings.lang ?? "en").onChange(async (value) => {
         this.plugin.settings.lang = value;
         await this.plugin.saveSettings();
         this.display();
