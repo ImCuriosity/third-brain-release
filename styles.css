@@ -1095,6 +1095,7 @@
 }
 .tb-popup-folder-item.is-selected .tb-popup-folder-name {
 	font-weight: 600;
+	color: var(--tb-primary);
 }
 
 .tb-save-btn-row {
@@ -1794,6 +1795,8 @@
 	background: var(--tb-bg);
 	color: var(--tb-text);
 	outline: none;
+	min-width: 0;
+	box-sizing: border-box;
 }
 .tb-popup-new-folder-input:focus {
 	border-color: var(--tb-primary);
@@ -2285,6 +2288,7 @@
 	user-select: none;
 }
 .tb-transplant-folder-row:hover { background: #ede9fe; }
+.tb-transplant-folder-count { margin-left: 4px; font-size: 11px; color: #9ca3af; font-weight: 400; }
 .tb-transplant-folder-chevron { font-size: 10px; color: #9ca3af; transition: transform 0.15s; }
 .tb-transplant-folder-chevron.is-open { transform: rotate(90deg); }
 

@@ -32503,7 +32503,7 @@ ${query}`);
         this.store.fileToNode(movedFile).then(resolve);
         return;
       }
-      const timeout = window.window.setTimeout(() => {
+      const timeout = window.setTimeout(() => {
         this.app.metadataCache.offref(ref);
         this.store.fileToNode(movedFile).then(resolve);
       }, 3e3);
@@ -32690,7 +32690,7 @@ var GraphViewModal = class extends import_obsidian2.Modal {
       const depth = folder.split("/").length - 1;
       const name = folder.split("/").pop() ?? folder;
       const label = list.createEl("label", { cls: "tb-popup-folder-item" });
-      label.style.paddingLeft = `${14 + depth * 18}px`;
+      label.style.setProperty("padding-left", `${14 + depth * 18}px`);
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
       label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
@@ -32748,7 +32748,7 @@ var BridgeModal = class extends import_obsidian2.Modal {
         const depth = f.split("/").length - 1;
         const name = f.split("/").pop() ?? f;
         const label = list.createEl("label", { cls: "tb-popup-folder-item" });
-        label.style.paddingLeft = `${14 + depth * 18}px`;
+        label.style.setProperty("padding-left", `${14 + depth * 18}px`);
         const cb = label.createEl("input", { attr: { type: "checkbox" } });
         cb.addClass("tb-popup-cb");
         if (i === defaultIdx) {
@@ -32946,9 +32946,6 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
     const updateSelected = () => {
       for (const item of items) {
         item.el.toggleClass("is-selected", item.path === selected);
-        const nameEl = item.el.querySelector(".tb-popup-folder-name");
-        if (nameEl)
-          nameEl.style.color = item.path === selected ? "var(--tb-primary)" : "";
       }
     };
     if (this.rootFolder) {
@@ -32965,7 +32962,7 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
         const depth = folder.split("/").length - rootDepth;
         const name = folder.split("/").pop() ?? folder;
         const item = list.createEl("div", { cls: "tb-popup-folder-item" });
-        item.style.paddingLeft = `${14 + depth * 18}px`;
+        item.style.setProperty("padding-left", `${14 + depth * 18}px`);
         item.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
         item.createEl("span", { cls: "tb-popup-folder-name", text: name });
         item.addEventListener("click", () => {
@@ -32987,7 +32984,7 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
         const depth = folder.split("/").length - 1;
         const name = folder.split("/").pop() ?? folder;
         const item = list.createEl("div", { cls: "tb-popup-folder-item" });
-        item.style.paddingLeft = `${14 + depth * 18}px`;
+        item.style.setProperty("padding-left", `${14 + depth * 18}px`);
         item.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
         item.createEl("span", { cls: "tb-popup-folder-name", text: name });
         item.addEventListener("click", () => {
@@ -33000,12 +32997,10 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
     updateSelected();
     if (this.rootFolder) {
       const newFolderRow = contentEl.createEl("div", { cls: "tb-popup-new-folder-row" });
-      newFolderRow.style.cssText = "display:flex;gap:8px;padding:14px 20px 14px;margin-top:4px;border-top:1px solid var(--tb-border);box-sizing:border-box;";
       const newFolderInput = newFolderRow.createEl("input", {
         cls: "tb-popup-new-folder-input",
         attr: { type: "text", placeholder: this.t("modal_save_folder_new_placeholder") }
       });
-      newFolderInput.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--tb-border);border-radius:6px;font-size:12px;background:var(--tb-bg);color:var(--tb-text);outline:none;min-width:0;box-sizing:border-box;";
       const newFolderBtn = newFolderRow.createEl("button", {
         cls: "tb-btn tb-popup-new-folder-btn",
         text: this.t("modal_save_folder_new_btn")
@@ -33017,7 +33012,7 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
         const safeName = raw.replace(/[\\/:*?"<>|#^[\]]/g, "_").replace(/\s+/g, "_");
         const newPath = `${this.rootFolder}/${safeName}`;
         const item = list.createEl("div", { cls: "tb-popup-folder-item" });
-        item.style.paddingLeft = "32px";
+        item.style.setProperty("padding-left", "32px");
         item.createEl("span", { cls: "tb-popup-folder-icon", text: "\u21B3" });
         item.createEl("span", { cls: "tb-popup-folder-name", text: safeName });
         item.addEventListener("click", () => {
@@ -33111,7 +33106,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
       const depth = f.split("/").length - 1;
       const name = f.split("/").pop() ?? f;
       const label = folderList.createEl("label", { cls: "tb-popup-folder-item" });
-      label.style.paddingLeft = `${14 + depth * 18}px`;
+      label.style.setProperty("padding-left", `${14 + depth * 18}px`);
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
       if (i === 0) {
@@ -33242,7 +33237,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
       const depth = f.split("/").length - 1;
       const name = f.split("/").pop() ?? f;
       const label = pathFolderList.createEl("label", { cls: "tb-popup-folder-item" });
-      label.style.paddingLeft = `${14 + depth * 18}px`;
+      label.style.setProperty("padding-left", `${14 + depth * 18}px`);
       const radio = label.createEl("input", { attr: { type: "radio", name: "tb-path-folder", value: f } });
       radio.addClass("tb-popup-cb");
       label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
@@ -33489,16 +33484,16 @@ function makeDraggable(modalEl, handle) {
   handle.addEventListener("mousedown", (e) => {
     e.preventDefault();
     const rect = modalEl.getBoundingClientRect();
-    modalEl.style.position = "fixed";
-    modalEl.style.margin = "0";
-    modalEl.style.left = rect.left + "px";
-    modalEl.style.top = rect.top + "px";
-    modalEl.style.transform = "none";
+    modalEl.style.setProperty("position", "fixed");
+    modalEl.style.setProperty("margin", "0");
+    modalEl.style.setProperty("left", rect.left + "px");
+    modalEl.style.setProperty("top", rect.top + "px");
+    modalEl.style.setProperty("transform", "none");
     const dx = e.clientX - rect.left;
     const dy = e.clientY - rect.top;
     const onMove = (e2) => {
-      modalEl.style.left = e2.clientX - dx + "px";
-      modalEl.style.top = e2.clientY - dy + "px";
+      modalEl.style.setProperty("left", e2.clientX - dx + "px");
+      modalEl.style.setProperty("top", e2.clientY - dy + "px");
     };
     const onUp = () => {
       activeDocument.removeEventListener("mousemove", onMove);
