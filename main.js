@@ -738,7 +738,7 @@ function resolveCliBin(cliBin) {
       if (fs.existsSync(exe))
         return exe;
     }
-  } catch {
+  } catch (_) {
   }
   return cliBin;
 }
@@ -31562,7 +31562,7 @@ ${diagMsg}`
       let linking = false;
       for (const { btn, rec } of connectBtns) {
         btn.removeAttribute("disabled");
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", () => void (async () => {
           if (linking)
             return;
           linking = true;
@@ -31595,7 +31595,7 @@ ${diagMsg}`
             });
             btn.textContent = "\uC5F0\uACB0";
           }
-        });
+        })());
       }
     };
   }
@@ -31647,7 +31647,7 @@ ${diagMsg}`
       ).open();
     });
     const reportBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-report", text: this.t("btn_save_report") });
-    reportBtn.addEventListener("click", async () => {
+    reportBtn.addEventListener("click", () => void (async () => {
       reportBtn.disabled = true;
       reportBtn.textContent = this.t("btn_saving");
       try {
@@ -31657,7 +31657,7 @@ ${diagMsg}`
         reportBtn.disabled = false;
         reportBtn.textContent = this.t("btn_save_report");
       }
-    });
+    })());
   }
   // ── vault 저장 ────────────────────────────────────────
   async saveNodes(contexts, logic, targetFolder = "", rawSourcePath, rawFile) {
@@ -31714,7 +31714,7 @@ ${diagMsg}`
       statusRow.createEl("span", { cls: "tb-action-owner", text: node.owner });
     if (node.deadline)
       statusRow.createEl("span", { cls: "tb-action-deadline", text: node.deadline.slice(0, 10) });
-    statusSel.addEventListener("change", async () => {
+    statusSel.addEventListener("change", () => void (async () => {
       const newStatus = statusSel.value;
       card.classList.remove("is-pending", "is-in_progress", "is-done", "is-blocked");
       card.classList.add(`is-${newStatus}`);
@@ -31723,7 +31723,7 @@ ${diagMsg}`
       const file = this.app.vault.getFileByPath(node.filePath);
       if (file)
         await this.store.updateActionStatus(file, newStatus);
-    });
+    })());
     if (node.content) {
       card.createEl("div", { cls: "tb-action-content", text: node.content.slice(0, 120) });
     }
@@ -31951,7 +31951,7 @@ ${diagMsg}`
     }
     const bar = block.createEl("div", { cls: "tb-savebar" });
     const saveBtn = bar.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_save_connection") });
-    saveBtn.addEventListener("click", async () => {
+    saveBtn.addEventListener("click", () => void (async () => {
       const selected = states.filter((s) => s.selected);
       if (selected.length === 0) {
         new import_obsidian2.Notice(this.t("notice_no_selection"));
@@ -31979,7 +31979,7 @@ ${diagMsg}`
         saveBtn.textContent = this.t("btn_save_connection");
         new import_obsidian2.Notice(`${this.t("save_error_notice_prefix")}${err instanceof Error ? err.message : String(err)}`);
       }
-    });
+    })());
   }
   // ── Context ↔ Proposition 후생성 ───────────────────────
   /**
@@ -32287,7 +32287,7 @@ ${theme.description}
     const saveBtn = bar.createEl("button", { cls: "tb-btn is-primary", text: saveLabel });
     skipBtn.addEventListener("click", () => {
     });
-    saveBtn.addEventListener("click", async () => {
+    saveBtn.addEventListener("click", () => void (async () => {
       saveBtn.disabled = true;
       skipBtn.disabled = true;
       saveBtn.textContent = this.t("btn_saving");
@@ -32299,7 +32299,7 @@ ${theme.description}
         saveBtn.disabled = false;
         new import_obsidian2.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
-    });
+    })());
   }
   setBusy(busy) {
     this._busy = busy;
@@ -32695,7 +32695,7 @@ var GraphViewModal = class extends import_obsidian2.Modal {
       const depth = folder.split("/").length - 1;
       const name = folder.split("/").pop() ?? folder;
       const label = list.createEl("label", { cls: "tb-popup-folder-item" });
-      label.style.setProperty("padding-left", `${14 + depth * 18}px`);
+      label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
       label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
@@ -32703,11 +32703,14 @@ var GraphViewModal = class extends import_obsidian2.Modal {
       checkboxes.push({ folder, cb });
     }
     const footer = contentEl.createEl("div", { cls: "tb-popup-footer" });
-    const filterRow = footer.createEl("label", { cls: "tb-graph-filter-row" });
+    const filterRow = footer.createEl("label", { cls: "tb-graph-filter-row is-active" });
     const conflictCb = filterRow.createEl("input", { attr: { type: "checkbox" } });
     conflictCb.addClass("tb-popup-cb");
     conflictCb.checked = true;
     filterRow.createEl("span", { cls: "tb-graph-filter-label", text: this.t("graph_exclude_conflicts") });
+    conflictCb.addEventListener("change", () => {
+      filterRow.toggleClass("is-active", conflictCb.checked);
+    });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     const confirmBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") });
     confirmBtn.addEventListener("click", () => {
@@ -32753,7 +32756,7 @@ var BridgeModal = class extends import_obsidian2.Modal {
         const depth = f.split("/").length - 1;
         const name = f.split("/").pop() ?? f;
         const label = list.createEl("label", { cls: "tb-popup-folder-item" });
-        label.style.setProperty("padding-left", `${14 + depth * 18}px`);
+        label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
         const cb = label.createEl("input", { attr: { type: "checkbox" } });
         cb.addClass("tb-popup-cb");
         if (i === defaultIdx) {
@@ -32859,7 +32862,7 @@ var BridgeResultModal = class extends import_obsidian2.Modal {
     footer.createEl("button", { cls: "tb-btn", text: this._t("btn_close") }).addEventListener("click", () => this.close());
     if (states.length > 0) {
       const saveBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this._t("btn_save_connection") });
-      saveBtn.addEventListener("click", async () => {
+      saveBtn.addEventListener("click", () => void (async () => {
         const toSave = states.filter((s) => s.selected).map((s) => s.edge);
         if (toSave.length === 0) {
           new import_obsidian2.Notice(this._t("notice_no_selection"));
@@ -32880,7 +32883,7 @@ var BridgeResultModal = class extends import_obsidian2.Modal {
           saveBtn.textContent = this._t("btn_save_connection");
           new import_obsidian2.Notice(`${this._t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
         }
-      });
+      })());
     }
   }
   onClose() {
@@ -32967,7 +32970,7 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
         const depth = folder.split("/").length - rootDepth;
         const name = folder.split("/").pop() ?? folder;
         const item = list.createEl("div", { cls: "tb-popup-folder-item" });
-        item.style.setProperty("padding-left", `${14 + depth * 18}px`);
+        item.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
         item.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
         item.createEl("span", { cls: "tb-popup-folder-name", text: name });
         item.addEventListener("click", () => {
@@ -32989,7 +32992,7 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
         const depth = folder.split("/").length - 1;
         const name = folder.split("/").pop() ?? folder;
         const item = list.createEl("div", { cls: "tb-popup-folder-item" });
-        item.style.setProperty("padding-left", `${14 + depth * 18}px`);
+        item.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
         item.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
         item.createEl("span", { cls: "tb-popup-folder-name", text: name });
         item.addEventListener("click", () => {
@@ -33017,7 +33020,7 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
         const safeName = raw.replace(/[\\/:*?"<>|#^[\]]/g, "_").replace(/\s+/g, "_");
         const newPath = `${this.rootFolder}/${safeName}`;
         const item = list.createEl("div", { cls: "tb-popup-folder-item" });
-        item.style.setProperty("padding-left", "32px");
+        item.setCssStyles({ paddingLeft: "32px" });
         item.createEl("span", { cls: "tb-popup-folder-icon", text: "\u21B3" });
         item.createEl("span", { cls: "tb-popup-folder-name", text: safeName });
         item.addEventListener("click", () => {
@@ -33111,7 +33114,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
       const depth = f.split("/").length - 1;
       const name = f.split("/").pop() ?? f;
       const label = folderList.createEl("label", { cls: "tb-popup-folder-item" });
-      label.style.setProperty("padding-left", `${14 + depth * 18}px`);
+      label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
       if (i === 0) {
@@ -33242,7 +33245,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
       const depth = f.split("/").length - 1;
       const name = f.split("/").pop() ?? f;
       const label = pathFolderList.createEl("label", { cls: "tb-popup-folder-item" });
-      label.style.setProperty("padding-left", `${14 + depth * 18}px`);
+      label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const radio = label.createEl("input", { attr: { type: "radio", name: "tb-path-folder", value: f } });
       radio.addClass("tb-popup-cb");
       label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
@@ -33255,7 +33258,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
     const footer = container.createEl("div", { cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
     const searchBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_search") });
-    searchBtn.addEventListener("click", async () => {
+    searchBtn.addEventListener("click", () => void (async () => {
       const srcId = srcSel.value;
       const dstId = dstSel.value;
       if (!srcId || !dstId) {
@@ -33305,7 +33308,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
         searchBtn.disabled = false;
         searchBtn.textContent = this.t("btn_search");
       }
-    });
+    })());
   }
   renderPathCard(container, path2, nodes, tensor) {
     const titleById = new Map(nodes.map((n) => [n.id, n.title]));
@@ -33347,7 +33350,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
         cls: "tb-btn tb-path-confirm-btn",
         text: `${this.t("path_save_transitive")} (${relLabel(inferredRel, this.lang)})`
       });
-      confirmBtn.addEventListener("click", async () => {
+      confirmBtn.addEventListener("click", () => void (async () => {
         confirmBtn.disabled = true;
         try {
           const srcNode = nodes.find((n) => n.id === srcId);
@@ -33373,7 +33376,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
           confirmBtn.disabled = false;
           new import_obsidian2.Notice(`${this.t("notice_analysis_save_fail")}${err instanceof Error ? err.message : String(err)}`);
         }
-      });
+      })());
     }
   }
   onClose() {
@@ -33489,16 +33492,11 @@ function makeDraggable(modalEl, handle) {
   handle.addEventListener("mousedown", (e) => {
     e.preventDefault();
     const rect = modalEl.getBoundingClientRect();
-    modalEl.style.setProperty("position", "fixed");
-    modalEl.style.setProperty("margin", "0");
-    modalEl.style.setProperty("left", rect.left + "px");
-    modalEl.style.setProperty("top", rect.top + "px");
-    modalEl.style.setProperty("transform", "none");
+    modalEl.setCssStyles({ position: "fixed", margin: "0", left: rect.left + "px", top: rect.top + "px", transform: "none" });
     const dx = e.clientX - rect.left;
     const dy = e.clientY - rect.top;
     const onMove = (e2) => {
-      modalEl.style.setProperty("left", e2.clientX - dx + "px");
-      modalEl.style.setProperty("top", e2.clientY - dy + "px");
+      modalEl.setCssStyles({ left: e2.clientX - dx + "px", top: e2.clientY - dy + "px" });
     };
     const onUp = () => {
       activeDocument.removeEventListener("mousemove", onMove);
@@ -33588,7 +33586,7 @@ var SingleNodeBridgeModal = class extends import_obsidian2.Modal {
     const footer = contentEl.createEl("div", { cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: t("btn_close") }).addEventListener("click", () => this.close());
     const saveBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: t("btn_save_connection") });
-    saveBtn.addEventListener("click", async () => {
+    saveBtn.addEventListener("click", () => void (async () => {
       const toSave = states.filter((s) => s.selected);
       if (toSave.length === 0) {
         new import_obsidian2.Notice(t("notice_no_selection"));
@@ -33610,7 +33608,7 @@ var SingleNodeBridgeModal = class extends import_obsidian2.Modal {
         saveBtn.textContent = t("btn_save_connection");
         new import_obsidian2.Notice(`${t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
-    });
+    })());
   }
   onClose() {
     this.contentEl.empty();
@@ -33673,8 +33671,8 @@ var ConflictResolutionModal = class extends import_obsidian2.Modal {
         chip.createEl("span", { cls: "tb-rank-pct", text: `${pct}%` });
         if (r.reason)
           chip.createEl("span", { cls: "tb-rank-reason", text: r.reason });
-        chip.addEventListener("click", async () => {
-          await this.applyReclassify(r.relation, r.reason);
+        chip.addEventListener("click", () => {
+          void this.applyReclassify(r.relation, r.reason);
         });
       }
     }).catch(() => {
@@ -33689,22 +33687,22 @@ var ConflictResolutionModal = class extends import_obsidian2.Modal {
       placeholder: "\uC0C1\uC704 \uAC1C\uB150 \uC81C\uBAA9 \uC785\uB825..."
     });
     const parentBtn = parentArea.createEl("button", { cls: "tb-btn", text: "\uB178\uD2B8 \uC0DD\uC131 \uD6C4 \uC5F0\uACB0" });
-    parentBtn.addEventListener("click", async () => {
+    parentBtn.addEventListener("click", () => {
       const title = parentInput.value.trim();
       if (!title)
         return;
-      await this.applyAddParent(title);
+      void this.applyAddParent(title);
     });
     contentEl.createEl("hr");
     contentEl.createEl("div", { cls: "tb-conflict-section-title", text: "\uC635\uC158 3 \u2014 \uD55C\uCABD \uBA85\uC81C \uC0AD\uC81C" });
     const deleteArea = contentEl.createEl("div", { cls: "tb-conflict-delete-area" });
     const delABtn = deleteArea.createEl("button", { cls: "tb-btn tb-btn-danger", text: `A \uC0AD\uC81C: ${this.conflict.nodeA.title.slice(0, 30)}` });
     const delBBtn = deleteArea.createEl("button", { cls: "tb-btn tb-btn-danger", text: `B \uC0AD\uC81C: ${this.conflict.nodeB.title.slice(0, 30)}` });
-    delABtn.addEventListener("click", async () => {
-      await this.applyDelete(this.conflict.nodeA);
+    delABtn.addEventListener("click", () => {
+      void this.applyDelete(this.conflict.nodeA);
     });
-    delBBtn.addEventListener("click", async () => {
-      await this.applyDelete(this.conflict.nodeB);
+    delBBtn.addEventListener("click", () => {
+      void this.applyDelete(this.conflict.nodeB);
     });
     contentEl.createEl("hr");
     contentEl.createEl("div", { cls: "tb-conflict-footer", text: "\uB2EB\uAE30 \uC2DC \uBAA8\uC21C\uC774 \uADF8\uB798\uD504\uC5D0 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4." });

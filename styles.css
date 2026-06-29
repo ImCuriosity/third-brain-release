@@ -481,7 +481,6 @@
 	padding: 8px 14px;
 	background: var(--tb-surface);
 	border-top: 1px solid var(--tb-border);
-	flex-shrink: 0;
 	border-bottom: 1px solid var(--tb-border);
 	font-size: 11px;
 	color: var(--tb-muted);
@@ -1754,10 +1753,6 @@
 .tb-popup-folder-header { cursor: default; opacity: 0.55; pointer-events: none; }
 .tb-popup-folder-header:hover { background: none; }
 .tb-popup-folder-item.tb-popup-folder-header .tb-popup-folder-name { color: inherit; }
-.tb-popup-folder-item:has(.tb-popup-cb:checked) {
-	background: #f3eeff;
-}
-
 .tb-graph-filter-row {
 	display: flex;
 	align-items: center;
@@ -1771,7 +1766,7 @@
 	color: var(--tb-text-muted);
 	user-select: none;
 }
-.tb-graph-filter-row:has(.tb-popup-cb:checked) .tb-graph-filter-label {
+.tb-graph-filter-row.is-active .tb-graph-filter-label {
 	color: var(--tb-warn);
 	font-weight: 600;
 }
