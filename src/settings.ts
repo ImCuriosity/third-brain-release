@@ -66,7 +66,6 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 			.addSlider(slider => slider
 				.setLimits(1, 5, 1)
 				.setValue(this.plugin.settings.maxEdgeCandidates)
-				.setDynamicTooltip()
 				.onChange(async (value) => {
 					this.plugin.settings.maxEdgeCandidates = value;
 					await this.plugin.saveSettings();
@@ -79,7 +78,6 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 			.addSlider(slider => slider
 				.setLimits(1, 5, 1)
 				.setValue(this.plugin.settings.bridgeTopKPerNode ?? 3)
-				.setDynamicTooltip()
 				.onChange(async (value) => {
 					this.plugin.settings.bridgeTopKPerNode = value;
 					await this.plugin.saveSettings();
