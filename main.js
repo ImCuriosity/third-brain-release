@@ -738,7 +738,7 @@ function resolveCliBin(cliBin) {
       if (fs.existsSync(exe))
         return exe;
     }
-  } catch (_) {
+  } catch {
   }
   return cliBin;
 }
@@ -821,21 +821,22 @@ async function callClaudeAPI(prompt, apiKey, model = "standard") {
       throw new Error("\uC694\uCCAD \uD55C\uB3C4 \uCD08\uACFC (HTTP 429) - \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694");
     }
     if (response.status >= 400) {
-      const errorMsg = response.json?.error?.message || `HTTP ${response.status}`;
+      const errData = response.json;
+      const errorMsg = errData?.error?.message ?? `HTTP ${response.status}`;
       throw new Error(`Anthropic API \uC624\uB958: ${errorMsg}`);
     }
     const data = response.json;
     const content = data?.content?.[0];
     if (content?.type === "text") {
       try {
-        return JSON.parse(content.text);
+        return JSON.parse(content.text ?? "");
       } catch {
         return content.text;
       }
     }
-    return content || data;
+    return content ?? data;
   } catch (err) {
-    const msg = err?.message || String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Claude API \uD638\uCD9C \uC2E4\uD328: ${msg}`);
   }
 }
@@ -871,7 +872,8 @@ async function callGeminiAPI(prompt, apiKey, model = "standard") {
       throw new Error("\uC694\uCCAD \uD55C\uB3C4 \uCD08\uACFC (HTTP 429) - \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694");
     }
     if (response.status >= 400) {
-      const errorMsg = response.json?.error?.message || `HTTP ${response.status}`;
+      const errData = response.json;
+      const errorMsg = errData?.error?.message ?? `HTTP ${response.status}`;
       throw new Error(`Gemini API \uC624\uB958: ${errorMsg}`);
     }
     const data = response.json;
@@ -885,7 +887,7 @@ async function callGeminiAPI(prompt, apiKey, model = "standard") {
     }
     return data;
   } catch (err) {
-    const msg = err?.message || String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Gemini API \uD638\uCD9C \uC2E4\uD328: ${msg}`);
   }
 }
@@ -1296,8 +1298,9 @@ ${para.text}
   }
   if (allProps.length === 0) {
     if (lastError && errorCount > 0) {
+      const errMsg = lastError ?? "";
       throw new Error(`[AI \uD638\uCD9C \uC2E4\uD328] ${errorCount}\uAC1C \uB2E8\uB77D\uC5D0\uC11C \uC624\uB958:
-${lastError}`);
+${errMsg}`);
     }
     throw new Error(`[\uBA85\uC81C \uCD94\uCD9C 0\uAC1C]
 \uB2E8\uB77D ${paragraphs.length}\uAC1C \uCC98\uB9AC \uD6C4 \uC720\uD6A8\uD55C \uBA85\uC81C \uC5C6\uC74C`);
@@ -1572,11 +1575,11 @@ JSON \uC751\uB2F5 \uC608\uC2DC:
     { edges: [], insight: "" }
   );
   const edges = (parsed.edges ?? []).filter((e) => e && (e["source_title"] || e["source_file"]) && (e["target_title"] || e["target_file"])).map((e) => ({
-    source_title: e["source_title"] ? String(e["source_title"]) : void 0,
-    target_title: e["target_title"] ? String(e["target_title"]) : void 0,
-    source_file: e["source_file"] ? String(e["source_file"]) : String(e["source_title"] ?? "") + ".md",
-    target_file: e["target_file"] ? String(e["target_file"]) : String(e["target_title"] ?? "") + ".md",
-    relation: toRelation(String(e["relation"] || "analogous_to")),
+    source_title: typeof e["source_title"] === "string" ? e["source_title"] : void 0,
+    target_title: typeof e["target_title"] === "string" ? e["target_title"] : void 0,
+    source_file: typeof e["source_file"] === "string" ? e["source_file"] : typeof e["source_title"] === "string" ? e["source_title"] + ".md" : "",
+    target_file: typeof e["target_file"] === "string" ? e["target_file"] : typeof e["target_title"] === "string" ? e["target_title"] + ".md" : "",
+    relation: toRelation(typeof e["relation"] === "string" ? e["relation"] : "analogous_to"),
     confidence: typeof e["confidence"] === "number" ? e["confidence"] : 0.5,
     reason: typeof e["reason"] === "string" ? e["reason"] : ""
   }));
@@ -2402,13 +2405,13 @@ ${node.content}`;
   async deleteNodeAndCleanEdges(node, folder) {
     const file = this.app.vault.getAbstractFileByPath(node.filePath);
     if (file instanceof import_obsidian.TFile) {
-      await this.app.vault.trash(file, true);
+      await this.app.fileManager.trashFile(file);
     }
     const deletedWikilink = `[[${node.title}]]`;
     const allFiles = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith(folder));
     for (const f of allFiles) {
       const cache = this.app.metadataCache.getFileCache(f);
-      const edges = cache?.frontmatter?.tb_edges;
+      const edges = cache?.frontmatter?.tb_edges ?? [];
       if (!Array.isArray(edges))
         continue;
       if (!edges.some((e) => e?.target === deletedWikilink))
@@ -31255,8 +31258,6 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
   // ── 메인 파이프라인 (Auto vs Architect 모드) ──────
   async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true) {
     let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, "") : void 0;
-    const cliBin = this.plugin.settings.cliBin;
-    const existingFiles = this.app.vault.getMarkdownFiles().map((f) => f.name);
     this.pipelineModal?.close();
     const modal = new PipelineInfoModal(this.app);
     this.pipelineModal = modal;
@@ -31370,7 +31371,7 @@ ${diagMsg}`
           }
           this.hideProgress();
           window.setTimeout(() => {
-            this.openNativeGraph([targetFolder]);
+            void this.openNativeGraph([targetFolder]);
           }, 300);
           return rawLinks;
         } catch (err) {
@@ -31742,7 +31743,7 @@ ${diagMsg}`
             (f2) => this.app.metadataCache.getFileCache(f2)?.frontmatter?.tb_id === id
           );
           if (f)
-            this.app.workspace.openLinkText(f.basename, "", false);
+            void this.app.workspace.openLinkText(f.basename, "", false);
         });
       }
     }
@@ -32092,7 +32093,7 @@ ${diagMsg}`
   openGraphViewWithFolder(folderPath) {
     try {
       const folder = folderPath || "";
-      this.openNativeGraph([folder]);
+      void this.openNativeGraph([folder]);
       new import_obsidian2.Notice(`\u{1F4CA} \uADF8\uB798\uD504 \uBDF0 \uC5F4\uAE30: ${folderPath || "\uB8E8\uD2B8"}`);
     } catch {
     }
@@ -32125,9 +32126,9 @@ ${diagMsg}`
           edges: Array.isArray(fm?.tb_edges) ? fm.tb_edges.slice(0, 3).map((e) => {
             const edge = e;
             return {
-              target: String(edge.target ?? "").replace(/^\[\[|\]\]$/g, ""),
-              relation: String(edge.label ?? "supports"),
-              reason: String(edge.reason ?? "")
+              target: (typeof edge.target === "string" ? edge.target : "").replace(/^\[\[|\]\]$/g, ""),
+              relation: typeof edge.label === "string" ? edge.label : "supports",
+              reason: typeof edge.reason === "string" ? edge.reason : ""
             };
           }) : []
         });
@@ -32354,9 +32355,10 @@ ${theme.description}
   // ── 폴더 목록 수집 ──────────────────────────────────────
   getFolderPaths() {
     const root = this.plugin.settings.rootFolder;
+    const vaultExt = this.app.vault;
     let all;
-    if (this.app.vault.getAllFolders) {
-      all = this.app.vault.getAllFolders().map((f) => f.path).filter((p) => p && p !== "/");
+    if (vaultExt.getAllFolders) {
+      all = vaultExt.getAllFolders().map((f) => f.path).filter((p) => p && p !== "/");
     } else {
       const set = /* @__PURE__ */ new Set();
       for (const f of this.app.vault.getMarkdownFiles()) {
@@ -32407,7 +32409,7 @@ ${theme.description}
     if (!existingGraphLeaf) {
       await leaf.setViewState({ type: "graph", active: true });
     }
-    this.app.workspace.revealLeaf(leaf);
+    void this.app.workspace.revealLeaf(leaf);
     const t0 = Date.now();
     let applied = false;
     for (const targetMs of [200, 500, 1e3, 1800]) {
@@ -32509,18 +32511,18 @@ ${query}`);
     const movedNode = await new Promise((resolve) => {
       const immediate = this.app.metadataCache.getFileCache(movedFile);
       if (immediate?.frontmatter) {
-        this.store.fileToNode(movedFile).then(resolve);
+        void this.store.fileToNode(movedFile).then(resolve);
         return;
       }
       const timeout = window.setTimeout(() => {
         this.app.metadataCache.offref(ref);
-        this.store.fileToNode(movedFile).then(resolve);
+        void this.store.fileToNode(movedFile).then(resolve);
       }, 3e3);
       const ref = this.app.metadataCache.on("changed", (changedFile) => {
         if (changedFile.path === movedFile.path) {
           window.clearTimeout(timeout);
           this.app.metadataCache.offref(ref);
-          this.store.fileToNode(movedFile).then(resolve);
+          void this.store.fileToNode(movedFile).then(resolve);
         }
       });
     });
@@ -33147,7 +33149,10 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
     });
     const updateActionsRow = (folder) => {
       const hasActions = !!this.app.vault.getFolderByPath(`${folder}/_actions`);
-      hasActions ? actionsRow.show() : actionsRow.hide();
+      if (hasActions)
+        actionsRow.show();
+      else
+        actionsRow.hide();
       if (!hasActions)
         actionsChk.checked = false;
     };
@@ -33335,7 +33340,7 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
         if (node?.filePath) {
           const file = this.app.vault.getFileByPath(node.filePath);
           if (file)
-            this.app.workspace.getLeaf().openFile(file);
+            void this.app.workspace.getLeaf().openFile(file);
         }
       });
       if (i < path2.relations.length) {
@@ -33481,7 +33486,10 @@ var AnalysisResultModal = class extends import_obsidian2.Modal {
     fill(content);
     toggler.addEventListener("click", () => {
       const isOpen = content.isShown();
-      isOpen ? content.hide() : content.show();
+      if (isOpen)
+        content.hide();
+      else
+        content.show();
       toggler.toggleClass("is-open", !isOpen);
       toggler.querySelector(".tb-ar-chevron").textContent = isOpen ? "\u25B8" : "\u25BE";
     });
@@ -34035,7 +34043,7 @@ var ThirdBrainPlugin = class extends import_obsidian5.Plugin {
       leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
       await leaf.setViewState({ type: VIEW_TYPE, active: true });
     }
-    workspace.revealLeaf(leaf);
+    void workspace.revealLeaf(leaf);
     if (!this.settings.onboardingComplete) {
       const cliOk = await isClaudeCLIAvailable(this.settings.cliBin);
       if (cliOk) {
