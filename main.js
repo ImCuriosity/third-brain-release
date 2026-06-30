@@ -737,7 +737,9 @@ var SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 12
 </svg>`;
 
 // src/engine/cli-bridge.ts
-var import_child_process = require("child_process");
+function getReq() {
+  return window.require;
+}
 var _requestUrl = null;
 function setRequestUrl(fn) {
   _requestUrl = fn;
@@ -784,7 +786,7 @@ function resolveCliBin(cliBin) {
   if (_resolvedBin !== null)
     return _resolvedBin;
   try {
-    const req = window.require;
+    const req = getReq();
     if (!req) {
       _resolvedBin = cliBin;
       return cliBin;
@@ -827,19 +829,23 @@ function resolveCliBin(cliBin) {
 async function callClaude(prompt, cliBin = "claude") {
   const bin = resolveCliBin(cliBin);
   const useShell = process.platform === "win32" && !bin.toLowerCase().endsWith(".exe");
+  const req = getReq();
+  if (!req)
+    return Promise.reject(new Error("Electron window.require not available"));
+  const { spawn } = req("child_process");
   return new Promise((resolve, reject) => {
     let stdout = "";
     let stderr = "";
     let proc;
     if (useShell) {
-      proc = (0, import_child_process.spawn)(bin, ["--output-format", "json"], {
+      proc = spawn(bin, ["--output-format", "json"], {
         stdio: ["pipe", "pipe", "pipe"],
         shell: true
       });
       proc.stdin?.write(prompt);
       proc.stdin?.end();
     } else {
-      proc = (0, import_child_process.spawn)(bin, ["-p", prompt, "--output-format", "json"], {
+      proc = spawn(bin, ["-p", prompt, "--output-format", "json"], {
         stdio: ["ignore", "pipe", "pipe"],
         shell: false
       });
@@ -1932,7 +1938,7 @@ function repairJson(raw) {
     else if (ch === "[")
       stack.push("]");
     else if (ch === "}" || ch === "]") {
-      if (stack.at(-1) === ch)
+      if (stack[stack.length - 1] === ch)
         stack.pop();
     }
   }
@@ -38716,7 +38722,10 @@ var OnboardingModal = class extends import_obsidian4.Modal {
 };
 async function isClaudeCLIAvailable(cliBin) {
   try {
-    const { exec } = window.require("child_process");
+    const req = window.require;
+    if (!req)
+      return false;
+    const { exec } = req("child_process");
     return await new Promise((resolve) => {
       exec(`${cliBin} --version`, { timeout: 3e3 }, (err) => resolve(!err));
     });
