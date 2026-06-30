@@ -3519,8 +3519,9 @@
 	cursor: grab;
 }
 
-.tb-graph-canvas--grabbing {
-	cursor: grabbing !important;
+.tb-graph-canvas--grabbing,
+.tb-graph-canvas--grabbing * {
+	cursor: grabbing;
 }
 
 /* ── 노드 팝업 ───────────────────────────────────────────── */
@@ -3611,28 +3612,28 @@
 
 /* ── Canvas Graph Modal ────────────────────────────────── */
 
-.tb-canvas-modal {
-	width: 96vw !important;
-	max-width: 1600px !important;
+.modal.tb-canvas-modal {
+	width: 96vw;
+	max-width: 1600px;
 }
 
-.tb-canvas-modal .modal-content {
-	padding: 0 !important;
-	overflow: hidden !important;
-	position: relative !important;
-	height: 84vh !important;
+.modal.tb-canvas-modal .modal-content {
+	padding: 0;
+	overflow: hidden;
+	position: relative;
+	height: 84vh;
 }
 
-.tb-canvas-wrap {
-	position: absolute !important;
+.modal.tb-canvas-modal .tb-canvas-wrap {
+	position: absolute;
 	inset: 0;
 	overflow: hidden;
 	background: #fff;
 }
 
-.tb-canvas-wrap canvas {
+.modal.tb-canvas-modal .tb-canvas-wrap canvas {
 	position: absolute;
 	inset: 0;
-	width: 100% !important;
-	height: 100% !important;
+	width: 100%;
+	height: 100%;
 }
