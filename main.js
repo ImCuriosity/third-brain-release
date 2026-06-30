@@ -1,8 +1,6 @@
-var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __commonJS = (cb, mod) => function __require() {
@@ -20,14 +18,6 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var __publicField = (obj, key, value) => {
   __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
@@ -726,8 +716,6 @@ var SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 12
 
 // src/engine/cli-bridge.ts
 var import_child_process = require("child_process");
-var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
 var _requestUrl = null;
 function setRequestUrl(fn) {
   _requestUrl = fn;
@@ -765,38 +753,10 @@ function parseEnvelope(stdout) {
     return text;
   }
 }
-function resolveCliBin(cliBin) {
-  if (process.platform !== "win32")
-    return cliBin;
-  if (cliBin !== "claude" && cliBin.includes("\\"))
-    return cliBin;
-  try {
-    const base = path.join(
-      process.env.LOCALAPPDATA ?? "",
-      "Packages",
-      "Claude_pzs8sxrjxfjjc",
-      "LocalCache",
-      "Roaming",
-      "Claude",
-      "claude-code"
-    );
-    if (!fs.existsSync(base))
-      return cliBin;
-    const versions = fs.readdirSync(base).filter((d) => fs.statSync(path.join(base, d)).isDirectory()).sort().reverse();
-    for (const v of versions) {
-      const exe = path.join(base, v, "claude.exe");
-      if (fs.existsSync(exe))
-        return exe;
-    }
-  } catch {
-  }
-  return cliBin;
-}
 async function callClaude(prompt, cliBin = "claude") {
-  const bin = resolveCliBin(cliBin);
-  const useShell = process.platform === "win32" && !bin.toLowerCase().endsWith(".exe");
+  const useShell = process.platform === "win32";
   return new Promise((resolve, reject) => {
-    const proc = (0, import_child_process.spawn)(bin, ["-p", prompt, "--output-format", "json"], {
+    const proc = (0, import_child_process.spawn)(cliBin, ["-p", prompt, "--output-format", "json"], {
       stdio: ["ignore", "pipe", "pipe"],
       shell: useShell
     });
@@ -811,14 +771,14 @@ async function callClaude(prompt, cliBin = "claude") {
     proc.on("close", (code) => {
       if (code !== 0) {
         reject(new Error(`claude CLI \uC624\uB958 (code ${code}): ${stderr.trim() || "(stderr \uC5C6\uC74C)"}
-\uC2E4\uD589: ${bin}`));
+\uC2E4\uD589: ${cliBin}`));
         return;
       }
       resolve(parseEnvelope(stdout));
     });
     proc.on("error", (err) => {
       reject(new Error(`claude CLI \uC2E4\uD589 \uC2E4\uD328: ${err.message}
-\uACBD\uB85C: ${bin}
+\uACBD\uB85C: ${cliBin}
 \uC124\uC815\uC5D0\uC11C 'claude CLI \uACBD\uB85C'\uB97C \uC808\uB300 \uACBD\uB85C\uB85C \uC9C0\uC815\uD574\uBCF4\uC138\uC694.`));
     });
   });
@@ -2343,9 +2303,9 @@ ${body}`;
     lines.push("---");
     return lines.join("\n");
   }
-  async ensureFolder(path2) {
-    if (!this.app.vault.getFolderByPath(path2)) {
-      await this.app.vault.createFolder(path2);
+  async ensureFolder(path) {
+    if (!this.app.vault.getFolderByPath(path)) {
+      await this.app.vault.createFolder(path);
     }
   }
   async resolveConflict(filePath) {
@@ -2632,14 +2592,14 @@ function findPath(tensor, srcId, dstId, maxHops, layerFilter) {
   const queue = [{ idx: srcIdx, path: [srcIdx], rels: [], conf: 1 }];
   const visited = /* @__PURE__ */ new Set([srcIdx]);
   while (queue.length > 0) {
-    const { idx, path: path2, rels, conf } = queue.shift();
-    if (path2.length - 1 >= maxHops)
+    const { idx, path, rels, conf } = queue.shift();
+    if (path.length - 1 >= maxHops)
       continue;
     for (const { to, rel, confidence } of adj.get(idx) ?? []) {
       if (visited.has(to))
         continue;
       const newConf = conf * confidence;
-      const newPath = [...path2, to];
+      const newPath = [...path, to];
       const newRels = [...rels, rel];
       if (to === dstIdx) {
         return {
@@ -2657,14 +2617,14 @@ function findPath(tensor, srcId, dstId, maxHops, layerFilter) {
 }
 function findTransitivePaths(tensor, srcId, dstId, maxHops = 6) {
   const transitiveFilter = [...TRANSITIVE_RELATIONS];
-  const path2 = findPath(tensor, srcId, dstId, maxHops, transitiveFilter);
-  if (!path2 || path2.nodes.length <= 2)
+  const path = findPath(tensor, srcId, dstId, maxHops, transitiveFilter);
+  if (!path || path.nodes.length <= 2)
     return [];
   const directLayerFilter = transitiveFilter;
   const isDirect = _hasDirectEdge(tensor, srcId, dstId, directLayerFilter);
   if (isDirect)
     return [];
-  return [{ ...path2, isTransitive: true }];
+  return [{ ...path, isTransitive: true }];
 }
 function _hasDirectEdge(tensor, srcId, dstId, layerFilter) {
   const srcIdx = tensor.nodeIndex.get(srcId);
@@ -4296,33 +4256,33 @@ function renderRichText({
   container.append(fragment);
 }
 function makePathFromDrawOPS(data) {
-  const path2 = new Path2D();
+  const path = new Path2D();
   if (!data) {
-    return path2;
+    return path;
   }
   for (let i = 0, ii = data.length; i < ii; ) {
     switch (data[i++]) {
       case DrawOPS.moveTo:
-        path2.moveTo(data[i++], data[i++]);
+        path.moveTo(data[i++], data[i++]);
         break;
       case DrawOPS.lineTo:
-        path2.lineTo(data[i++], data[i++]);
+        path.lineTo(data[i++], data[i++]);
         break;
       case DrawOPS.curveTo:
-        path2.bezierCurveTo(data[i++], data[i++], data[i++], data[i++], data[i++], data[i++]);
+        path.bezierCurveTo(data[i++], data[i++], data[i++], data[i++], data[i++], data[i++]);
         break;
       case DrawOPS.quadraticCurveTo:
-        path2.quadraticCurveTo(data[i++], data[i++], data[i++], data[i++]);
+        path.quadraticCurveTo(data[i++], data[i++], data[i++], data[i++]);
         break;
       case DrawOPS.closePath:
-        path2.closePath();
+        path.closePath();
         break;
       default:
         warn(`Unrecognized drawing path operator: ${data[i - 1]}`);
         break;
     }
   }
-  return path2;
+  return path;
 }
 var _toolbar, _colorPicker, _editor, _buttons, _altText, _comment, _commentButtonDivider, _signatureDescriptionButton, _l10nRemove, _pointerDown, pointerDown_fn, _focusIn, focusIn_fn, _focusOut, focusOut_fn, _addListenersToElement, addListenersToElement_fn, _divider, divider_get;
 var _EditorToolbar = class _EditorToolbar {
@@ -10821,11 +10781,11 @@ var FontFaceObject = class {
     } catch (ex) {
       warn(`getPathGenerator - ignoring character: "${ex}".`);
     }
-    const path2 = makePathFromDrawOPS(cmds?.path);
+    const path = makePathFromDrawOPS(cmds?.path);
     if (!this.fontExtraProperties) {
       objs.delete(objId);
     }
-    return this.compiledGlyphs[character] = path2;
+    return this.compiledGlyphs[character] = path;
   }
   get black() {
     return __privateGet(this, _fontData).black;
@@ -12315,8 +12275,8 @@ if (isNodeJS) {
   warn("Please use the `legacy` build in Node.js environments.");
 }
 async function node_utils_fetchData(url) {
-  const fs2 = process.getBuiltinModule("fs/promises");
-  const data = await fs2.readFile(url);
+  const fs = process.getBuiltinModule("fs/promises");
+  const data = await fs.readFile(url);
   return new Uint8Array(data);
 }
 var NodeFilterFactory = class extends BaseFilterFactory {
@@ -12977,7 +12937,7 @@ var _TilingPattern = class _TilingPattern {
     Util.singularValueDecompose2dScale(this.baseTransform, scale);
     return [matrixScaleX * scale[0], matrixScaleY * scale[1]];
   }
-  drawPattern(owner, path2, useEOFill = false, [n, m2], opIdx) {
+  drawPattern(owner, path, useEOFill = false, [n, m2], opIdx) {
     const [x0, y0, x1, y1] = this.bbox;
     const dependencyTracker = owner.dependencyTracker;
     if (dependencyTracker) {
@@ -12985,9 +12945,9 @@ var _TilingPattern = class _TilingPattern {
     }
     owner.save();
     if (useEOFill) {
-      owner.ctx.clip(path2, "evenodd");
+      owner.ctx.clip(path, "evenodd");
     } else {
-      owner.ctx.clip(path2);
+      owner.ctx.clip(path);
     }
     owner.ctx.setTransform(...this.patternBaseMatrix);
     owner.ctx.translate(n * this.xstep, m2 * this.ystep);
@@ -14142,15 +14102,15 @@ var _CanvasGraphics = class _CanvasGraphics {
     if (hasInnerCutout && maskX0 === layerOffsetX && maskY0 === layerOffsetY && maskX1 === layerOffsetX + layerWidth && maskY1 === layerOffsetY + layerHeight) {
       return;
     }
-    const path2 = new Path2D();
-    path2.rect(layerOffsetX, layerOffsetY, layerWidth, layerHeight);
+    const path = new Path2D();
+    path.rect(layerOffsetX, layerOffsetY, layerWidth, layerHeight);
     if (hasInnerCutout) {
-      path2.rect(maskX0, maskY0, maskX1 - maskX0, maskY1 - maskY0);
+      path.rect(maskX0, maskY0, maskX1 - maskX0, maskY1 - maskY0);
     }
     layerCtx.save();
     layerCtx.globalAlpha = alpha / 255;
     layerCtx.setTransform(1, 0, 0, 1, 0, 0);
-    layerCtx.clip(path2, "evenodd");
+    layerCtx.clip(path, "evenodd");
     layerCtx.globalCompositeOperation = "destination-in";
     layerCtx.fillStyle = "#000000";
     layerCtx.fillRect(layerOffsetX, layerOffsetY, layerWidth, layerHeight);
@@ -14208,21 +14168,21 @@ var _CanvasGraphics = class _CanvasGraphics {
     this._cachedGetSinglePixelWidth = null;
   }
   constructPath(opIdx, op, data, minMax) {
-    let [path2] = data;
+    let [path] = data;
     if (!minMax) {
-      path2 || (path2 = data[0] = new Path2D());
+      path || (path = data[0] = new Path2D());
       if (op !== OPS.stroke && op !== OPS.closeStroke) {
         this.current.tilingPatternDims = null;
       }
-      this[op](opIdx, path2);
+      this[op](opIdx, path);
       return;
     }
     if (this.dependencyTracker !== null) {
       const outerExtraSize = op === OPS.stroke ? this.current.lineWidth / 2 : 0;
       this.dependencyTracker.resetBBox(opIdx).recordBBox(opIdx, this.ctx, minMax[0] - outerExtraSize, minMax[2] + outerExtraSize, minMax[1] - outerExtraSize, minMax[3] + outerExtraSize).recordDependencies(opIdx, ["transform"]);
     }
-    if (!(path2 instanceof Path2D)) {
-      path2 = data[0] = makePathFromDrawOPS(path2);
+    if (!(path instanceof Path2D)) {
+      path = data[0] = makePathFromDrawOPS(path);
     }
     Util.axialAlignedBoundingBox(minMax, getCurrentTransform(this.ctx), this.current.minMax);
     const tilingDims = this.current.tilingPatternDims;
@@ -14234,13 +14194,13 @@ var _CanvasGraphics = class _CanvasGraphics {
         this.current.fillColor.updatePatternDims(clippedBBox, tilingDims);
       }
     }
-    this[op](opIdx, path2);
+    this[op](opIdx, path);
     this._pathStartIdx = opIdx;
   }
   closePath(opIdx) {
     this.ctx.closePath();
   }
-  stroke(opIdx, path2, consumePath = true) {
+  stroke(opIdx, path, consumePath = true) {
     const started = consumePath && __privateMethod(this, _beginKnockoutElement, beginKnockoutElement_fn).call(this, this.current.strokeAlpha);
     const ctx = this.ctx;
     const strokeColor = this.current.strokeColor;
@@ -14252,26 +14212,26 @@ var _CanvasGraphics = class _CanvasGraphics {
         ctx.strokeStyle = strokeColor.getPattern(ctx, this, getCurrentTransformInverse(ctx), PathType.STROKE, opIdx);
         if (baseTransform) {
           const newPath = new Path2D();
-          newPath.addPath(path2, ctx.getTransform().invertSelf().multiplySelf(baseTransform));
-          path2 = newPath;
+          newPath.addPath(path, ctx.getTransform().invertSelf().multiplySelf(baseTransform));
+          path = newPath;
         }
-        this.rescaleAndStroke(path2, false);
+        this.rescaleAndStroke(path, false);
         ctx.restore();
       } else {
-        this.rescaleAndStroke(path2, true);
+        this.rescaleAndStroke(path, true);
       }
     }
     this.dependencyTracker?.recordDependencies(opIdx, Dependencies.stroke);
     if (consumePath) {
-      this.consumePath(opIdx, path2, this.current.getClippedPathBoundingBox(PathType.STROKE, getCurrentTransform(this.ctx)));
+      this.consumePath(opIdx, path, this.current.getClippedPathBoundingBox(PathType.STROKE, getCurrentTransform(this.ctx)));
     }
     ctx.globalAlpha = this.current.fillAlpha;
     __privateMethod(this, _endKnockoutElement, endKnockoutElement_fn).call(this, started);
   }
-  closeStroke(opIdx, path2) {
-    this.stroke(opIdx, path2);
+  closeStroke(opIdx, path) {
+    this.stroke(opIdx, path);
   }
-  fill(opIdx, path2, consumePath = true) {
+  fill(opIdx, path, consumePath = true) {
     const started = consumePath && __privateMethod(this, _beginKnockoutElement, beginKnockoutElement_fn).call(this, this.current.fillAlpha);
     const ctx = this.ctx;
     const fillColor = this.current.fillColor;
@@ -14283,10 +14243,10 @@ var _CanvasGraphics = class _CanvasGraphics {
       const dims = this.current.tilingPatternDims;
       const tileIdx = dims && fillColor.canSkipPatternCanvas(dims);
       if (tileIdx) {
-        fillColor.drawPattern(this, path2, this.pendingEOFill, tileIdx, opIdx);
+        fillColor.drawPattern(this, path, this.pendingEOFill, tileIdx, opIdx);
         this.pendingEOFill = false;
         if (consumePath) {
-          this.consumePath(opIdx, path2, intersect);
+          this.consumePath(opIdx, path, intersect);
         }
         this.current.tilingPatternDims = null;
         __privateMethod(this, _endKnockoutElement, endKnockoutElement_fn).call(this, started);
@@ -14298,17 +14258,17 @@ var _CanvasGraphics = class _CanvasGraphics {
       ctx.fillStyle = fillColor.getPattern(ctx, this, getCurrentTransformInverse(ctx), PathType.FILL, opIdx);
       if (baseTransform) {
         const newPath = new Path2D();
-        newPath.addPath(path2, ctx.getTransform().invertSelf().multiplySelf(baseTransform));
-        path2 = newPath;
+        newPath.addPath(path, ctx.getTransform().invertSelf().multiplySelf(baseTransform));
+        path = newPath;
       }
       needRestore = true;
     }
     if (this.contentVisible && intersect !== null) {
       if (this.pendingEOFill) {
-        ctx.fill(path2, "evenodd");
+        ctx.fill(path, "evenodd");
         this.pendingEOFill = false;
       } else {
-        ctx.fill(path2);
+        ctx.fill(path);
       }
     }
     if (needRestore) {
@@ -14316,38 +14276,38 @@ var _CanvasGraphics = class _CanvasGraphics {
       this.dependencyTracker?.restore(opIdx);
     }
     if (consumePath) {
-      this.consumePath(opIdx, path2, intersect);
+      this.consumePath(opIdx, path, intersect);
     }
     __privateMethod(this, _endKnockoutElement, endKnockoutElement_fn).call(this, started);
   }
-  eoFill(opIdx, path2) {
+  eoFill(opIdx, path) {
     this.pendingEOFill = true;
-    this.fill(opIdx, path2);
+    this.fill(opIdx, path);
   }
-  fillStroke(opIdx, path2) {
+  fillStroke(opIdx, path) {
     const started = __privateMethod(this, _beginKnockoutElement, beginKnockoutElement_fn).call(this, Math.min(this.current.fillAlpha, this.current.strokeAlpha));
-    this.fill(opIdx, path2, false);
-    this.stroke(opIdx, path2, false);
-    this.consumePath(opIdx, path2);
+    this.fill(opIdx, path, false);
+    this.stroke(opIdx, path, false);
+    this.consumePath(opIdx, path);
     __privateMethod(this, _endKnockoutElement, endKnockoutElement_fn).call(this, started);
   }
-  eoFillStroke(opIdx, path2) {
+  eoFillStroke(opIdx, path) {
     this.pendingEOFill = true;
-    this.fillStroke(opIdx, path2);
+    this.fillStroke(opIdx, path);
   }
-  closeFillStroke(opIdx, path2) {
-    this.fillStroke(opIdx, path2);
+  closeFillStroke(opIdx, path) {
+    this.fillStroke(opIdx, path);
   }
-  closeEOFillStroke(opIdx, path2) {
+  closeEOFillStroke(opIdx, path) {
     this.pendingEOFill = true;
-    this.fillStroke(opIdx, path2);
+    this.fillStroke(opIdx, path);
   }
-  endPath(opIdx, path2) {
-    this.consumePath(opIdx, path2);
+  endPath(opIdx, path) {
+    this.consumePath(opIdx, path);
   }
-  rawFillPath(opIdx, path2) {
+  rawFillPath(opIdx, path) {
     const started = __privateMethod(this, _beginKnockoutElement, beginKnockoutElement_fn).call(this, this.current.fillAlpha);
-    this.ctx.fill(path2);
+    this.ctx.fill(path);
     this.dependencyTracker?.recordDependencies(opIdx, Dependencies.rawFillPath).recordOperation(opIdx);
     __privateMethod(this, _endKnockoutElement, endKnockoutElement_fn).call(this, started);
   }
@@ -14386,12 +14346,12 @@ var _CanvasGraphics = class _CanvasGraphics {
         x: x3,
         y: y3,
         fontSize,
-        path: path2
+        path
       } of paths) {
-        if (!path2) {
+        if (!path) {
           continue;
         }
-        newPath.addPath(path2, new DOMMatrix(transform2).preMultiplySelf(invTransf).translate(x3, y3).scale(fontSize, -fontSize));
+        newPath.addPath(path, new DOMMatrix(transform2).preMultiplySelf(invTransf).translate(x3, y3).scale(fontSize, -fontSize));
       }
       ctx.clip(newPath);
     }
@@ -14494,11 +14454,11 @@ var _CanvasGraphics = class _CanvasGraphics {
     const isAddToPathSet = !!(textRenderingMode & TextRenderingMode.ADD_TO_PATH_FLAG);
     const patternFill = current.patternFill && !font.missingFile;
     const patternStroke = current.patternStroke && !font.missingFile;
-    let path2;
+    let path;
     if ((font.disableFontFace || isAddToPathSet || patternFill || patternStroke) && !font.missingFile) {
-      path2 = font.getPathGenerator(this.commonObjs, character);
+      path = font.getPathGenerator(this.commonObjs, character);
     }
-    if (path2 && (font.disableFontFace || patternFill || patternStroke)) {
+    if (path && (font.disableFontFace || patternFill || patternStroke)) {
       ctx.save();
       ctx.translate(x3, y3);
       ctx.scale(fontSize, -fontSize);
@@ -14508,10 +14468,10 @@ var _CanvasGraphics = class _CanvasGraphics {
         if (patternFillTransform) {
           currentTransform = ctx.getTransform();
           ctx.setTransform(...patternFillTransform);
-          const scaledPath = __privateMethod(this, _getScaledPath, getScaledPath_fn).call(this, path2, currentTransform, patternFillTransform);
+          const scaledPath = __privateMethod(this, _getScaledPath, getScaledPath_fn).call(this, path, currentTransform, patternFillTransform);
           ctx.fill(scaledPath);
         } else {
-          ctx.fill(path2);
+          ctx.fill(path);
         }
       }
       if (fillStrokeMode === TextRenderingMode.STROKE || fillStrokeMode === TextRenderingMode.FILL_STROKE) {
@@ -14528,10 +14488,10 @@ var _CanvasGraphics = class _CanvasGraphics {
           const transf = Util.transform([a2, b, c2, d, 0, 0], invPatternTransform);
           Util.singularValueDecompose2dScale(transf, XY);
           ctx.lineWidth *= Math.max(XY[0], XY[1]) / fontSize;
-          ctx.stroke(__privateMethod(this, _getScaledPath, getScaledPath_fn).call(this, path2, currentTransform, patternStrokeTransform));
+          ctx.stroke(__privateMethod(this, _getScaledPath, getScaledPath_fn).call(this, path, currentTransform, patternStrokeTransform));
         } else {
           ctx.lineWidth /= fontSize;
-          ctx.stroke(path2);
+          ctx.stroke(path);
         }
       }
       ctx.restore();
@@ -14554,7 +14514,7 @@ var _CanvasGraphics = class _CanvasGraphics {
         x: x3,
         y: y3,
         fontSize,
-        path: path2
+        path
       });
       this.dependencyTracker?.recordCharacterBBox(opIdx, ctx, font, fontSize, x3, y3);
     }
@@ -14950,9 +14910,9 @@ var _CanvasGraphics = class _CanvasGraphics {
         const [x0, y0, x1, y1] = group.bbox;
         clip.rect(x0, y0, x1 - x0, y1 - y0);
         if (group.matrix) {
-          const path2 = new Path2D();
-          path2.addPath(clip, new DOMMatrix(group.matrix));
-          clip = path2;
+          const path = new Path2D();
+          path.addPath(clip, new DOMMatrix(group.matrix));
+          clip = path;
         }
         currentCtx.clip(clip);
       }
@@ -15006,9 +14966,9 @@ var _CanvasGraphics = class _CanvasGraphics {
       const [x0, y0, x1, y1] = group.bbox;
       clip.rect(x0, y0, x1 - x0, y1 - y0);
       if (group.matrix) {
-        const path2 = new Path2D();
-        path2.addPath(clip, new DOMMatrix(group.matrix));
-        clip = path2;
+        const path = new Path2D();
+        path.addPath(clip, new DOMMatrix(group.matrix));
+        clip = path;
       }
       groupCtx.clip(clip);
     }
@@ -15470,7 +15430,7 @@ var _CanvasGraphics = class _CanvasGraphics {
   }
   endCompat(opIdx) {
   }
-  consumePath(opIdx, path2, clipBox) {
+  consumePath(opIdx, path, clipBox) {
     const isEmpty = this.current.isEmptyClip();
     if (this.pendingClip) {
       this.current.updateClipFromPath();
@@ -15482,9 +15442,9 @@ var _CanvasGraphics = class _CanvasGraphics {
     if (this.pendingClip) {
       if (!isEmpty) {
         if (this.pendingClip === EO_CLIP) {
-          ctx.clip(path2, "evenodd");
+          ctx.clip(path, "evenodd");
         } else {
-          ctx.clip(path2);
+          ctx.clip(path);
         }
       }
       this.pendingClip = null;
@@ -15557,7 +15517,7 @@ var _CanvasGraphics = class _CanvasGraphics {
     }
     return this._cachedScaleForStroking;
   }
-  rescaleAndStroke(path2, saveRestore) {
+  rescaleAndStroke(path, saveRestore) {
     const {
       ctx,
       current: {
@@ -15567,7 +15527,7 @@ var _CanvasGraphics = class _CanvasGraphics {
     const [scaleX, scaleY] = this.getScaleForStroking();
     if (scaleX === scaleY) {
       ctx.lineWidth = (lineWidth || 1) * scaleX;
-      ctx.stroke(path2);
+      ctx.stroke(path);
       return;
     }
     const dashes = ctx.getLineDash();
@@ -15578,7 +15538,7 @@ var _CanvasGraphics = class _CanvasGraphics {
     SCALE_MATRIX.a = 1 / scaleX;
     SCALE_MATRIX.d = 1 / scaleY;
     const newPath = new Path2D();
-    newPath.addPath(path2, SCALE_MATRIX);
+    newPath.addPath(path, SCALE_MATRIX);
     if (dashes.length > 0) {
       const scale = Math.max(scaleX, scaleY);
       ctx.setLineDash(dashes.map((x3) => x3 / scale));
@@ -15829,9 +15789,9 @@ endKnockoutElement_fn = function(started) {
   }
 };
 _getScaledPath = new WeakSet();
-getScaledPath_fn = function(path2, currentTransform, transform2) {
+getScaledPath_fn = function(path, currentTransform, transform2) {
   const newPath = new Path2D();
-  newPath.addPath(path2, new DOMMatrix(transform2).invertSelf().multiplySelf(currentTransform));
+  newPath.addPath(path, new DOMMatrix(transform2).invertSelf().multiplySelf(currentTransform));
   return newPath;
 };
 _destroyKnockoutPools = new WeakSet();
@@ -16813,11 +16773,11 @@ onError_fn2 = function(status) {
   this._queuedChunk = null;
 };
 function getReadableStream(url, opts = null) {
-  const fs2 = process.getBuiltinModule("fs");
+  const fs = process.getBuiltinModule("fs");
   const {
     Readable
   } = process.getBuiltinModule("stream");
-  const readStream = fs2.createReadStream(url, opts);
+  const readStream = fs.createReadStream(url, opts);
   return Readable.toWeb(readStream);
 }
 var PDFNodeStream = class extends BasePDFStream {
@@ -16840,8 +16800,8 @@ var PDFNodeStreamReader = class extends BasePDFStreamReader {
       url
     } = stream._source;
     this._isStreamingSupported = !disableStream;
-    const fs2 = process.getBuiltinModule("fs/promises");
-    fs2.lstat(url).then((stat) => {
+    const fs = process.getBuiltinModule("fs/promises");
+    fs.lstat(url).then((stat) => {
       const readableStream = getReadableStream(url);
       this._reader = readableStream.getReader();
       const {
@@ -27662,11 +27622,11 @@ __publicField(_InkEditor, "_defaultDrawingOptions", null);
 var InkEditor = _InkEditor;
 var ContourDrawOutline = class extends InkDrawOutline {
   toSVGPath() {
-    let path2 = super.toSVGPath();
-    if (!path2.endsWith("Z")) {
-      path2 += "Z";
+    let path = super.toSVGPath();
+    if (!path.endsWith("Z")) {
+      path += "Z";
     }
-    return path2;
+    return path;
   }
 };
 var BASE_HEADER_LENGTH = 8;
@@ -30318,13 +30278,13 @@ var _DrawLayer = class _DrawLayer {
     const root2 = __privateMethod(this, _createSVG, createSVG_fn).call(this);
     const defs = _DrawLayer._svgFactory.createElement("defs");
     root2.append(defs);
-    const path2 = _DrawLayer._svgFactory.createElement("path");
-    defs.append(path2);
+    const path = _DrawLayer._svgFactory.createElement("path");
+    defs.append(path);
     const pathId = `path_${id2}`;
-    path2.setAttribute("id", pathId);
-    path2.setAttribute("vector-effect", "non-scaling-stroke");
+    path.setAttribute("id", pathId);
+    path.setAttribute("vector-effect", "non-scaling-stroke");
     if (isPathUpdatable) {
-      __privateGet(this, _toUpdate).set(id2, path2);
+      __privateGet(this, _toUpdate).set(id2, path);
     }
     const clipPathId = hasClip ? __privateMethod(this, _createClipPath, createClipPath_fn).call(this, defs, pathId) : null;
     const use = _DrawLayer._svgFactory.createElement("use");
@@ -30342,11 +30302,11 @@ var _DrawLayer = class _DrawLayer {
     const root2 = __privateMethod(this, _createSVG, createSVG_fn).call(this);
     const defs = _DrawLayer._svgFactory.createElement("defs");
     root2.append(defs);
-    const path2 = _DrawLayer._svgFactory.createElement("path");
-    defs.append(path2);
+    const path = _DrawLayer._svgFactory.createElement("path");
+    defs.append(path);
     const pathId = `path_${id2}`;
-    path2.setAttribute("id", pathId);
-    path2.setAttribute("vector-effect", "non-scaling-stroke");
+    path.setAttribute("id", pathId);
+    path.setAttribute("vector-effect", "non-scaling-stroke");
     let maskId;
     if (mustRemoveSelfIntersections) {
       const mask = _DrawLayer._svgFactory.createElement("mask");
@@ -30394,7 +30354,7 @@ var _DrawLayer = class _DrawLayer {
       root: root2,
       bbox,
       rootClass,
-      path: path2
+      path
     } = properties;
     const element = typeof elementOrId === "number" ? __privateGet(this, _mapping).get(elementOrId) : elementOrId;
     if (!element) {
@@ -30414,10 +30374,10 @@ var _DrawLayer = class _DrawLayer {
         classList2.toggle(className, value);
       }
     }
-    if (path2) {
+    if (path) {
       const defs = element.firstElementChild;
       const pathElement = defs.firstElementChild;
-      __privateMethod(this, _updateProperties, updateProperties_fn).call(this, pathElement, path2);
+      __privateMethod(this, _updateProperties, updateProperties_fn).call(this, pathElement, path);
     }
   }
   updateParent(id2, layer) {
@@ -30686,7 +30646,7 @@ selectionChange_fn2 = function() {
     }
     const drawLayer = textLayerData.drawLayer;
     let div = textLayerData.selectionDiv;
-    let path2 = textLayerData.path;
+    let path = textLayerData.path;
     if (!div) {
       const clipPathId = `clip_selection_${__privateWrapper(_DrawLayer, _selectionId)._++}`;
       div = document.createElement("div");
@@ -30705,18 +30665,18 @@ selectionChange_fn2 = function() {
       const clipPath = _DrawLayer._svgFactory.createElement("clipPath");
       clipPath.setAttribute("id", clipPathId);
       clipPath.setAttribute("clipPathUnits", "objectBoundingBox");
-      path2 = _DrawLayer._svgFactory.createElement("path");
-      clipPath.append(path2);
+      path = _DrawLayer._svgFactory.createElement("path");
+      clipPath.append(path);
       svg.append(clipPath);
       div.append(svg);
-      textLayerData.path = path2;
+      textLayerData.path = path;
       textLayerData.selectionDiv = div;
     }
     if (!div.parentNode && __privateGet(drawLayer, _parent2)) {
       __privateGet(drawLayer, _parent2).append(div);
       __privateGet(this, _selections).add(div);
     }
-    path2.setAttribute("d", boxes.join(" "));
+    path.setAttribute("d", boxes.join(" "));
   }
 };
 _setBox = new WeakSet();
@@ -36517,9 +36477,9 @@ ${diagMsg}`
     }
     const content = lines.join("\n");
     const fileName = `\uB9AC\uD3EC\uD2B8-${date}-${sanitizeId2(title)}.md`;
-    const path2 = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+    const path = targetFolder ? `${targetFolder}/${fileName}` : fileName;
     try {
-      await this.app.vault.create(path2, content);
+      await this.app.vault.create(path, content);
       new import_obsidian2.Notice(`${this.t("notice_analysis_saved_prefix")}${fileName}`);
     } catch (e) {
       new import_obsidian2.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
@@ -37929,9 +37889,9 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
           cls: "tb-path-meta",
           text: `${nodes.length}${this.t("path_node_count_suffix")} / ${tensor.edges.length}${this.t("path_edge_count_suffix")}`
         });
-        const path2 = findPath(tensor, srcId, dstId, 6);
-        if (path2) {
-          this.renderPathCard(resultEl, path2, nodes, tensor);
+        const path = findPath(tensor, srcId, dstId, 6);
+        if (path) {
+          this.renderPathCard(resultEl, path, nodes, tensor);
         } else {
           const transitivePaths = findTransitivePaths(tensor, srcId, dstId, 6);
           if (transitivePaths.length > 0) {
@@ -37958,22 +37918,22 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
       }
     })());
   }
-  renderPathCard(container, path2, nodes, tensor) {
+  renderPathCard(container, path, nodes, tensor) {
     const titleById = new Map(nodes.map((n) => [n.id, n.title]));
     const card = container.createEl("div", {
-      cls: path2.isTransitive ? "tb-path-card tb-path-transitive" : "tb-path-card"
+      cls: path.isTransitive ? "tb-path-card tb-path-transitive" : "tb-path-card"
     });
     const header = card.createEl("div", { cls: "tb-path-header" });
-    if (path2.isTransitive) {
+    if (path.isTransitive) {
       header.createEl("span", { cls: "tb-path-transitive-badge", text: this.t("path_transitive_badge") });
     }
     header.createEl("span", {
       cls: "tb-path-meta-inline",
-      text: `${path2.nodes.length - 1}${this.t("path_hop")} \xB7 ${this.t("path_confidence")} ${(path2.totalConfidence * 100).toFixed(0)}%`
+      text: `${path.nodes.length - 1}${this.t("path_hop")} \xB7 ${this.t("path_confidence")} ${(path.totalConfidence * 100).toFixed(0)}%`
     });
     const chain = card.createEl("div", { cls: "tb-path-chain" });
-    for (let i = 0; i < path2.nodes.length; i++) {
-      const nodeId = path2.nodes[i];
+    for (let i = 0; i < path.nodes.length; i++) {
+      const nodeId = path.nodes[i];
       const nodeTitle = titleById.get(nodeId) ?? nodeId;
       const nodeEl = chain.createEl("span", { cls: "tb-path-node", text: nodeTitle });
       nodeEl.addEventListener("click", () => {
@@ -37984,16 +37944,16 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
             void this.app.workspace.getLeaf().openFile(file);
         }
       });
-      if (i < path2.relations.length) {
-        const rel = path2.relations[i];
+      if (i < path.relations.length) {
+        const rel = path.relations[i];
         const relStr = relLabel(rel, this.lang);
         chain.createEl("span", { cls: "tb-path-arrow", text: `\u2192[${relStr}]\u2192` });
       }
     }
-    if (path2.isTransitive && path2.nodes.length >= 3) {
-      const srcId = path2.nodes[0];
-      const dstId = path2.nodes[path2.nodes.length - 1];
-      const inferredRel = path2.relations[0];
+    if (path.isTransitive && path.nodes.length >= 3) {
+      const srcId = path.nodes[0];
+      const dstId = path.nodes[path.nodes.length - 1];
+      const inferredRel = path.relations[0];
       const confirmBtn = card.createEl("button", {
         cls: "tb-btn tb-path-confirm-btn",
         text: `${this.t("path_save_transitive")} (${relLabel(inferredRel, this.lang)})`
@@ -38012,9 +37972,9 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
             target: `[[${dstNode.title}]]`,
             label: inferredRel,
             confirmed: true,
-            reason: `${this.t("path_transitive_badge")} (${path2.nodes.map((id2) => titleById.get(id2) ?? id2).join(" \u2192 ")})`,
-            confidence: path2.totalConfidence,
-            axiom_basis: `${this.t("path_transitive_badge")}: ${path2.nodes.map((id2) => titleById.get(id2) ?? id2).join(" \u2192 ")}`
+            reason: `${this.t("path_transitive_badge")} (${path.nodes.map((id2) => titleById.get(id2) ?? id2).join(" \u2192 ")})`,
+            confidence: path.totalConfidence,
+            axiom_basis: `${this.t("path_transitive_badge")}: ${path.nodes.map((id2) => titleById.get(id2) ?? id2).join(" \u2192 ")}`
           };
           await this.store.confirmEdge(srcFile, newEdge);
           confirmBtn.textContent = `${this.t("btn_save_done")} \u2713`;
@@ -38651,9 +38611,9 @@ var OnboardingModal = class extends import_obsidian4.Modal {
     } else if (this.selected === "claude-api" && this.apiKeyInput?.value.trim()) {
       this.plugin.settings.claudeApiKey = this.apiKeyInput.value.trim();
     } else if (this.selected === "claude-cli") {
-      const path2 = this.cliPathInput?.value.trim();
-      if (path2)
-        this.plugin.settings.cliBin = path2;
+      const path = this.cliPathInput?.value.trim();
+      if (path)
+        this.plugin.settings.cliBin = path;
     }
     this.plugin.settings.onboardingComplete = true;
     await this.plugin.saveSettings();

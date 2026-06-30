@@ -3205,7 +3205,7 @@
 	font-size: 11.5px;
 	color: var(--tb-muted);
 	cursor: pointer;
-	text-decoration: underline dotted;
+	text-decoration: underline;
 }
 .tb-ob-skip:hover {
 	color: var(--tb-text);
