@@ -307,6 +307,17 @@ var KO = {
   path_node_count_suffix: "\uAC1C \uB178\uB4DC",
   path_edge_count_suffix: "\uAC1C \uC5E3\uC9C0",
   path_save_transitive: "\uBCFC\uD2B8\uC5D0 \uCD94\uC774 \uC5E3\uC9C0 \uC800\uC7A5",
+  // pipeline result layers
+  label_pipeline_result: "\uD30C\uC774\uD504\uB77C\uC778 \uACB0\uACFC",
+  layer_context_header: "\u2460 \uBB38\uB9E5 \uB808\uC774\uC5B4",
+  layer_count_unit: "\uAC1C \uB2E8\uC704",
+  layer_count_generic: "\uAC1C",
+  layer_insight_header: "\u2B21 \uD575\uC2EC \uC778\uC0AC\uC774\uD2B8",
+  layer_logic_header: "\u2461 \uB17C\uB9AC \uB808\uC774\uC5B4",
+  layer_logic_prop_label: "\uBA85\uC81C",
+  layer_logic_edge_label: "\uC5E3\uC9C0",
+  layer_action_header: "\u2469 \uC561\uC158 \uB808\uC774\uC5B4",
+  progress_action: "\u2469 \uC561\uC158 \uB808\uC774\uC5B4 \uCD94\uCD9C \uC911...",
   // pipeline fallbacks
   fallback_title: "\uC81C\uBAA9 \uC5C6\uC74C",
   fallback_all: "\uC804\uCCB4",
@@ -546,6 +557,17 @@ var EN = {
   path_node_count_suffix: " nodes",
   path_edge_count_suffix: " edges",
   path_save_transitive: "Save transitive edge to vault",
+  // pipeline result layers
+  label_pipeline_result: "Pipeline Result",
+  layer_context_header: "\u2460 Context Layer",
+  layer_count_unit: " units",
+  layer_count_generic: "",
+  layer_insight_header: "\u2B21 Key Insights",
+  layer_logic_header: "\u2461 Logic Layer",
+  layer_logic_prop_label: "propositions",
+  layer_logic_edge_label: "edges",
+  layer_action_header: "\u2469 Action Layer",
+  progress_action: "\u2469 Extracting action layer...",
   fallback_title: "Untitled",
   fallback_all: "All",
   fallback_paragraph: "Paragraph",
@@ -753,32 +775,92 @@ function parseEnvelope(stdout) {
     return text;
   }
 }
+var _resolvedBin = null;
+function resolveCliBin(cliBin) {
+  if (process.platform !== "win32")
+    return cliBin;
+  if (cliBin !== "claude" && cliBin.includes("\\"))
+    return cliBin;
+  if (_resolvedBin !== null)
+    return _resolvedBin;
+  try {
+    const req = window.require;
+    if (!req) {
+      _resolvedBin = cliBin;
+      return cliBin;
+    }
+    const fs = req("fs");
+    const path = req("path");
+    const cp = req("child_process");
+    try {
+      const found = cp.execSync("where.exe claude 2>NUL", { timeout: 2e3 }).toString().trim().split(/\r?\n/)[0]?.trim();
+      if (found && fs.existsSync(found)) {
+        _resolvedBin = found;
+        return found;
+      }
+    } catch {
+    }
+    const base = path.join(
+      process.env["LOCALAPPDATA"] ?? "",
+      "Packages",
+      "Claude_pzs8sxrjxfjjc",
+      "LocalCache",
+      "Roaming",
+      "Claude",
+      "claude-code"
+    );
+    if (fs.existsSync(base)) {
+      const versions = fs.readdirSync(base).filter((d) => fs.statSync(path.join(base, d)).isDirectory()).sort().reverse();
+      for (const v of versions) {
+        const exe = path.join(base, v, "claude.exe");
+        if (fs.existsSync(exe)) {
+          _resolvedBin = exe;
+          return exe;
+        }
+      }
+    }
+  } catch {
+  }
+  _resolvedBin = cliBin;
+  return cliBin;
+}
 async function callClaude(prompt, cliBin = "claude") {
-  const useShell = process.platform === "win32";
+  const bin = resolveCliBin(cliBin);
+  const useShell = process.platform === "win32" && !bin.toLowerCase().endsWith(".exe");
   return new Promise((resolve, reject) => {
-    const proc = (0, import_child_process.spawn)(cliBin, ["-p", prompt, "--output-format", "json"], {
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: useShell
-    });
     let stdout = "";
     let stderr = "";
-    proc.stdout.on("data", (chunk) => {
+    let proc;
+    if (useShell) {
+      proc = (0, import_child_process.spawn)(bin, ["--output-format", "json"], {
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true
+      });
+      proc.stdin?.write(prompt);
+      proc.stdin?.end();
+    } else {
+      proc = (0, import_child_process.spawn)(bin, ["-p", prompt, "--output-format", "json"], {
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: false
+      });
+    }
+    proc.stdout?.on("data", (chunk) => {
       stdout += chunk.toString();
     });
-    proc.stderr.on("data", (chunk) => {
+    proc.stderr?.on("data", (chunk) => {
       stderr += chunk.toString();
     });
     proc.on("close", (code) => {
       if (code !== 0) {
         reject(new Error(`claude CLI \uC624\uB958 (code ${code}): ${stderr.trim() || "(stderr \uC5C6\uC74C)"}
-\uC2E4\uD589: ${cliBin}`));
+\uC2E4\uD589: ${bin}`));
         return;
       }
       resolve(parseEnvelope(stdout));
     });
     proc.on("error", (err) => {
       reject(new Error(`claude CLI \uC2E4\uD589 \uC2E4\uD328: ${err.message}
-\uACBD\uB85C: ${cliBin}
+\uACBD\uB85C: ${bin}
 \uC124\uC815\uC5D0\uC11C 'claude CLI \uACBD\uB85C'\uB97C \uC808\uB300 \uACBD\uB85C\uB85C \uC9C0\uC815\uD574\uBCF4\uC138\uC694.`));
     });
   });
@@ -1450,6 +1532,7 @@ async function extractActions(text, propositions, contexts, settings) {
   const ctxList = contexts.map((c2) => `- id:"${c2.id}" \uC81C\uBAA9:"${c2.title}"`).join("\n");
   const textForActions = text.length > 15e3 ? text.slice(0, 8e3) + "\n...(\uC911\uB7B5)...\n" + text.slice(-7e3) : text;
   const prompt = `${SYSTEM_ACTIONS}
+${jsonLangInstr(settings.lang)}
 
 \uD14D\uC2A4\uD2B8:
 ${textForActions}
@@ -1503,14 +1586,14 @@ async function linkActionsToPropositions(actions, propositions, settings) {
     return actions;
   const propList = propositions.map((p) => `- id:"${p.id}" \uC81C\uBAA9:"${p.title}"`).join("\n");
   const actionList = unlinked.map((a2) => `- id:"${a2.id}" \uC81C\uBAA9:"${a2.title}"`).join("\n");
-  const prompt = `\uB2E4\uC74C \uC561\uC158 \uAC01\uAC01\uC774 \uC5B4\uB5A4 \uBA85\uC81C\uB97C \uC2E4\uD604(implements)\uD558\uAC70\uB098 \uC870\uC0AC(investigates)\uD558\uAE30 \uC704\uD55C \uAC83\uC778\uC9C0 \uB9E4\uD551\uD558\uB77C.
-JSON\uB9CC \uBC18\uD658:
+  const prompt = `Map each action to the propositions it implements or investigates.
+${jsonLangInstr(settings.lang)}
 {"mappings":[{"action_id":"...","prop_ids":["prop-id-1"]}]}
 
-\uC561\uC158:
+Actions:
 ${actionList}
 
-\uBA85\uC81C:
+Propositions:
 ${propList}`;
   try {
     const raw = await callClaudeWithModel(
@@ -1715,6 +1798,7 @@ async function recommendTransplantEdges(newContent, newTitle, existingNodes, set
   const nodeList = existingNodes.slice(0, 15).map((n) => `### [${n.title}]
 ${n.content.slice(0, 500)}`).join("\n\n");
   const prompt = `${SYSTEM_TRANSPLANT_EDGES}
+${jsonLangInstr(settings.lang)}
 
 ## \uC0C8\uB85C \uC774\uC2DD\uD560 \uB178\uD2B8
 \uC81C\uBAA9: ${newTitle}
@@ -1764,6 +1848,7 @@ ${p.content.slice(0, 300)}${p.tags.length ? `
     ].filter(Boolean).join("\n");
   }).join("\n\n");
   const prompt = `${SYSTEM_CROSS}
+${jsonLangInstr(settings.lang)}
 
 ## \uC0C8\uB85C \uC800\uC7A5\uB41C \uBA85\uC81C\uB4E4
 ${newList}
@@ -1868,21 +1953,22 @@ function parseJson(raw, fallback) {
 }
 async function parseGraphQuery(query, nodes, settings) {
   const nodeList = nodes.slice(0, 100).map((n) => `- ${n.title} (${n.type})`).join("\n");
-  const prompt = `\uC0AC\uC6A9\uC790\uC758 \uC790\uC5F0\uC5B4 \uCFFC\uB9AC\uB97C \uADF8\uB798\uD504 \uD544\uD130 \uC2A4\uD399\uC73C\uB85C \uBCC0\uD658\uD558\uB77C.
+  const prompt = `Convert the user's natural language query into a graph filter spec.
+${jsonLangInstr(settings.lang)}
 
-\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uAD00\uACC4 10\uC885:
+Available relations (10 types):
 causes | precedes | precondition_of | supports | conflicts_with | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
 
-\uB178\uB4DC \uBAA9\uB85D (\uC77C\uBD80):
+Node list (partial):
 ${nodeList}
 
-\uCFFC\uB9AC: "${query}"
+Query: "${query}"
 
 rules:
-- relations: \uCFFC\uB9AC\uC640 \uAD00\uB828\uB41C \uAD00\uACC4 \uD0C0\uC785 \uBC30\uC5F4 (\uC5C6\uC73C\uBA74 \uC804\uCCB4 \uAD00\uACC4 \uBC18\uD658)
-- startNodeTitle: \uB178\uB4DC \uBAA9\uB85D \uC911 BFS \uC2DC\uC791 \uAE30\uC900\uC774 \uB420 \uB178\uB4DC \uC81C\uBAA9 (\uC5C6\uC73C\uBA74 null)
+- relations: relation types relevant to the query (return all if none match)
+- startNodeTitle: title of the node to start BFS from (null if none)
 
-JSON\uB9CC \uBC18\uD658 (\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+Return JSON only (no code blocks):
 {"relations":["supports","causes"],"startNodeTitle":null}`;
   try {
     const raw = await callClaudeWithModel(
@@ -1910,22 +1996,23 @@ JSON\uB9CC \uBC18\uD658 (\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
   }
 }
 async function rankEdgeRelations(nodeA, nodeB, evidence, settings) {
-  const prompt = `\uB450 \uBA85\uC81C \uC0AC\uC774\uC758 \uAD00\uACC4\uB97C \uBD84\uC11D\uD558\uB77C. conflicts_with(\uBAA8\uC21C)\uC77C \uAC00\uB2A5\uC131\uB3C4 \uC788\uC9C0\uB9CC, \uB354 \uC815\uD655\uD55C \uAD00\uACC4\uAC00 \uC788\uC744 \uC218 \uC788\uB2E4.
+  const prompt = `Analyze the relationship between two propositions. Although they may conflict, a more precise relation may exist.
+${jsonLangInstr(settings.lang)}
 
-\uBA85\uC81C A: "${nodeA.title}"${nodeA.content ? `
-\uB0B4\uC6A9: ${nodeA.content.slice(0, 300)}` : ""}
-\uBA85\uC81C B: "${nodeB.title}"${nodeB.content ? `
-\uB0B4\uC6A9: ${nodeB.content.slice(0, 300)}` : ""}
-\uAE30\uC874 \uBAA8\uC21C \uADFC\uAC70: "${evidence}"
+Proposition A: "${nodeA.title}"${nodeA.content ? `
+Content: ${nodeA.content.slice(0, 300)}` : ""}
+Proposition B: "${nodeB.title}"${nodeB.content ? `
+Content: ${nodeB.content.slice(0, 300)}` : ""}
+Existing conflict evidence: "${evidence}"
 
-\uC544\uB798 9\uC885 \uAD00\uACC4 \uC911 \uC774 \uB450 \uBA85\uC81C\uC5D0 \uB9DE\uB294 \uAC83\uC744 \uC2E0\uB8B0\uB3C4 \uB0B4\uB9BC\uCC28\uC21C\uC73C\uB85C \uCD5C\uB300 4\uAC1C \uBC18\uD658\uD558\uB77C.
-(conflicts_with\uB294 \uC81C\uC678 \u2014 \uC774\uBBF8 \uADF8\uB807\uAC8C \uBD84\uB958\uB428)
+Return up to 4 of the 9 relations below, ranked by confidence descending.
+(conflicts_with excluded \u2014 already classified as such)
 
-\uAD00\uACC4 \uBAA9\uB85D:
+Relations:
 causes | precedes | precondition_of | supports | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
 
-JSON\uB9CC \uBC18\uD658 (\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
-{"relations":[{"relation":"supports","confidence":0.85,"reason":"A\uAC00 B\uC758 \uADFC\uAC70\uB97C \uC81C\uACF5\uD55C\uB2E4"}]}`;
+Return JSON only (no code blocks):
+{"relations":[{"relation":"supports","confidence":0.85,"reason":"A provides evidence for B"}]}`;
   try {
     const raw = await callClaudeWithModel(
       prompt,
@@ -35660,7 +35747,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
   async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true) {
     let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, "") : void 0;
     this.pipelineModal?.close();
-    const modal = new PipelineInfoModal(this.app);
+    const modal = new PipelineInfoModal(this.app, this.plugin.settings.lang);
     this.pipelineModal = modal;
     modal.open();
     this.stepLogEl = modal.stepLogEl;
@@ -35753,7 +35840,7 @@ ${diagMsg}`
             }
           }
           if (includeActionLayer) {
-            this.setProgress(9, "\u2469 \uC561\uC158 \uB808\uC774\uC5B4 \uCD94\uCD9C \uC911...");
+            this.setProgress(9, this.t("progress_action"));
             await this.extractAndSaveActions(
               text,
               logic.propositions,
@@ -35818,7 +35905,7 @@ ${diagMsg}`
   // ── 1차 결과: 문맥 레이어 ────────────────────────────
   renderContextLayer(contexts) {
     const { content } = this.makeSectionToggle(
-      `\u2460 \uBB38\uB9E5 \uB808\uC774\uC5B4 \xB7 ${contexts.length}\uAC1C \uB2E8\uC704`,
+      `${this.t("layer_context_header")} \xB7 ${contexts.length}${this.t("layer_count_unit")}`,
       true
     );
     for (const ctx of contexts) {
@@ -35847,7 +35934,7 @@ ${diagMsg}`
     if (insights.length === 0)
       return;
     const { content } = this.makeSectionToggle(
-      `\u2B21 \uD575\uC2EC \uC778\uC0AC\uC774\uD2B8 \xB7 ${insights.length}\uAC1C`,
+      `${this.t("layer_insight_header")} \xB7 ${insights.length}${this.t("layer_count_generic")}`,
       false
     );
     for (const ins of insights) {
@@ -35865,7 +35952,7 @@ ${diagMsg}`
   // ── 2차 결과: 논리 레이어 (최종) ──────────────────────
   renderLogicLayer(logic) {
     const byId = new Map(logic.propositions.map((p) => [p.id, p]));
-    const label = `\u2461 \uB17C\uB9AC \uB808\uC774\uC5B4 \xB7 \uBA85\uC81C ${logic.propositions.length} \xB7 \uC5E3\uC9C0 ${logic.edges.length}`;
+    const label = `${this.t("layer_logic_header")} \xB7 ${this.t("layer_logic_prop_label")} ${logic.propositions.length} \xB7 ${this.t("layer_logic_edge_label")} ${logic.edges.length}`;
     const { content } = this.makeSectionToggle(label, true);
     const sorted = [...logic.propositions].sort((a2, b) => {
       const rank = (p) => p.is_core_concept ? 0 : 1;
@@ -36188,7 +36275,7 @@ ${diagMsg}`
     if (actions.length === 0)
       return;
     const { content } = this.makeSectionToggle(
-      `\u2469 \uC561\uC158 \uB808\uC774\uC5B4 \xB7 ${actions.length}\uAC1C`,
+      `${this.t("layer_action_header")} \xB7 ${actions.length}${this.t("layer_count_generic")}`,
       false
     );
     for (const a2 of actions) {
@@ -37098,9 +37185,13 @@ ${query}`);
   }
 };
 var PipelineInfoModal = class extends import_obsidian2.Modal {
+  constructor(app, lang) {
+    super(app);
+    this.t = getT(lang);
+  }
   onOpen() {
     this.modalEl.addClass("tb-pipeline-modal");
-    this.titleEl.setText("\uD30C\uC774\uD504\uB77C\uC778 \uACB0\uACFC");
+    this.titleEl.setText(this.t("label_pipeline_result"));
     if (!this.stepLogEl) {
       this.stepLogEl = this.contentEl.createEl("div", { cls: "tb-step-log" });
     }
