@@ -35444,7 +35444,7 @@ var GraphView = class {
   }
   showNodePopup(node, screenX, screenY) {
     this.closeNodePopup();
-    const popup = document.body.createEl("div", { cls: "tb-node-popup" });
+    const popup = activeDocument.body.createEl("div", { cls: "tb-node-popup" });
     this.nodePopupEl = popup;
     popup.createEl("div", { cls: "tb-node-popup-title", text: node.title });
     const typeColors = {
