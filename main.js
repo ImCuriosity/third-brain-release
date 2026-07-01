@@ -831,6 +831,7 @@ var SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 12
 </svg>`;
 
 // src/engine/cli-bridge.ts
+var _proc = process;
 function getReq() {
   return window.require;
 }
@@ -873,7 +874,7 @@ function parseEnvelope(stdout) {
 }
 var _resolvedBin = null;
 function resolveCliBin(cliBin) {
-  if (process.platform !== "win32")
+  if (_proc.platform !== "win32")
     return cliBin;
   if (cliBin !== "claude" && cliBin.includes("\\"))
     return cliBin;
@@ -897,7 +898,7 @@ function resolveCliBin(cliBin) {
     } catch {
     }
     const base = path.join(
-      process.env["LOCALAPPDATA"] ?? "",
+      _proc.env["LOCALAPPDATA"] ?? "",
       "Packages",
       "Claude_pzs8sxrjxfjjc",
       "LocalCache",
@@ -922,7 +923,7 @@ function resolveCliBin(cliBin) {
 }
 async function callClaude(prompt, cliBin = "claude") {
   const bin = resolveCliBin(cliBin);
-  const useShell = process.platform === "win32" && !bin.toLowerCase().endsWith(".exe");
+  const useShell = _proc.platform === "win32" && !bin.toLowerCase().endsWith(".exe");
   const req = getReq();
   if (!req)
     return Promise.reject(new Error("Electron window.require not available"));

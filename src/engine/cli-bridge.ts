@@ -4,6 +4,9 @@ import type { AIProvider } from '../types';
 // Using window.require (Electron CommonJS) with inline structural types avoids
 // @typescript-eslint/no-unsafe-* warnings in environments without @types/node.
 
+// process 전역을 구조적 타입으로 캐스팅 — @types/node 없는 환경에서 no-unsafe-member-access 방지
+const _proc = process as { platform: string; env: Record<string, string | undefined> };
+
 type LocalRequire = (module: string) => unknown;
 
 interface LocalFS {
@@ -116,7 +119,7 @@ let _resolvedBin: string | null = null;
 
 // Windows: where.exe PATH 탐색 → AppData 탐색 → 원래 bin 폴백
 function resolveCliBin(cliBin: string): string {
-	if (process.platform !== 'win32') return cliBin;
+	if (_proc.platform !== 'win32') return cliBin;
 	if (cliBin !== 'claude' && cliBin.includes('\\')) return cliBin;
 
 	// 캐시 히트
@@ -143,7 +146,7 @@ function resolveCliBin(cliBin: string): string {
 
 		// 2차: AppData Store 설치 경로 탐색
 		const base = path.join(
-			(process.env as Record<string, string>)['LOCALAPPDATA'] ?? '',
+			_proc.env['LOCALAPPDATA'] ?? '',
 			'Packages', 'Claude_pzs8sxrjxfjjc',
 			'LocalCache', 'Roaming', 'Claude', 'claude-code'
 		);
@@ -171,7 +174,7 @@ function resolveCliBin(cliBin: string): string {
 export async function callClaude(prompt: string, cliBin = 'claude'): Promise<unknown> {
 	const bin = resolveCliBin(cliBin);
 	// .exe 절대 경로는 직접 실행 (cmd.exe 8191자 한계 없음), 아니면 shell:true
-	const useShell = process.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
+	const useShell = _proc.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
 
 	const req = getReq();
 	if (!req) return Promise.reject(new Error('Electron window.require not available'));
@@ -410,7 +413,7 @@ export async function callClaudeWithStdin(
 	cliBin = 'claude'
 ): Promise<unknown> {
 	const bin = resolveCliBin(cliBin);
-	const useShell = process.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
+	const useShell = _proc.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
 
 	const req = getReq();
 	if (!req) return Promise.reject(new Error('Electron window.require not available'));
