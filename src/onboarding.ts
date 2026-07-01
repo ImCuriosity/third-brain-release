@@ -182,10 +182,12 @@ export class OnboardingModal extends Modal {
 
 export async function isClaudeCLIAvailable(cliBin: string): Promise<boolean> {
 	try {
-		 
-		const { exec } = ((window as Window & { require: NodeJS.Require }).require)('child_process') as typeof import('child_process');
+		type LocalExec = (cmd: string, opts: { timeout: number }, cb: (err: unknown) => void) => void;
+		const req = (window as Window & { require?: (m: string) => unknown }).require;
+		if (!req) return false;
+		const { exec } = req('child_process') as { exec: LocalExec };
 		return await new Promise<boolean>((resolve) => {
-			exec(`${cliBin} --version`, { timeout: 3000 }, (err: unknown) => resolve(!err));
+			exec(`${cliBin} --version`, { timeout: 3000 }, (err) => resolve(!err));
 		});
 	} catch {
 		return false;

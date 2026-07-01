@@ -20,7 +20,8 @@ export type TBNodeType =
 	| 'context'       // 원본 문맥 단위 (명제·액션의 precondition)
 	| 'action'        // 액션 아이템
 	| 'summary'       // 컨텍스트 요약
-	| 'core';         // 레거시 호환 (= claim과 동치)
+	| 'core'          // 레거시 호환 (= claim과 동치)
+	| 'expression';   // 언어 표현 (영어 스터디 등)
 
 // ── 엣지 ─────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ export interface TBNode {
 	filePath: string;         // vault 내 경로
 	is_core_concept?: boolean; // 추상 허브 판별용 (tb_is_core 프론트매터)
 	source_span?: SourceSpan; // 원문 역추적 (ingested 노드에 필수)
+	proposition_type?: 'fact' | 'claim'; // 명제 차원 (없으면 'claim' 기본값)
 }
 
 // ── 파이프라인 레이어 타입 (v0 포팅) ─────────────────────
@@ -132,6 +134,7 @@ export interface Proposition {
 	context: string;            // 소속 문맥 단위 제목 (없으면 빈 문자열)
 	is_core_concept: boolean;   // 핵심 개념 여부 (최대 2개)
 	source_span: SourceSpan;    // 원문 역추적 (필수 — 누락 시 파이프라인 Reject)
+	proposition_type: 'fact' | 'claim'; // 명제 차원: 검증 가능한 사실 vs 해석·주장
 }
 
 /** 2차: 명제 간 방향 논리 엣지 */
@@ -383,6 +386,8 @@ export interface ActionLink {
 	note?: string;
 }
 
+export type MeetingType = 'brainstorm' | 'execution' | 'review';
+
 export interface ActionNode {
 	id: string;
 	title: string;
@@ -396,6 +401,7 @@ export interface ActionNode {
 	origin: 'extracted' | 'user' | 'from_resolution';
 	created: string;             // ISO 8601
 	filePath: string;
+	meeting_type?: MeetingType;  // 회의 유형 (액션 리뷰 모드)
 }
 
 // ── 플러그인 설정 ─────────────────────────────────────────

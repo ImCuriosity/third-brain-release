@@ -2,8 +2,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 // Worker 코드가 빌드 시점에 IIFE 문자열로 embed됨 (esbuild pdfjs-worker-inline 플러그인)
  
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- pdfjs-worker-inline is a virtual esbuild module that embeds the worker as a string
-const workerScript = require('pdfjs-worker-inline') as string;
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- pdfjs-worker-inline is a virtual esbuild module that embeds the worker as a string; inlined at build time, not a runtime Node.js call
+const workerScript = (require as unknown as (m: string) => unknown)('pdfjs-worker-inline') as string;
 
 let workerUrl: string | null = null;
 

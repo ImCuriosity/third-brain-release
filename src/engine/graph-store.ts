@@ -13,6 +13,7 @@ import type {
 	ActionNode,
 	ActionStatus,
 	ActionLinkType,
+	MeetingType,
 } from '../types';
 
 export interface TBFrontMatter {
@@ -30,6 +31,7 @@ export interface TBFrontMatter {
 	tb_insight_anchors?: string[];
 	tb_logic?: unknown;
 	tb_conflict?: boolean;
+	tb_proposition_type?: 'fact' | 'claim';
 	// action node fields (both new and legacy schema)
 	tb_action_id?: string;
 	tb_action_title?: string;
@@ -47,6 +49,7 @@ export interface TBFrontMatter {
 	tb_origin?: string;
 	tb_action_origin?: string;
 	tb_action_created?: string;
+	tb_meeting_type?: string;
 }
 
 export class GraphStore {
@@ -94,6 +97,7 @@ export class GraphStore {
 			edges: Array.isArray(fm.tb_edges) ? fm.tb_edges : [],
 			filePath: file.path,
 			is_core_concept: fm.tb_is_core === true,
+			proposition_type: fm.tb_proposition_type === 'fact' ? 'fact' : 'claim',
 		};
 	}
 
@@ -314,13 +318,13 @@ export class GraphStore {
 				}
 			}
 
-			// 논리 엣지 (미확정) — confidence/axiom_basis 전파
+			// 논리 엣지 — confidence ≥ 0.75 필터 통과 = 파이프라인 승인, confirmed: true
 			const outEdges: TBEdge[] = logicEdges
 				.filter(e => e.source === p.id)
 				.map(e => ({
 					target: `[[${titleMap.get(e.target) ?? e.target}]]`,
 					label: toRelation(e.relation),
-					confirmed: false,
+					confirmed: true,
 					reason: e.reason,
 					confidence: typeof e.confidence === 'number' ? e.confidence : 1.0,
 					axiom_basis: typeof e.axiom_basis === 'string' ? e.axiom_basis : '',
@@ -351,6 +355,7 @@ export class GraphStore {
 					edges: outEdges,
 					is_core_concept: p.is_core_concept === true,
 					source_span: p.source_span,
+					proposition_type: p.proposition_type,
 				}, rawSourcePath);
 				fileMap.set(p.id, file);
 			} catch {
@@ -495,6 +500,7 @@ export class GraphStore {
 		if (node.source_span?.text) {
 			lines.push(`tb_source_span: ${JSON.stringify(node.source_span)}`);
 		}
+		if (node.proposition_type === 'fact') lines.push('tb_proposition_type: fact');
 		// Phase 2-4: conflicts_with 엣지가 있으면 tb_conflict 마킹
 		const hasConflict = edges.some(e => e.label === 'conflicts_with' && e.confirmed);
 		if (hasConflict) lines.push('tb_conflict: true');
@@ -570,6 +576,7 @@ export class GraphStore {
 			`tb_link_type: ${node.link_type}`,
 			`tb_origin: ${node.origin}`,
 			`tb_motivation_context_ids: ${motivCtxIds}`,
+			...(node.meeting_type ? [`tb_meeting_type: ${node.meeting_type}`] : []),
 			'---',
 		].join('\n');
 
@@ -640,10 +647,11 @@ export class GraphStore {
 			motivation_context_ids: Array.isArray(fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids)
 				? ((fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids) as string[])
 				: [],
-			link_type: (fm?.tb_link_type ?? fm?.tb_action_link_type ?? 'implements') as ActionLinkType,
-			origin:    (fm?.tb_origin ?? fm?.tb_action_origin ?? 'extracted') as 'extracted' | 'user' | 'from_resolution',
-			created:   String(fm?.tb_created ?? fm?.tb_action_created ?? ''),
-			filePath:  file.path,
+			link_type:    (fm?.tb_link_type ?? fm?.tb_action_link_type ?? 'implements') as ActionLinkType,
+			origin:       (fm?.tb_origin ?? fm?.tb_action_origin ?? 'extracted') as 'extracted' | 'user' | 'from_resolution',
+			created:      String(fm?.tb_created ?? fm?.tb_action_created ?? ''),
+			filePath:     file.path,
+			meeting_type: fm?.tb_meeting_type ? (fm.tb_meeting_type as MeetingType) : undefined,
 		};
 	}
 

@@ -1,7 +1,49 @@
-import { spawn } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
 import type { AIProvider } from '../types';
+
+// ── Electron compat: local structural types — no @types/node needed ──────────
+// Using window.require (Electron CommonJS) with inline structural types avoids
+// @typescript-eslint/no-unsafe-* warnings in environments without @types/node.
+
+type LocalRequire = (module: string) => unknown;
+
+interface LocalFS {
+    existsSync(path: string): boolean;
+    readdirSync(path: string): string[];
+    statSync(path: string): { isDirectory(): boolean };
+}
+interface LocalPath {
+    join(...paths: string[]): string;
+}
+interface LocalCP {
+    execSync(command: string, options?: { timeout?: number }): { toString(): string };
+}
+// Buffer extends Uint8Array (ES2020 lib) with UTF-8 toString — no @types/node needed
+interface NodeBuffer extends Uint8Array {
+    toString(encoding?: string): string;
+}
+interface LocalReadable {
+    on(event: 'data', listener: (chunk: NodeBuffer) => void): void;
+}
+interface LocalWritable {
+    write(data: string): void;
+    end(): void;
+}
+interface LocalChildProcess {
+    stdout: LocalReadable | null;
+    stderr: LocalReadable | null;
+    stdin: LocalWritable | null;
+    on(event: 'close', listener: (code: number | null) => void): void;
+    on(event: 'error', listener: (err: Error) => void): void;
+}
+type LocalSpawnFn = (
+    command: string,
+    args: string[],
+    options: { stdio: Array<'pipe' | 'ignore'>; shell?: boolean }
+) => LocalChildProcess;
+
+function getReq(): LocalRequire | undefined {
+    return (window as Window & { require?: LocalRequire }).require;
+}
 
 // Obsidian requestUrl (v0 호환 방식)
 type RequestUrlFn = (options: {
@@ -69,29 +111,58 @@ function parseEnvelope(stdout: string): unknown {
 	}
 }
 
-// Windows에서 claude.exe 절대 경로 자동 탐색
+// 세션 내 경로 캐시 — 반복 탐색 방지
+let _resolvedBin: string | null = null;
+
+// Windows: where.exe PATH 탐색 → AppData 탐색 → 원래 bin 폴백
 function resolveCliBin(cliBin: string): string {
 	if (process.platform !== 'win32') return cliBin;
-	// 이미 절대 경로면 그대로 사용
 	if (cliBin !== 'claude' && cliBin.includes('\\')) return cliBin;
-	// 알려진 설치 위치에서 최신 버전 탐색
+
+	// 캐시 히트
+	if (_resolvedBin !== null) return _resolvedBin;
+
 	try {
+		const req = getReq();
+		if (!req) { _resolvedBin = cliBin; return cliBin; }
+
+		const fs   = req('fs')   as LocalFS;
+		const path = req('path') as LocalPath;
+		const cp   = req('child_process') as LocalCP;
+
+		// 1차: where.exe로 PATH 탐색 (npm global 설치 등)
+		try {
+			const found = cp.execSync('where.exe claude 2>NUL', { timeout: 2000 })
+				.toString().trim().split(/\r?\n/)[0]?.trim();
+			if (found && fs.existsSync(found)) {
+				_resolvedBin = found;
+				return found;
+			}
+		// eslint-disable-next-line no-empty -- where.exe 실패 시 AppData 탐색으로 폴백
+		} catch { }
+
+		// 2차: AppData Store 설치 경로 탐색
 		const base = path.join(
-			process.env.LOCALAPPDATA ?? '',
+			(process.env as Record<string, string>)['LOCALAPPDATA'] ?? '',
 			'Packages', 'Claude_pzs8sxrjxfjjc',
 			'LocalCache', 'Roaming', 'Claude', 'claude-code'
 		);
-		if (!fs.existsSync(base)) return cliBin;
-		const versions = fs.readdirSync(base)
-			.filter(d => fs.statSync(path.join(base, d)).isDirectory())
-			.sort()
-			.reverse();
-		for (const v of versions) {
-			const exe = path.join(base, v, 'claude.exe');
-			if (fs.existsSync(exe)) return exe;
+		if (fs.existsSync(base)) {
+			const versions = fs.readdirSync(base)
+				.filter(d => fs.statSync(path.join(base, d)).isDirectory())
+				.sort().reverse();
+			for (const v of versions) {
+				const exe = path.join(base, v, 'claude.exe');
+				if (fs.existsSync(exe)) {
+					_resolvedBin = exe;
+					return exe;
+				}
+			}
 		}
-	// eslint-disable-next-line no-empty -- claude.exe path resolution failed; fall back to original bin
+	// eslint-disable-next-line no-empty -- 탐색 전체 실패 시 원래 bin으로 폴백
 	} catch { }
+
+	_resolvedBin = cliBin;
 	return cliBin;
 }
 
@@ -99,19 +170,36 @@ function resolveCliBin(cliBin: string): string {
 // Anthropic Cloud API 직접 호출 금지 — 이 함수를 통해서만 LLM에 접근한다
 export async function callClaude(prompt: string, cliBin = 'claude'): Promise<unknown> {
 	const bin = resolveCliBin(cliBin);
-	// .cmd 래퍼는 shell: true 필요, .exe 절대 경로는 직접 실행 (cmd.exe 8191자 한계 우회)
+	// .exe 절대 경로는 직접 실행 (cmd.exe 8191자 한계 없음), 아니면 shell:true
 	const useShell = process.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
-	return new Promise((resolve, reject) => {
-		const proc = spawn(bin, ['-p', prompt, '--output-format', 'json'], {
-			stdio: ['ignore', 'pipe', 'pipe'],
-			shell: useShell,
-		});
 
+	const req = getReq();
+	if (!req) return Promise.reject(new Error('Electron window.require not available'));
+	const { spawn } = req('child_process') as { spawn: LocalSpawnFn };
+
+	return new Promise((resolve, reject) => {
 		let stdout = '';
 		let stderr = '';
 
-		proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-		proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+		let proc: LocalChildProcess;
+
+		if (useShell) {
+			// shell:true + 긴 프롬프트 → stdin 파이프로 cmd.exe 8191자 한계 우회
+			proc = spawn(bin, ['--output-format', 'json'], {
+				stdio: ['pipe', 'pipe', 'pipe'],
+				shell: true,
+			});
+			proc.stdin?.write(prompt);
+			proc.stdin?.end();
+		} else {
+			proc = spawn(bin, ['-p', prompt, '--output-format', 'json'], {
+				stdio: ['ignore', 'pipe', 'pipe'],
+				shell: false,
+			});
+		}
+
+		proc.stdout?.on('data', (chunk: NodeBuffer) => { stdout += chunk.toString(); });
+		proc.stderr?.on('data', (chunk: NodeBuffer) => { stderr += chunk.toString(); });
 
 		proc.on('close', (code) => {
 			if (code !== 0) {
@@ -321,17 +409,36 @@ export async function callClaudeWithStdin(
 	userContent: string,
 	cliBin = 'claude'
 ): Promise<unknown> {
+	const bin = resolveCliBin(cliBin);
+	const useShell = process.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
+
+	const req = getReq();
+	if (!req) return Promise.reject(new Error('Electron window.require not available'));
+	const { spawn } = req('child_process') as { spawn: LocalSpawnFn };
+
 	return new Promise((resolve, reject) => {
 		const fullPrompt = `${systemPrompt}\n\n---\n\n${userContent}`;
-		const proc = spawn(cliBin, ['-p', fullPrompt, '--output-format', 'json'], {
-			stdio: ['ignore', 'pipe', 'pipe'],
-		});
-
 		let stdout = '';
 		let stderr = '';
+		let proc: LocalChildProcess;
 
-		proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-		proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+		if (useShell) {
+			// shell:true → stdin 파이프로 cmd.exe 8191자 한계 우회
+			proc = spawn(bin, ['--output-format', 'json'], {
+				stdio: ['pipe', 'pipe', 'pipe'],
+				shell: true,
+			});
+			proc.stdin?.write(fullPrompt);
+			proc.stdin?.end();
+		} else {
+			proc = spawn(bin, ['-p', fullPrompt, '--output-format', 'json'], {
+				stdio: ['ignore', 'pipe', 'pipe'],
+				shell: false,
+			});
+		}
+
+		proc.stdout?.on('data', (chunk: NodeBuffer) => { stdout += chunk.toString(); });
+		proc.stderr?.on('data', (chunk: NodeBuffer) => { stderr += chunk.toString(); });
 
 		proc.on('close', (code) => {
 			if (code !== 0) {

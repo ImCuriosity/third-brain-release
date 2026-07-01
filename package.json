@@ -1,11 +1,14 @@
 {
 	"name": "thirdbrain-v2",
-	"version": "0.1.15",
+	"version": "0.1.22",
 	"description": "ThirdBrain — 로컬 지식 그래프 IDE for Obsidian",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"check:ts": "tsc --noEmit --skipLibCheck",
+		"check:lint": "eslint src/",
+		"check:all": "node scripts/check.mjs"
 	},
 	"keywords": [],
 	"author": "ThirdBrain",
@@ -13,8 +16,8 @@
 	"devDependencies": {
 		"@types/d3": "^7.4.0",
 		"@types/node": "^20.11.0",
-		"@typescript-eslint/eslint-plugin": "^8.62.0",
-		"@typescript-eslint/parser": "^8.62.0",
+		"@typescript-eslint/eslint-plugin": "^8.62.1",
+		"@typescript-eslint/parser": "^8.62.1",
 		"esbuild": "^0.20.0",
 		"eslint": "^10.6.0",
 		"eslint-plugin-no-unsanitized": "^4.1.5",

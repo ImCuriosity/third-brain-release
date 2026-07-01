@@ -22,8 +22,9 @@ import type { TBFrontMatter } from './engine/graph-store';
 import { buildTensor, findPath, findTransitivePaths, addNodeToTensor } from './engine/adjacency-tensor';
 import { detectConflicts } from './engine/contradiction-engine';
 import { extractPdfText } from './engine/pdf-extractor';
-import { extractActions, linkActionsToPropositions, rankEdgeRelations } from './engine/serial-pipeline';
-import type { EdgeRank } from './engine/serial-pipeline';
+import { extractActions, linkActionsToPropositions, rankEdgeRelations, parseGraphQuery, analyzeTranscriptNodes, type TranscriptAnalysisMode } from './engine/serial-pipeline';
+import type { EdgeRank, GraphQuerySpec } from './engine/serial-pipeline';
+import { GraphView, EDGE_COLOR } from './components/graph-view';
 import {
 	toRelation,
 } from './types';
@@ -43,6 +44,7 @@ import type {
 	ConflictReport,
 	ActionNode,
 	ActionStatus,
+	MeetingType,
 	ThirdBrainSettings,
 } from './types';
 
@@ -99,6 +101,9 @@ export class ThirdBrainView extends ItemView {
 	private stepLogEl!: HTMLElement;
 	private pipelineModal: PipelineInfoModal | null = null;
 	private resultsEl!: HTMLElement;
+
+	// 전사본 분석 백그라운드 작업 상태 (모달 닫혀도 유지)
+	private transcriptJob: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null = null;
 
 	// 재분석용 문맥 캐시
 	private _cachedContexts: ContextLayer[] | null = null;
@@ -250,14 +255,33 @@ export class ThirdBrainView extends ItemView {
 
 		this.analysisBtn = actions.createEl('button', { cls: 'tb-btn-secondary', text: this.t('btn_analyze') });
 		this.analysisBtn.addEventListener('click', () => {
-			new AnalysisTabbedModal(this.app, this.getFolderPaths(), this.store, (folder, mode, intent, includeActions) => {
-				void this.runFolderAnalysis(folder, mode, intent, includeActions);
-			}, this.plugin.settings.lang).open();
+			new AnalysisTabbedModal(
+				this.app, this.getFolderPaths(), this.store,
+				(folder, mode, intent, includeActions) => { void this.runFolderAnalysis(folder, mode, intent, includeActions); },
+				this.plugin.settings.lang,
+				this.plugin.settings,
+				this.transcriptJob,
+				(job) => {
+					this.transcriptJob = job;
+					this.setAIBusy(job?.running ?? false);
+				},
+				() => this._busyAI || this._busyIngest || this._busyBridge,
+			).open();
 		});
 
 		const graphBtn = actions.createEl('button', { cls: 'tb-btn-secondary', text: this.t('btn_graph') });
 		graphBtn.addEventListener('click', () => {
-			new GraphViewModal(this.app, this.getFolderPaths(), (f, exc) => { void this.openNativeGraph(f, exc); }, this.plugin.settings.lang).open();
+			new GraphViewModal(
+				this.app,
+				this.getFolderPaths(),
+				(f, exc) => { void this.openNativeGraph(f, exc); },
+				async (folders, relSet) => {
+					const allNodes = (await Promise.all(folders.map(f => this.store.loadNodesInFolder(f)))).flat();
+					new GraphCanvasModal(this.app, allNodes, relSet, this.plugin.settings.lang ?? 'en').open();
+				},
+				this.store,
+				this.plugin.settings,
+			).open();
 		});
 
 		this.bridgeBtn = actions.createEl('button', { cls: 'tb-btn-secondary', text: this.t('btn_bridge') });
@@ -411,7 +435,7 @@ export class ThirdBrainView extends ItemView {
 
 	// 외부 호출용 (NodeTransplantModal → raw 파일 인제스트)
 	public async ingestContent(content: string, targetFolder: string): Promise<void> {
-		this.setBusy(true);
+		this.setIngestBusy(true);
 		this.resultsEl.empty();
 		this.stepLogEl?.empty();
 		await this.runPipeline(content, undefined, targetFolder);
@@ -434,8 +458,8 @@ export class ThirdBrainView extends ItemView {
 		}
 
 		// Step 1: 콘텐츠 타입 선택
-		const includeActionLayer = await new Promise<boolean | null>((resolve) => {
-			new ContentTypeModal(this.app, resolve, this.plugin.settings.lang).open();
+		const [includeActionLayer, meetingType] = await new Promise<[boolean | null, MeetingType | undefined]>((resolve) => {
+			new ContentTypeModal(this.app, (inc, mt) => resolve([inc, mt]), this.plugin.settings.lang).open();
 		});
 		if (includeActionLayer === null) return;
 
@@ -492,7 +516,7 @@ export class ThirdBrainView extends ItemView {
 			// raw 박제 실패는 파이프라인을 중단시키지 않음
 		}
 
-		this.setBusy(true);
+		this.setIngestBusy(true);
 		this.resultsEl.empty();
 		this.pipelineModal?.close();
 		this.pipelineModal = null;
@@ -503,14 +527,14 @@ export class ThirdBrainView extends ItemView {
 		if (text.length > CHUNK_SIZE) {
 			const chunks = splitIntoChunks(text, CHUNK_SIZE);
 			for (let i = 0; i < chunks.length; i++) {
-				this.setBusy(true);
+				this.setIngestBusy(true);
 				this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
 				const isLast = i === chunks.length - 1;
-				const links = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast);
+				const links = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
 				if (links) allRawLinks.push(...links);
 			}
 		} else {
-			const links = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true);
+			const links = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
 			if (links) allRawLinks.push(...links);
 		}
 
@@ -530,13 +554,14 @@ export class ThirdBrainView extends ItemView {
 		includeActionLayer = false,
 		rawFile?: TFile,
 		needsAutoTitle = false,
-		isLastChunk = true
+		isLastChunk = true,
+		meetingType?: MeetingType
 	) {
 		let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, '') : undefined;
 
 		// 파이프라인 결과 모달 생성 — 로컬 변수로 캡처해야 청크별 버튼이 각자 모달 참조
 		this.pipelineModal?.close();
-		const modal = new PipelineInfoModal(this.app);
+		const modal = new PipelineInfoModal(this.app, this.plugin.settings.lang);
 		this.pipelineModal = modal;
 		modal.open();
 		this.stepLogEl = modal.stepLogEl;
@@ -605,7 +630,7 @@ export class ThirdBrainView extends ItemView {
 					text: `명제 추출 실패 (${chunkLabel ?? '단일 청크'}):\n${diagMsg}`,
 				});
 				this.hideProgress();
-				this.setBusy(false);
+				this.setIngestBusy(false);
 				return [];
 			}
 
@@ -615,13 +640,13 @@ export class ThirdBrainView extends ItemView {
 				() => extractEdges(propositions, contexts, [], this.plugin.settings));
 			const logic: LogicLayer = { propositions, edges: rawEdges };
 			this.hideProgress();
-			this.setBusy(false);
+			this.setIngestBusy(false);
 
 			this.renderLogicLayer(logic);
 
 			// 폴더 브리지는 별도 기능으로 분리 (generateEdgeCandidates 제거)
 			this.hideProgress();
-			this.setBusy(false);
+			this.setIngestBusy(false);
 
 			// targetFolder가 있으면 자동 저장 (중복 저장 방지)
 			if (targetFolder) {
@@ -646,14 +671,15 @@ export class ThirdBrainView extends ItemView {
 
 					// Phase 8: 액션 레이어 추출 (회의·일정 선택 시에만)
 					if (includeActionLayer) {
-						this.setProgress(9, '⑩ 액션 레이어 추출 중...');
+						this.setProgress(9, this.t('progress_action'));
 						await this.extractAndSaveActions(
 							text,
 							logic.propositions,
 							contexts,
 							contextFileMap,
 							propFileMap,
-							targetFolder
+							targetFolder,
+							meetingType
 						);
 					}
 
@@ -691,7 +717,7 @@ export class ThirdBrainView extends ItemView {
 
 		} catch (e) {
 			this.hideProgress();
-			this.setBusy(false);
+			this.setIngestBusy(false);
 
 			const msg = e instanceof Error ? e.message : String(e);
 			const stack = e instanceof Error ? e.stack : '';
@@ -727,7 +753,7 @@ export class ThirdBrainView extends ItemView {
 
 	private renderContextLayer(contexts: ContextLayer[]) {
 		const { content } = this.makeSectionToggle(
-			`① 문맥 레이어 · ${contexts.length}개 단위`, true
+			`${this.t('layer_context_header')} · ${contexts.length}${this.t('layer_count_unit')}`, true
 		);
 		for (const ctx of contexts) {
 			const card = content.createEl('div', { cls: 'tb-card is-summary' });
@@ -752,7 +778,7 @@ export class ThirdBrainView extends ItemView {
 	private renderInsightLayer(insights: Insight[]) {
 		if (insights.length === 0) return;
 		const { content } = this.makeSectionToggle(
-			`⬡ 핵심 인사이트 · ${insights.length}개`, false
+			`${this.t('layer_insight_header')} · ${insights.length}${this.t('layer_count_generic')}`, false
 		);
 		for (const ins of insights) {
 			const card = content.createEl('div', { cls: 'tb-card is-insight' });
@@ -770,7 +796,7 @@ export class ThirdBrainView extends ItemView {
 
 	private renderLogicLayer(logic: LogicLayer) {
 		const byId = new Map(logic.propositions.map(p => [p.id, p]));
-		const label = `② 논리 레이어 · 명제 ${logic.propositions.length} · 엣지 ${logic.edges.length}`;
+		const label = `${this.t('layer_logic_header')} · ${this.t('layer_logic_prop_label')} ${logic.propositions.length} · ${this.t('layer_logic_edge_label')} ${logic.edges.length}`;
 		const { content } = this.makeSectionToggle(label, true);
 
 		// 핵심 개념 먼저
@@ -1034,6 +1060,10 @@ export class ThirdBrainView extends ItemView {
 		const card = parent.createEl('div', { cls: `tb-action-card is-${node.status}` });
 
 		const head = card.createEl('div', { cls: 'tb-action-card-head' });
+		if (node.meeting_type) {
+			const mtKey = `action_meeting_${node.meeting_type}` as TKey;
+			head.createEl('span', { cls: `tb-action-meeting-badge is-${node.meeting_type}`, text: this.t(mtKey) });
+		}
 		if (node.origin === 'from_resolution') {
 			head.createEl('span', { cls: 'tb-action-badge-conflict', text: this.t('badge_conflict_resolved') });
 		} else if (node.origin === 'extracted') {
@@ -1094,7 +1124,8 @@ export class ThirdBrainView extends ItemView {
 		contexts: ContextLayer[],
 		contextFileMap: Map<string, TFile>,
 		propFileMap: Map<string, TFile>,
-		folder: string
+		folder: string,
+		meetingType?: MeetingType
 	): Promise<void> {
 		try {
 			let actions = await extractActions(text, propositions, contexts, this.plugin.settings);
@@ -1106,7 +1137,8 @@ export class ThirdBrainView extends ItemView {
 			const savedActions: ActionNode[] = [];
 
 			for (const a of actions) {
-				const actionFile = await this.store.createActionNode(a, folder, propFileMap);
+				const actionWithMeeting = meetingType ? { ...a, meeting_type: meetingType } : a;
+				const actionFile = await this.store.createActionNode(actionWithMeeting, folder, propFileMap);
 
 				// 문맥 → 액션: precondition_of 엣지
 				for (const ctxId of (a.motivation_context_ids ?? [])) {
@@ -1123,7 +1155,7 @@ export class ThirdBrainView extends ItemView {
 						axiom_basis: '파이프라인 자동 연결',
 					});
 				}
-				savedActions.push({ ...a, filePath: actionFile.path, _propById: propById } as ActionNode & { _propById: Map<string, Proposition> });
+				savedActions.push({ ...actionWithMeeting, filePath: actionFile.path, _propById: propById } as ActionNode & { _propById: Map<string, Proposition> });
 			}
 			this.renderActionResults(savedActions, propById);
 		} catch (e) {
@@ -1134,10 +1166,28 @@ export class ThirdBrainView extends ItemView {
 	private renderActionResults(actions: ActionNode[], propById?: Map<string, Proposition>) {
 		if (actions.length === 0) return;
 		const { content } = this.makeSectionToggle(
-			`⑩ 액션 레이어 · ${actions.length}개`, false
+			`${this.t('layer_action_header')} · ${actions.length}${this.t('layer_count_generic')}`, false
 		);
-		for (const a of actions) {
-			this.renderActionCard(content, a, propById);
+
+		// meeting_type별 그룹핑: 타입이 있는 경우에만 그룹 헤더 표시
+		const hasMeetingType = actions.some(a => !!a.meeting_type);
+		if (hasMeetingType) {
+			const groups = new Map<string, ActionNode[]>();
+			for (const a of actions) {
+				const key = a.meeting_type ?? 'none';
+				if (!groups.has(key)) groups.set(key, []);
+				groups.get(key)!.push(a);
+			}
+			const groupOrder: Array<MeetingType | 'none'> = ['brainstorm', 'execution', 'review', 'none'];
+			for (const key of groupOrder) {
+				const group = groups.get(key);
+				if (!group || group.length === 0) continue;
+				const labelKey: TKey = key === 'none' ? 'action_meeting_none' : `action_meeting_${key}` as TKey;
+				content.createEl('div', { cls: 'tb-action-group-header', text: this.t(labelKey) });
+				for (const a of group) this.renderActionCard(content, a, propById);
+			}
+		} else {
+			for (const a of actions) this.renderActionCard(content, a, propById);
 		}
 	}
 
@@ -1497,13 +1547,13 @@ export class ThirdBrainView extends ItemView {
 
 	private async runFolderAnalysis(folderPath: string, mode: 'rich' | 'summary', intent?: string, includeActions?: boolean) {
 		this.resultsEl.empty();
-		this.setBusy(true);
+		this.setAIBusy(true);
 		this.setProgress(5, `${this.t('analysis_progress_label')} (${mode === 'rich' ? this.t('analysis_depth_rich') : this.t('analysis_depth_summary')})`);
 
 		const folder = this.app.vault.getFolderByPath(folderPath);
 		if (!folder) {
 			new Notice('[ThirdBrain] 폴더를 찾을 수 없습니다.');
-			this.setBusy(false);
+			this.setAIBusy(false);
 			this.hideProgress();
 			return;
 		}
@@ -1547,7 +1597,7 @@ export class ThirdBrainView extends ItemView {
 
 		if (nodes.length === 0) {
 			new Notice('[ThirdBrain] 폴더에 마크다운 파일이 없습니다.');
-			this.setBusy(false);
+			this.setAIBusy(false);
 			this.hideProgress();
 			return;
 		}
@@ -1555,11 +1605,11 @@ export class ThirdBrainView extends ItemView {
 		try {
 			const result = await summarizeFolder(nodes, this.plugin.settings, mode, intent);
 			this.hideProgress();
-			this.setBusy(false);
+			this.setAIBusy(false);
 			this.renderSummaryResult(result, folderPath, mode, intent);
 		} catch (e) {
 			this.hideProgress();
-			this.setBusy(false);
+			this.setAIBusy(false);
 			new Notice(`[ThirdBrain] 분석 실패: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
@@ -1580,10 +1630,7 @@ export class ThirdBrainView extends ItemView {
 
 		const openModal = () => {
 			new AnalysisResultModal(this.app, result, folderPath, mode, intent, () => {
-				const folders = this.getFolderPaths();
-				new SaveFolderModal(this.app, folders, this.plugin.settings.rootFolder, (tf: string) => {
-					void this.saveAnalysisResult(result, folderPath, tf, openBtn, mode, intent);
-				}, this.plugin.settings.lang, this.plugin.settings.rootFolder).open();
+				void this.saveAnalysisResult(result, folderPath, openBtn, mode, intent);
 			}, this.plugin.settings.lang).open();
 		};
 		openBtn.addEventListener('click', openModal);
@@ -1592,11 +1639,10 @@ export class ThirdBrainView extends ItemView {
 		openModal();
 	}
 
-	// 🆕 분석 결과 저장
+	// 🆕 분석 결과 저장 — ThirdBrainRoot/분석/ 자동 사용
 	private async saveAnalysisResult(
 		result: SummaryResult,
 		sourceFolderPath: string,
-		targetFolderPath: string,
 		saveBtn: HTMLButtonElement,
 		mode?: 'rich' | 'summary',
 		intent?: string
@@ -1605,11 +1651,12 @@ export class ThirdBrainView extends ItemView {
 		const originalText = saveBtn.textContent;
 		saveBtn.textContent = this.t('btn_saving');
 
+		const targetFolderPath = `${this.plugin.settings.rootFolder}/분석`;
+
 		try {
-			const folder = this.app.vault.getFolderByPath(targetFolderPath);
-			if (!folder) {
-				new Notice(this.t('notice_no_target_folder'));
-				return;
+			// 폴더 없으면 자동 생성
+			if (!this.app.vault.getFolderByPath(targetFolderPath)) {
+				await this.app.vault.createFolder(targetFolderPath);
 			}
 
 			const timestamp = new Date().toISOString().slice(0, 10);
@@ -1722,21 +1769,31 @@ export class ThirdBrainView extends ItemView {
 
 	// ── 상태 헬퍼 ────────────────────────────────────────
 
-	private _busy = false;
+	// 버튼 비활성 규칙 (독립 3축 — CLAUDE.md "버튼 Busy 규칙" 참조):
+	//   생성(ingest)        : _busyAI || _busyBridge || _busyIngest
+	//   분석(analysis)      : _busyIngest || _busyBridge  (AI 백그라운드는 허용)
+	//   연결(bridge)        : _busyAI || _busyIngest || _busyBridge
+	//   그래프분석-AI분석   : _busyAI || _busyIngest || _busyBridge
+	private _busyAI     = false;   // 백그라운드 AI (전사본·그래프 분석 등)
+	private _busyIngest = false;   // 생성 파이프라인
+	private _busyBridge = false;   // 연결 파이프라인
 
-	private setBusy(busy: boolean) {
-		this._busy = busy;
-		this.analysisBtn.disabled = busy;
-		this.bridgeBtn.disabled = busy;
-		this.ingestBtn.toggleClass('is-busy', busy);
-		if (busy) {
-			this.ingestBtn.disabled = true;
+	private updateBusyUI() {
+		this.ingestBtn.toggleClass('is-busy', this._busyIngest);
+		this.ingestBtn.disabled = this._busyAI || this._busyBridge || this._busyIngest;
+		if (this._busyIngest) {
 			this.ingestBtn.textContent = this.t('progress_chunk');
 		} else {
 			this.ingestBtn.textContent = this.t('btn_generate');
-			this.syncIngestBtnState();
+			if (!this._busyAI && !this._busyBridge) this.syncIngestBtnState();
 		}
+		this.analysisBtn.disabled = this._busyIngest || this._busyBridge;
+		this.bridgeBtn.disabled = this._busyAI || this._busyIngest || this._busyBridge;
 	}
+
+	private setAIBusy(on: boolean)     { this._busyAI     = on; this.updateBusyUI(); }
+	private setIngestBusy(on: boolean) { this._busyIngest = on; this.updateBusyUI(); }
+	private setBridgeBusy(on: boolean) { this._busyBridge = on; this.updateBusyUI(); }
 
 	private updateCharCount() {
 		const len = this.ingestTextarea.value.length;
@@ -1744,7 +1801,7 @@ export class ThirdBrainView extends ItemView {
 	}
 
 	private syncIngestBtnState() {
-		if (this._busy) return; // 파이프라인 실행 중에는 무시
+		if (this._busyAI || this._busyIngest || this._busyBridge) return;
 		const empty = this.ingestTextarea.value.trim().length === 0;
 		this.ingestBtn.disabled = empty;
 		this.ingestBtn.toggleClass('is-empty', empty);
@@ -1804,6 +1861,36 @@ export class ThirdBrainView extends ItemView {
 	}
 
 	private _graphOpening = false;
+
+	private async openNativeGraphWithQuery(query: string): Promise<void> {
+		if (this._graphOpening) return;
+		this._graphOpening = true;
+		try { await this._applyNativeGraphQuery(query); }
+		finally { this._graphOpening = false; }
+	}
+
+	private async _applyNativeGraphQuery(query: string): Promise<void> {
+		const existingLeaf = this.app.workspace.getLeavesOfType('graph')[0] ?? null;
+		const leaf = existingLeaf ?? this.app.workspace.getLeaf('tab');
+		if (!existingLeaf) await leaf.setViewState({ type: 'graph', active: true });
+		void this.app.workspace.revealLeaf(leaf);
+		const t0 = Date.now();
+		for (const ms of [200, 500, 1000, 1800]) {
+			if (Date.now() - t0 < ms) await new Promise<void>(r => window.setTimeout(r, ms - (Date.now() - t0)));
+			if (leaf.view?.getViewType() !== 'graph') break;
+			const v = leaf.view as unknown as {
+				getState?: () => { settings?: Record<string, unknown> };
+				setState?: (s: unknown, o: unknown) => Promise<void>;
+				renderer?: { changed?: () => void; filterOptions?: { search?: string | { query?: string } } };
+			};
+			try {
+				const cur = v.getState?.()?.settings ?? {};
+				await v.setState?.({ settings: { ...cur, search: query } }, { history: false });
+				v.renderer?.changed?.();
+				break;
+			} catch { /* retry */ }
+		}
+	}
 
 	/** Obsidian 네이티브 그래프 뷰를 새 탭으로 열고 path 필터 주입 (v0 포팅) */
 	private async openNativeGraph(folders: string[], excludeConflicts = false): Promise<void> {
@@ -1908,7 +1995,7 @@ export class ThirdBrainView extends ItemView {
 	// vault 파일 1개가 TB 노드일 때 인제스트 버튼을 누르면 여기로 진입
 
 	private async runBridgeFromIngest(sourceFile: TFile, targetFolder: string) {
-		this.setBusy(true);
+		this.setBridgeBusy(true);
 		this.resultsEl.empty();
 		this.setProgress(2, `"${sourceFile.basename}" 복사 중...`);
 
@@ -1931,12 +2018,12 @@ export class ThirdBrainView extends ItemView {
 			const content = await this.app.vault.read(sourceFile);
 			movedFile = await this.app.vault.create(targetPath, content);
 		} catch (e) {
-			this.hideProgress(); this.setBusy(false);
+			this.hideProgress(); this.setBridgeBusy(false);
 			new Notice(`[ThirdBrain] 파일 복사 실패: ${e instanceof Error ? e.message : String(e)}`);
 			return;
 		}
 		if (!movedFile) {
-			this.hideProgress(); this.setBusy(false);
+			this.hideProgress(); this.setBridgeBusy(false);
 			new Notice('[ThirdBrain] 이동된 파일을 찾을 수 없습니다.');
 			return;
 		}
@@ -1963,7 +2050,7 @@ export class ThirdBrainView extends ItemView {
 			});
 		});
 		if (!movedNode) {
-			this.hideProgress(); this.setBusy(false);
+			this.hideProgress(); this.setBridgeBusy(false);
 			new Notice('[ThirdBrain] 노드 메타데이터를 읽을 수 없습니다.');
 			return;
 		}
@@ -1972,7 +2059,7 @@ export class ThirdBrainView extends ItemView {
 			.filter(n => n.filePath !== movedFile.path);
 
 		if (targetNodes.length === 0) {
-			this.hideProgress(); this.setBusy(false);
+			this.hideProgress(); this.setBridgeBusy(false);
 			new Notice(`✅ 이식 완료: ${movedFile.basename} → ${targetFolder || '루트'} (연결 후보 없음)`);
 			this.ingestTextarea.value = '';
 			this.updateCharCount();
@@ -2015,29 +2102,30 @@ export class ThirdBrainView extends ItemView {
 				(msg) => this.setProgress(7, msg)
 			);
 
-			this.hideProgress(); this.setBusy(false);
+			this.hideProgress(); this.setBridgeBusy(false);
 			this.ingestTextarea.value = '';
 			this.updateCharCount();
 			await this.renderSingleNodeBridge(movedFile, movedNode.title, candidates, targetNodes);
 		} catch (e) {
-			this.hideProgress(); this.setBusy(false);
+			this.hideProgress(); this.setBridgeBusy(false);
 			new Notice(`[ThirdBrain] 브릿지 실패: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
 
 	// ── Phase 5: 폴더 브리지 실행 ──────────────────────────
 
-	private async runBridgeWithFolders(folderAPath: string, folderBPath: string) {
+	private async runBridgeWithFolders(folderAPath: string | string[], folderBPath: string | string[]) {
+		const foldersA = Array.isArray(folderAPath) ? folderAPath : [folderAPath];
+		const foldersB = Array.isArray(folderBPath) ? folderBPath : [folderBPath];
 		this.resultsEl.empty();
-		this.setBusy(true);
+		this.setBridgeBusy(true);
 
 		this.setProgress(2, '폴더 노드 로드 중...');
 
 		try {
-			// Phase 12: loadNodesInFolder 사용으로 완전한 TBNode[] 로드
 			const [tbNodesA, tbNodesB] = await Promise.all([
-				this.store.loadNodesInFolder(folderAPath),
-				this.store.loadNodesInFolder(folderBPath),
+				Promise.all(foldersA.map(f => this.store.loadNodesInFolder(f))).then(r => r.flat()),
+				Promise.all(foldersB.map(f => this.store.loadNodesInFolder(f))).then(r => r.flat()),
 			]);
 
 			if (tbNodesA.length === 0 || tbNodesB.length === 0) {
@@ -2046,7 +2134,7 @@ export class ThirdBrainView extends ItemView {
 					text: this.t('label_no_propositions'),
 				});
 				this.hideProgress();
-				this.setBusy(false);
+				this.setBridgeBusy(false);
 				return;
 			}
 
@@ -2067,28 +2155,31 @@ export class ThirdBrainView extends ItemView {
 			this.setProgress(4, `위상 분석 중... (A: ${tbNodesA.length}개, B: ${tbNodesB.length}개)`);
 
 			// Phase 12: 새 bridgeFolders 시그니처 사용 + onProgress 콜백
+			const folderAName = foldersA.map(f => f.split('/').pop()).join(', ');
+			const folderBName = foldersB.map(f => f.split('/').pop()).join(', ');
+
 			const result = await bridgeFolders(
 				tbNodesA,
 				tbNodesB,
-				folderAPath,
-				folderBPath,
+				folderAName,
+				folderBName,
 				this.plugin.settings,
 				undefined,
 				(msg) => this.setProgress(6, msg)
 			);
 
 			this.hideProgress();
-			this.setBusy(false);
+			this.setBridgeBusy(false);
 			new BridgeResultModal(
 				this.app, result,
 				fileMapA, fileMapB,
-				folderAPath, folderBPath,
+				folderAName, folderBName,
 				this.store, this.plugin.settings.lang,
 				(folders) => { void this.openNativeGraph([`${this.plugin.settings.rootFolder}/raw`, ...folders], true); }
 			).open();
 		} catch (e) {
 			this.hideProgress();
-			this.setBusy(false);
+			this.setBridgeBusy(false);
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`[ThirdBrain] ${this.t('save_error_prefix')}${msg}`);
 			this.resultsEl.createEl('div', { cls: 'tb-error-msg', text: `${this.t('error_title')}: ${msg}` });
@@ -2120,10 +2211,16 @@ export class ThirdBrainView extends ItemView {
 
 class PipelineInfoModal extends Modal {
 	stepLogEl!: HTMLElement;
+	private t: (key: TKey) => string;
+
+	constructor(app: App, lang?: import('./i18n').Lang) {
+		super(app);
+		this.t = getT(lang);
+	}
 
 	onOpen() {
 		this.modalEl.addClass('tb-pipeline-modal');
-		this.titleEl.setText('파이프라인 결과');
+		this.titleEl.setText(this.t('label_pipeline_result'));
 
 		// 최초 open 시에만 stepLogEl 생성 (재오픈 시 이미 존재)
 		if (!this.stepLogEl) {
@@ -2136,40 +2233,84 @@ class PipelineInfoModal extends Modal {
 	onClose() { /* 내용 유지 — 다음 파이프라인 실행 시 새 인스턴스로 교체됨 */ }
 }
 
-// ── 그래프 보기 모달 ──────────────────────────────────────
+// ── 그래프 쿼리 모달 ──────────────────────────────────────
+
+const PRESET_QUERIES: Array<{ key: TKey; relations: string[] }> = [
+	{ key: 'modal_query_preset_causal',     relations: ['causes', 'precedes', 'precondition_of'] },
+	{ key: 'modal_query_preset_evidence',   relations: ['supports', 'conflicts_with', 'contrasts_with'] },
+	{ key: 'modal_query_preset_hierarchy',  relations: ['exemplifies', 'applies_to'] },
+	{ key: 'modal_query_preset_structural', relations: ['analogous_to', 'isomorphic_to'] },
+];
+
+// ── Canvas 그래프 모달 ────────────────────────────────────
+
+class GraphCanvasModal extends Modal {
+	private graphView!: GraphView;
+
+	constructor(
+		app: App,
+		private nodes: TBNode[],
+		private activeRelations: Set<string>,
+		private lang: Lang,
+	) {
+		super(app);
+		this.modalEl.addClass('tb-canvas-modal');
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		this.setTitle(this.lang === 'ko' ? '지식 그래프' : 'Knowledge Graph');
+
+		// 캔버스 — 전체 영역
+		const canvasWrap = contentEl.createEl('div', { cls: 'tb-canvas-wrap' });
+		this.graphView = new GraphView(canvasWrap, () => { }, this.lang);
+		const legendEntries = [...this.activeRelations].map(rel => ({
+			color: EDGE_COLOR[rel] ?? '#888',
+			label: relLabel(rel, this.lang),
+		}));
+		this.graphView.setLegend(legendEntries);
+		window.setTimeout(() => { this.graphView.render(this.nodes, this.activeRelations); }, 0);
+	}
+
+	onClose() {
+		this.graphView?.cleanup();
+		this.contentEl.empty();
+	}
+}
+
+// ── 그래프 보기 모달 (폴더 선택 + 쿼리 필터 통합) ───────
 
 class GraphViewModal extends Modal {
-	private folders: string[];
-	private onChoose: (folders: string[], excludeConflicts: boolean) => void;
 	private lang: Lang;
+	private activeRelations = new Set<string>([
+		'causes', 'precedes', 'precondition_of',
+		'supports', 'conflicts_with', 'contrasts_with',
+		'exemplifies', 'applies_to', 'analogous_to', 'isomorphic_to',
+	]);
+	private querySpec: GraphQuerySpec | null = null;
 
-	constructor(app: App, folders: string[], onChoose: (f: string[], excludeConflicts: boolean) => void, lang?: Lang) {
+	constructor(
+		app: App,
+		private folders: string[],
+		private onNative: (folders: string[], excludeConflicts: boolean) => void,
+		private onCanvas: (folders: string[], relations: Set<string>) => Promise<void>,
+		private store: GraphStore,
+		private settings: ThirdBrainSettings,
+	) {
 		super(app);
-		this.folders = folders;
-		this.onChoose = onChoose;
-		this.lang = lang ?? 'en';
+		this.lang = settings.lang ?? 'en';
 		this.modalEl.addClass('tb-popup');
 	}
 
 	private t(key: TKey): string { return getT(this.lang)(key); }
 
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.addClass('tb-popup-content');
-
-		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_graph_title') });
-		makeDraggable(this.modalEl, titleEl);
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_sub') });
-
-		const list = contentEl.createEl('div', { cls: 'tb-popup-folder-list' });
-
+	private buildFolderList(container: HTMLElement): Array<{ folder: string; cb: HTMLInputElement }> {
+		const list = container.createEl('div', { cls: 'tb-popup-folder-list' });
 		if (this.folders.length === 0) {
 			list.createEl('div', { cls: 'tb-popup-empty', text: this.t('modal_graph_empty') });
-			return;
+			return [];
 		}
-
 		const checkboxes: Array<{ folder: string; cb: HTMLInputElement }> = [];
-
 		for (const folder of this.folders) {
 			const depth = folder.split('/').length - 1;
 			const name = folder.split('/').pop() ?? folder;
@@ -2181,26 +2322,146 @@ class GraphViewModal extends Modal {
 			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
 			checkboxes.push({ folder, cb });
 		}
+		// 상위 폴더 체크 시 하위 폴더 자동 체크
+		for (let i = 0; i < checkboxes.length; i++) {
+			const { folder, cb } = checkboxes[i];
+			cb.addEventListener('change', () => {
+				for (let j = i + 1; j < checkboxes.length; j++) {
+					if (checkboxes[j].folder.startsWith(folder + '/')) {
+						checkboxes[j].cb.checked = cb.checked;
+					}
+				}
+			});
+		}
+		return checkboxes;
+	}
 
-		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.addClass('tb-popup-content');
 
-		// 모순 연결 필터 — 취소 버튼 왼쪽
+		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_graph_title') });
+		makeDraggable(this.modalEl, titleEl);
+
+		const tabBar = contentEl.createEl('div', { cls: 'tb-tab-bar' });
+		const tabNative = tabBar.createEl('button', { cls: 'tb-tab is-active', text: this.t('modal_query_open_native') });
+		const tabCanvas = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('modal_query_open_canvas') });
+
+		const paneNative = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
+		const paneCanvas = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
+		paneCanvas.hide();
+
+		tabNative.addEventListener('click', () => {
+			tabNative.addClass('is-active'); tabCanvas.removeClass('is-active');
+			paneNative.show(); paneCanvas.hide();
+		});
+		tabCanvas.addEventListener('click', () => {
+			tabCanvas.addClass('is-active'); tabNative.removeClass('is-active');
+			paneCanvas.show(); paneNative.hide();
+		});
+
+		this.buildNativePane(paneNative);
+		this.buildCanvasPane(paneCanvas);
+	}
+
+	private buildNativePane(container: HTMLElement) {
+		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_native_sub') });
+
+		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		const checkboxes = this.buildFolderList(container);
+
+		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
 		const filterRow = footer.createEl('label', { cls: 'tb-graph-filter-row is-active' });
 		const conflictCb = filterRow.createEl('input', { attr: { type: 'checkbox' } });
 		conflictCb.addClass('tb-popup-cb');
 		conflictCb.checked = true;
 		filterRow.createEl('span', { cls: 'tb-graph-filter-label', text: this.t('graph_exclude_conflicts') });
-		conflictCb.addEventListener('change', () => { filterRow.toggleClass('is-active', conflictCb.checked); });
+		conflictCb.addEventListener('change', () => filterRow.toggleClass('is-active', conflictCb.checked));
 
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
 			.addEventListener('click', () => this.close());
-		const confirmBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_open_graph') });
-		confirmBtn.addEventListener('click', () => {
-			const selected = checkboxes.filter(c => c.cb.checked).map(c => c.folder);
-			if (selected.length === 0) { new Notice(this.t('notice_select_folder')); return; }
-			this.close();
-			this.onChoose(selected, conflictCb.checked);
+		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_open_graph') })
+			.addEventListener('click', () => {
+				const selected = checkboxes.filter(c => c.cb.checked).map(c => c.folder);
+				if (selected.length === 0) { new Notice(this.t('notice_select_folder')); return; }
+				this.close();
+				this.onNative(selected, conflictCb.checked);
+			});
+	}
+
+	private buildCanvasPane(container: HTMLElement) {
+		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_canvas_sub') });
+
+		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		const checkboxes = this.buildFolderList(container);
+
+		// ── 프리셋 필터 (드롭다운) ──────────────────────────
+		const presetRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		presetRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('modal_query_preset_label') });
+		const presetSelect = presetRow.createEl('select', { cls: 'tb-popup-select' });
+		presetSelect.createEl('option', { attr: { value: 'all' }, text: this.t('modal_query_preset_all') });
+		for (const preset of PRESET_QUERIES) {
+			presetSelect.createEl('option', { attr: { value: preset.key }, text: this.t(preset.key) });
+		}
+		presetSelect.addEventListener('change', () => {
+			const val = presetSelect.value;
+			if (val === 'all') {
+				this.activeRelations = new Set([
+					'causes', 'precedes', 'precondition_of',
+					'supports', 'conflicts_with', 'contrasts_with',
+					'exemplifies', 'applies_to', 'analogous_to', 'isomorphic_to',
+				]);
+			} else {
+				const found = PRESET_QUERIES.find(p => p.key === val);
+				if (found) this.activeRelations = new Set(found.relations);
+			}
+			this.querySpec = null;
 		});
+
+		// ── AI 자연어 쿼리 ───────────────────────────────
+		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('modal_query_ai_label') });
+		const customRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const aiInput = customRow.createEl('textarea', {
+			cls: 'tb-intent-custom',
+			attr: { placeholder: this.t('modal_query_ai_placeholder'), rows: '2' },
+		});
+
+		const aiFooterRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const aiBtn = aiFooterRow.createEl('button', { cls: 'tb-btn', text: this.t('modal_query_ai_btn') });
+		const aiStatus = aiFooterRow.createEl('div', { cls: 'tb-gvm-ai-status' });
+
+		aiBtn.addEventListener('click', () => void (async () => {
+			const prompt = aiInput.value.trim();
+			if (!prompt) return;
+			aiBtn.disabled = true;
+			aiStatus.setText(this.t('modal_query_ai_running'));
+			const selected = checkboxes.filter(c => c.cb.checked).map(c => c.folder);
+			const target = selected.length > 0 ? selected : this.folders;
+			const allNodes = (await Promise.all(target.map(f => this.store.loadNodesInFolder(f)))).flat();
+			const spec = await parseGraphQuery(prompt, allNodes.map(n => ({ title: n.title, type: n.type })), this.settings);
+			this.querySpec = spec;
+			this.activeRelations = new Set(spec.relations);
+			const matched = PRESET_QUERIES.find(p =>
+				p.relations.length === spec.relations.length &&
+				p.relations.every(r => this.activeRelations.has(r))
+			);
+			presetSelect.value = matched ? matched.key : 'all';
+			const labelStr = spec.relations.map(r => relLabel(r, this.lang)).join(', ');
+			aiStatus.setText(labelStr + (spec.startNodeTitle ? ` · BFS: ${spec.startNodeTitle}` : ''));
+			aiBtn.disabled = false;
+		})());
+
+		// ── 하단 버튼 ─────────────────────────────────────
+		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
+			.addEventListener('click', () => this.close());
+		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_open_graph') })
+			.addEventListener('click', () => {
+				const selected = checkboxes.filter(c => c.cb.checked).map(c => c.folder);
+				if (selected.length === 0) { new Notice(this.t('notice_select_folder')); return; }
+				void this.onCanvas(selected, new Set(this.activeRelations));
+				this.close();
+			});
 	}
 
 	onClose() { this.contentEl.empty(); }
@@ -2209,14 +2470,15 @@ class GraphViewModal extends Modal {
 // ── 폴더 브리지 모달 ──────────────────────────────────────
 
 class BridgeModal extends Modal {
-	private folders: string[];
-	private onRun: (folderA: string, folderB: string) => void;
 	private lang: Lang;
 
-	constructor(app: App, folders: string[], onRun: (a: string, b: string) => void, lang?: Lang) {
+	constructor(
+		app: App,
+		private readonly folders: string[],
+		private readonly onRun: (a: string[], b: string[]) => void,
+		lang?: Lang,
+	) {
 		super(app);
-		this.folders = folders;
-		this.onRun = onRun;
 		this.lang = lang ?? 'en';
 		this.modalEl.addClass('tb-popup');
 	}
@@ -2231,49 +2493,78 @@ class BridgeModal extends Modal {
 		makeDraggable(this.modalEl, bridgeTitleEl);
 		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_bridge_sub') });
 
+		// raw 폴더 제외
+		const eligible = this.folders.filter(f => {
+			const parts = f.split('/');
+			return !parts.some(p => p === 'raw');
+		});
+
 		const cols = contentEl.createEl('div', { cls: 'tb-popup-bridge-cols' });
 
-		const makeFolderCol = (colLabel: string, defaultIdx: number) => {
+		type ColEntry = { folder: string; cb: HTMLInputElement; labelEl: HTMLElement };
+
+		const buildCol = (colLabel: string): { entries: ColEntry[]; getSelected: () => string[] } => {
 			const col = cols.createEl('div', { cls: 'tb-popup-bridge-col' });
 			col.createEl('div', { cls: 'tb-popup-bridge-col-label', text: colLabel });
 			const list = col.createEl('div', { cls: 'tb-popup-folder-list' });
-			let selectedVal = this.folders[defaultIdx] ?? this.folders[0] ?? '';
-			const cbs: HTMLInputElement[] = [];
-			for (let i = 0; i < this.folders.length; i++) {
-				const f = this.folders[i];
+			const entries: ColEntry[] = [];
+			for (const f of eligible) {
 				const depth = f.split('/').length - 1;
 				const name = f.split('/').pop() ?? f;
-				const label = list.createEl('label', { cls: 'tb-popup-folder-item' });
-				label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
-				const cb = label.createEl('input', { attr: { type: 'checkbox' } });
+				const labelEl = list.createEl('label', { cls: 'tb-popup-folder-item' });
+				labelEl.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
+				const cb = labelEl.createEl('input', { attr: { type: 'checkbox' } });
 				cb.addClass('tb-popup-cb');
-				if (i === defaultIdx) { cb.checked = true; label.addClass('is-selected'); }
-				label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-				label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
-				cbs.push(cb);
-				cb.addEventListener('change', () => {
-					cbs.forEach((c, j) => { c.checked = j === i; list.children[j]?.toggleClass('is-selected', j === i); });
-					selectedVal = f;
-				});
+				labelEl.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+				labelEl.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+				entries.push({ folder: f, cb, labelEl });
 			}
-			return { getValue: () => selectedVal };
+			return { entries, getSelected: () => entries.filter(e => e.cb.checked).map(e => e.folder) };
 		};
 
-		const colA = makeFolderCol(this.t('bridge_col_a'), 0);
-		const colB = makeFolderCol(this.t('bridge_col_b'), this.folders.length > 1 ? 1 : 0);
+		const colAData = buildCol(this.t('bridge_col_a'));
+		const colBData = buildCol(this.t('bridge_col_b'));
+
+		// 상호 배제 + 하위 폴더 cascade
+		const syncExclusion = (
+			changed: ColEntry[], other: ColEntry[], idx: number, checked: boolean
+		) => {
+			const folder = changed[idx].folder;
+			// 하위 폴더 cascade
+			for (let j = idx + 1; j < changed.length; j++) {
+				if (changed[j].folder.startsWith(folder + '/')) changed[j].cb.checked = checked;
+			}
+			// 반대편 동일 폴더 비활성화/활성화
+			for (const o of other) {
+				const isConflict = changed.filter(e => e.cb.checked).some(e =>
+					o.folder === e.folder || o.folder.startsWith(e.folder + '/') || e.folder.startsWith(o.folder + '/')
+				);
+				o.cb.disabled = isConflict;
+				o.labelEl.toggleClass('is-disabled', isConflict);
+				if (isConflict) o.cb.checked = false;
+			}
+		};
+
+		for (let i = 0; i < colAData.entries.length; i++) {
+			colAData.entries[i].cb.addEventListener('change', () =>
+				syncExclusion(colAData.entries, colBData.entries, i, colAData.entries[i].cb.checked));
+		}
+		for (let i = 0; i < colBData.entries.length; i++) {
+			colBData.entries[i].cb.addEventListener('change', () =>
+				syncExclusion(colBData.entries, colAData.entries, i, colBData.entries[i].cb.checked));
+		}
 
 		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
 			.addEventListener('click', () => this.close());
-		const runBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_bridge_run') });
-		runBtn.addEventListener('click', () => {
-			const a = colA.getValue();
-			const b = colB.getValue();
-			if (!a || !b) { new Notice(this.t('notice_select_two_folders')); return; }
-			if (a === b) { new Notice(this.t('notice_diff_folders')); return; }
-			this.close();
-			this.onRun(a, b);
-		});
+		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_bridge_run') })
+			.addEventListener('click', () => {
+				const a = colAData.getSelected();
+				const b = colBData.getSelected();
+				if (a.length === 0 || b.length === 0) { new Notice(this.t('notice_select_two_folders')); return; }
+				this.close();
+				this.onRun(a, b);
+			});
 	}
 
 	onClose() { this.contentEl.empty(); }
@@ -2396,33 +2687,61 @@ class ContentTypeModal extends Modal {
 	private resolved = false;
 	private lang: Lang;
 
-	constructor(app: App, private onSelect: (includeAction: boolean | null) => void, lang?: Lang) {
+	constructor(
+		app: App,
+		private onSelect: (includeAction: boolean | null, meetingType?: MeetingType) => void,
+		lang?: Lang
+	) {
 		super(app);
 		this.lang = lang ?? 'en';
 	}
 
 	private t(key: TKey): string { return getT(this.lang)(key); }
 
-	private resolve(value: boolean | null) {
+	private resolve(value: boolean | null, meetingType?: MeetingType) {
 		if (this.resolved) return;
 		this.resolved = true;
-		this.onSelect(value);
+		this.onSelect(value, meetingType);
 	}
 
 	onOpen() {
 		this.modalEl.addClass('tb-popup');
+		this.renderTypeScreen();
+	}
+
+	private renderTypeScreen() {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_title') });
 		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_sub') });
 
 		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
-
 		const btnInfo = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_info') });
 		const btnAction = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_action') });
 
 		btnInfo.addEventListener('click', () => { this.resolve(false); this.close(); });
-		btnAction.addEventListener('click', () => { this.resolve(true); this.close(); });
+		btnAction.addEventListener('click', () => { this.renderSubtypeScreen(); });
+	}
+
+	private renderSubtypeScreen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_subtype_title') });
+		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_subtype_sub') });
+
+		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
+		const types: Array<{ key: TKey; val: MeetingType }> = [
+			{ key: 'modal_content_type_brainstorm', val: 'brainstorm' },
+			{ key: 'modal_content_type_execution',  val: 'execution' },
+			{ key: 'modal_content_type_review',     val: 'review' },
+		];
+		for (const { key, val } of types) {
+			const btn = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t(key) });
+			btn.addEventListener('click', () => { this.resolve(true, val); this.close(); });
+		}
+
+		const backBtn = contentEl.createEl('button', { cls: 'tb-btn tb-content-type-back-btn', text: '← 뒤로' });
+		backBtn.addEventListener('click', () => { this.renderTypeScreen(); });
 	}
 
 	onClose() {
@@ -2572,15 +2891,24 @@ class AnalysisTabbedModal extends Modal {
 	private loadedNodes: TBNode[] = [];
 	private lang: Lang;
 
+	private transcriptJob: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null;
+	private onTranscriptJobUpdate: (job: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null) => void;
+
 	constructor(
 		app: App,
 		private readonly folders: string[],
 		private readonly store: GraphStore,
 		private readonly onRun: (folder: string, mode: 'rich' | 'summary', intent?: string, includeActions?: boolean) => void,
-		lang?: Lang
+		lang?: Lang,
+		private readonly settings?: ThirdBrainSettings,
+		initialJob: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null = null,
+		onJobUpdate: (job: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null) => void = () => { /* no-op */ },
+		private readonly isAnythingBusy: () => boolean = () => false,
 	) {
 		super(app);
 		this.lang = lang ?? 'en';
+		this.transcriptJob = initialJob;
+		this.onTranscriptJobUpdate = onJobUpdate;
 		this.modalEl.addClass('tb-popup');
 	}
 
@@ -2595,28 +2923,24 @@ class AnalysisTabbedModal extends Modal {
 
 		const tabBar = contentEl.createEl('div', { cls: 'tb-tab-bar' });
 		const tabAnalysis = tabBar.createEl('button', { cls: 'tb-tab is-active', text: this.t('tab_graph_analysis') });
-		const tabPath = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('tab_path_finder') });
+		const tabExpr = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('tab_expression_analysis') });
 
 		const paneAnalysis = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
-		const panePath = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
-		panePath.hide();
+		const paneExpr = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
+		paneExpr.hide();
 
-		tabAnalysis.addEventListener('click', () => {
-			tabAnalysis.addClass('is-active');
-			tabPath.removeClass('is-active');
-			paneAnalysis.show();
-			panePath.hide();
-		});
+		const switchTab = (active: HTMLButtonElement, activePane: HTMLElement) => {
+			for (const [tab, pane] of [[tabAnalysis, paneAnalysis], [tabExpr, paneExpr]] as [HTMLButtonElement, HTMLElement][]) {
+				tab.toggleClass('is-active', tab === active);
+				if (pane === activePane) pane.show(); else pane.hide();
+			}
+		};
 
-		tabPath.addEventListener('click', () => {
-			tabPath.addClass('is-active');
-			tabAnalysis.removeClass('is-active');
-			panePath.show();
-			paneAnalysis.hide();
-		});
+		tabAnalysis.addEventListener('click', () => switchTab(tabAnalysis, paneAnalysis));
+		tabExpr.addEventListener('click', () => switchTab(tabExpr, paneExpr));
 
 		this.buildAnalysisPane(paneAnalysis);
-		this.buildPathPane(panePath);
+		this.buildExpressionPane(paneExpr);
 	}
 
 	private buildAnalysisPane(container: HTMLElement) {
@@ -2638,28 +2962,32 @@ class AnalysisTabbedModal extends Modal {
 			return row.createEl('select', { cls: 'tb-popup-select' });
 		};
 
-		// ── 폴더 선택 체크박스 리스트 (단일 선택) ────
+		// ── 폴더 선택 체크박스 리스트 ────
 		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const analysisFolders = this.folders.filter(f => !f.endsWith('/_actions') && f !== '_actions');
 		const folderList = container.createEl('div', { cls: 'tb-popup-folder-list' });
-		let selectedFolder = analysisFolders[0] ?? '';
-		const analysisCbs: HTMLInputElement[] = [];
-		for (let i = 0; i < analysisFolders.length; i++) {
-			const f = analysisFolders[i];
+		const analysisCbs: Array<{ folder: string; cb: HTMLInputElement }> = [];
+		for (const f of analysisFolders) {
 			const depth = f.split('/').length - 1;
 			const name = f.split('/').pop() ?? f;
 			const label = folderList.createEl('label', { cls: 'tb-popup-folder-item' });
 			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
 			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.addClass('tb-popup-cb');
-			if (i === 0) { cb.checked = true; label.addClass('is-selected'); }
 			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
 			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
-			analysisCbs.push(cb);
+			analysisCbs.push({ folder: f, cb });
+		}
+		// 상위 폴더 체크 시 하위 폴더 자동 체크 (그래프 모달과 동일)
+		for (let i = 0; i < analysisCbs.length; i++) {
+			const { folder, cb } = analysisCbs[i];
 			cb.addEventListener('change', () => {
-				analysisCbs.forEach((c, j) => { c.checked = j === i; folderList.children[j]?.toggleClass('is-selected', j === i); });
-				selectedFolder = f;
-				updateActionsRow(f);
+				for (let j = i + 1; j < analysisCbs.length; j++) {
+					if (analysisCbs[j].folder.startsWith(folder + '/')) {
+						analysisCbs[j].cb.checked = cb.checked;
+					}
+				}
+				updateActionsRow(analysisCbs.filter(c => c.cb.checked)[0]?.folder ?? '');
 			});
 		}
 
@@ -2681,7 +3009,7 @@ class AnalysisTabbedModal extends Modal {
 			if (hasActions) actionsRow.show(); else actionsRow.hide();
 			if (!hasActions) actionsChk.checked = false;
 		};
-		updateActionsRow(selectedFolder);
+		updateActionsRow('');
 
 		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_intent_label') });
 		const chipRow = container.createEl('div', { cls: 'tb-intent-chips' });
@@ -2725,8 +3053,11 @@ class AnalysisTabbedModal extends Modal {
 
 		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') }).addEventListener('click', () => this.close());
-		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_analyze_start') }).addEventListener('click', () => {
-			const folder = selectedFolder;
+		const analyzeStartBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_analyze_start') });
+		analyzeStartBtn.disabled = this.isAnythingBusy();
+		analyzeStartBtn.addEventListener('click', () => {
+			if (this.isAnythingBusy()) { new Notice(this.t('notice_ai_busy')); return; }
+			const folder = analysisCbs.filter(c => c.cb.checked)[0]?.folder ?? '';
 			const mode = modeSel.value as 'rich' | 'summary';
 			if (!folder) { new Notice(this.t('notice_select_folder_analysis')); return; }
 			const intent = customInput.value.trim() || selectedIntent;
@@ -2780,17 +3111,32 @@ class AnalysisTabbedModal extends Modal {
 			srcSel.disabled = false; dstSel.disabled = false;
 		};
 
-		for (let i = 0; i < this.folders.length; i++) {
-			const f = this.folders[i];
+		const pathCbs: Array<{ folder: string; cb: HTMLInputElement }> = [];
+		for (const f of this.folders) {
 			const depth = f.split('/').length - 1;
 			const name = f.split('/').pop() ?? f;
 			const label = pathFolderList.createEl('label', { cls: 'tb-popup-folder-item' });
 			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
-			const radio = label.createEl('input', { attr: { type: 'radio', name: 'tb-path-folder', value: f } });
-			radio.addClass('tb-popup-cb');
+			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
+			cb.addClass('tb-popup-cb');
 			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
 			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
-			radio.addEventListener('change', () => { if (radio.checked) void loadPathFolder(f); });
+			pathCbs.push({ folder: f, cb });
+		}
+		for (let i = 0; i < pathCbs.length; i++) {
+			const { folder, cb } = pathCbs[i];
+			cb.addEventListener('change', () => {
+				// 단일 선택 + 하위 폴더 자동 체크
+				for (let j = 0; j < pathCbs.length; j++) {
+					if (j === i) continue;
+					if (pathCbs[j].folder.startsWith(folder + '/')) {
+						pathCbs[j].cb.checked = cb.checked;
+					} else {
+						pathCbs[j].cb.checked = false;
+					}
+				}
+				if (cb.checked) void loadPathFolder(folder);
+			});
 		}
 
 		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
@@ -2931,6 +3277,180 @@ class AnalysisTabbedModal extends Modal {
 				}
 			})());
 		}
+	}
+
+	private buildExpressionPane(container: HTMLElement) {
+		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('expression_analysis_sub') });
+
+		if (this.folders.length === 0) {
+			container.createEl('div', { cls: 'tb-popup-empty', text: this.t('analysis_no_folder') });
+			const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+			footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') })
+				.addEventListener('click', () => this.close());
+			return;
+		}
+
+		// ── 폴더 선택
+		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		const analysisFolders = this.folders.filter(f => !f.endsWith('/_actions') && f !== '_actions');
+		const folderList = container.createEl('div', { cls: 'tb-popup-folder-list' });
+		const exprCbs: Array<{ folder: string; cb: HTMLInputElement }> = [];
+		for (const f of analysisFolders) {
+			const depth = f.split('/').length - 1;
+			const name = f.split('/').pop() ?? f;
+			const label = folderList.createEl('label', { cls: 'tb-popup-folder-item' });
+			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
+			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
+			cb.addClass('tb-popup-cb');
+			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+			exprCbs.push({ folder: f, cb });
+		}
+		for (let i = 0; i < exprCbs.length; i++) {
+			const { folder, cb } = exprCbs[i];
+			cb.addEventListener('change', () => {
+				for (let j = i + 1; j < exprCbs.length; j++) {
+					if (exprCbs[j].folder.startsWith(folder + '/')) exprCbs[j].cb.checked = cb.checked;
+				}
+			});
+		}
+
+		// ── 모드 선택 (드롭다운)
+		const modeOptions: Array<{ id: TranscriptAnalysisMode; labelKey: TKey; descKey: TKey }> = [
+			{ id: 'language',  labelKey: 'expression_mode1_label', descKey: 'expression_mode1_desc' },
+			{ id: 'info',      labelKey: 'expression_mode2_label', descKey: 'expression_mode2_desc' },
+			{ id: 'directive', labelKey: 'expression_mode3_label', descKey: 'expression_mode3_desc' },
+			{ id: 'para',      labelKey: 'expression_mode4_label', descKey: 'expression_mode4_desc' },
+		];
+		let selectedMode: TranscriptAnalysisMode | null = null;
+		const modeRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		modeRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('expression_mode_title') });
+		const modeSelect = modeRow.createEl('select', { cls: 'tb-popup-select' });
+		modeSelect.createEl('option', { attr: { value: '' }, text: this.t('expression_mode_placeholder') });
+		for (const opt of modeOptions) {
+			modeSelect.createEl('option', { attr: { value: opt.id }, text: this.t(opt.labelKey) });
+		}
+		modeSelect.addEventListener('change', () => {
+			selectedMode = (modeSelect.value as TranscriptAnalysisMode) || null;
+		});
+
+		// ── 결과 영역
+		const resultEl = container.createEl('div', { cls: 'tb-expression-result' });
+
+		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') })
+			.addEventListener('click', () => this.close());
+		const analyzeBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('expression_analyze_btn') });
+
+		// ── UI 상태 토글 헬퍼
+		const setRunningUI = (on: boolean) => {
+			analyzeBtn.disabled = on;
+			analyzeBtn.textContent = on ? this.t('expression_analyzing') : this.t('expression_analyze_btn');
+			modeSelect.disabled = on;
+			for (const { cb } of exprCbs) cb.disabled = on;
+		};
+
+		// ── 결과 표시 헬퍼
+		const showResult = (text: string) => {
+			resultEl.empty();
+			const textarea = resultEl.createEl('textarea', { cls: 'tb-expr-result-textarea' });
+			textarea.value = text;
+			if (!footer.querySelector('.tb-expr-save-btn')) {
+				const saveBtn = footer.createEl('button', { cls: 'tb-btn tb-expr-save-btn', text: this.t('expression_save_btn') });
+				saveBtn.addEventListener('click', () => void (async () => {
+					saveBtn.disabled = true;
+					saveBtn.textContent = this.t('btn_saving');
+					try {
+						new SaveFolderModal(
+							this.app, this.folders, this.folders[0] ?? '',
+							(targetFolder: string) => void (async (f: string) => {
+								const currentText = textarea.value;
+								const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+								const filename = `transcript-analysis_${timestamp}.md`;
+								if (!this.app.vault.getFolderByPath(f)) await this.app.vault.createFolder(f);
+								await this.app.vault.create(`${f}/${filename}`, currentText);
+								new Notice(filename);
+							})(targetFolder),
+							this.lang,
+							this.settings?.rootFolder ?? '',
+						).open();
+					} finally {
+						saveBtn.disabled = false;
+						saveBtn.textContent = this.t('expression_save_btn');
+					}
+				})());
+			}
+		};
+
+		// ── 이전 작업 상태 복원
+		if (this.transcriptJob?.running) {
+			setRunningUI(true);
+			resultEl.createEl('div', { cls: 'tb-popup-empty', text: this.t('expression_analyzing') });
+		} else if (this.transcriptJob?.result) {
+			showResult(this.transcriptJob.result);
+		} else if (this.transcriptJob?.error) {
+			resultEl.createEl('div', { cls: 'tb-path-empty', text: this.transcriptJob.error });
+		}
+
+		// ── 분석 시작 (백그라운드 — 모달 닫혀도 계속 실행)
+		analyzeBtn.addEventListener('click', () => {
+			const selectedFolders = exprCbs.filter(c => c.cb.checked).map(c => c.folder);
+			if (selectedFolders.length === 0) { new Notice(this.t('notice_select_folder_analysis')); return; }
+			if (!selectedMode) { new Notice(this.t('expression_mode_not_selected')); return; }
+			if (this.transcriptJob?.running) return;
+
+			const mode = selectedMode;
+			this.transcriptJob = { running: true, mode };
+			this.onTranscriptJobUpdate(this.transcriptJob);
+			setRunningUI(true);
+			resultEl.empty();
+			resultEl.createEl('div', { cls: 'tb-popup-empty', text: this.t('expression_analyzing') });
+
+			void (async () => {
+				try {
+					const allNodes: Array<{ title: string; type: string; content: string }> = [];
+					for (const f of selectedFolders) {
+						const nodes = await this.store.loadNodesInFolder(f);
+						for (const n of nodes) allNodes.push({ title: n.title, type: n.type, content: n.content });
+					}
+					if (allNodes.length === 0) {
+						const msg = this.t('expression_no_nodes');
+						this.transcriptJob = { running: false, mode, error: msg };
+						this.onTranscriptJobUpdate(this.transcriptJob);
+						if (activeDocument.body.contains(resultEl)) {
+							setRunningUI(false);
+							resultEl.empty();
+							resultEl.createEl('div', { cls: 'tb-popup-empty', text: msg });
+						}
+						return;
+					}
+
+					const settings = this.settings ?? { rootFolder: 'ThirdBrainRoot', cliBin: 'claude', maxEdgeCandidates: 3, aiProvider: 'claude-cli' as const };
+					const resultText = await analyzeTranscriptNodes(allNodes, mode, settings);
+
+					this.transcriptJob = { running: false, mode, result: resultText };
+					this.onTranscriptJobUpdate(this.transcriptJob);
+
+					if (activeDocument.body.contains(resultEl)) {
+						setRunningUI(false);
+						showResult(resultText);
+					} else {
+						new Notice(this.t('expression_analyze_btn') + ' ✓');
+					}
+				} catch (err) {
+					const msg = `${this.t('path_error_prefix')}${err instanceof Error ? err.message : String(err)}`;
+					this.transcriptJob = { running: false, mode, error: msg };
+					this.onTranscriptJobUpdate(this.transcriptJob);
+					if (activeDocument.body.contains(resultEl)) {
+						setRunningUI(false);
+						resultEl.empty();
+						resultEl.createEl('div', { cls: 'tb-path-empty', text: msg });
+					} else {
+						new Notice(msg, 8000);
+					}
+				}
+			})();
+		});
 	}
 
 	onClose() { this.contentEl.empty(); }
@@ -3228,12 +3748,31 @@ class ConflictResolutionModal extends Modal {
 		super(app);
 	}
 
+	private get t() { return getT(this.settings.lang); }
+
+	private get dimension(): 'fact_vs_fact' | 'claim_vs_claim' | 'fact_vs_claim' {
+		const aIsFact = this.conflict.nodeA.proposition_type === 'fact';
+		const bIsFact = this.conflict.nodeB.proposition_type === 'fact';
+		if (aIsFact && bIsFact) return 'fact_vs_fact';
+		if (!aIsFact && !bIsFact) return 'claim_vs_claim';
+		return 'fact_vs_claim';
+	}
+
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('tb-popup-content', 'tb-conflict-modal');
 
-		contentEl.createEl('h3', { text: '⚠ 모순 해소', cls: 'tb-conflict-modal-title' });
+		const dim = this.dimension;
+		const titleKey = dim === 'fact_vs_fact' ? 'conflict_title_fact_fact'
+			: dim === 'claim_vs_claim' ? 'conflict_title_claim_claim'
+			: 'conflict_title_fact_claim';
+		const descKey = dim === 'fact_vs_fact' ? 'conflict_desc_fact_fact'
+			: dim === 'claim_vs_claim' ? 'conflict_desc_claim_claim'
+			: 'conflict_desc_fact_claim';
+
+		contentEl.createEl('h3', { text: this.t(titleKey), cls: 'tb-conflict-modal-title' });
+		contentEl.createEl('p', { text: this.t(descKey), cls: 'tb-conflict-modal-desc' });
 
 		// 충돌 요약
 		const summary = contentEl.createEl('div', { cls: 'tb-conflict-summary' });
@@ -3241,17 +3780,27 @@ class ConflictResolutionModal extends Modal {
 		summary.createEl('span', { cls: 'tb-conflict-vs', text: ' ⟷ ' });
 		summary.createEl('span', { cls: 'tb-conflict-node-b', text: this.conflict.nodeB.title });
 		if (this.conflict.evidence) {
-			contentEl.createEl('div', { cls: 'tb-conflict-evidence', text: `근거: ${this.conflict.evidence}` });
+			const evidenceLabel = this.settings.lang === 'en' ? 'Evidence: ' : '근거: ';
+			contentEl.createEl('div', { cls: 'tb-conflict-evidence', text: `${evidenceLabel}${this.conflict.evidence}` });
 		}
 
 		contentEl.createEl('hr');
 
 		// ── 옵션 1: 엣지 재분류 ──────────────────────────────────
-		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: '옵션 1 — 더 정확한 엣지로 재분류' });
+		const opt1Label = this.settings.lang === 'en'
+			? 'Option 1 — Reclassify with a more accurate edge'
+			: '옵션 1 — 더 정확한 엣지로 재분류';
+		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt1Label });
 		const rankArea = contentEl.createEl('div', { cls: 'tb-conflict-rank-area' });
-		const loadingEl = rankArea.createEl('div', { cls: 'tb-conflict-loading', text: 'AI가 관계를 분석 중...' });
+		const loadingText = this.settings.lang === 'en' ? 'AI is analyzing the relation...' : 'AI가 관계를 분석 중...';
+		const noRankText = this.settings.lang === 'en' ? 'No recommendation (conflict may be genuine)' : '추천 관계 없음 (모순이 실제일 수 있음)';
+		const aiFailText = this.settings.lang === 'en' ? 'AI analysis failed' : 'AI 분석 실패';
+		const loadingEl = rankArea.createEl('div', { cls: 'tb-conflict-loading', text: loadingText });
 
-		// LLM 비동기 로드
+		const relLabels: Record<string, string> = this.settings.lang === 'en'
+			? { causes: 'Causes', precedes: 'Precedes', precondition_of: 'Precondition', supports: 'Supports', contrasts_with: 'Contrasts', exemplifies: 'Exemplifies', applies_to: 'Applies to', analogous_to: 'Analogous', isomorphic_to: 'Isomorphic' }
+			: { causes: '유발', precedes: '선행', precondition_of: '전제조건', supports: '뒷받침', contrasts_with: '대조', exemplifies: '예시', applies_to: '적용', analogous_to: '유사', isomorphic_to: '동형' };
+
 		rankEdgeRelations(
 			{ title: this.conflict.nodeA.title, content: this.conflict.nodeA.edges.map(e => e.reason).join(' ') },
 			{ title: this.conflict.nodeB.title, content: this.conflict.nodeB.edges.map(e => e.reason).join(' ') },
@@ -3262,14 +3811,9 @@ class ConflictResolutionModal extends Modal {
 			this.rankLoading = false;
 			loadingEl.remove();
 			if (ranks.length === 0) {
-				rankArea.createEl('div', { cls: 'tb-conflict-no-rank', text: '추천 관계 없음 (모순이 실제일 수 있음)' });
+				rankArea.createEl('div', { cls: 'tb-conflict-no-rank', text: noRankText });
 				return;
 			}
-			const relLabels: Record<string, string> = {
-				causes: '유발', precedes: '선행', precondition_of: '전제조건',
-				supports: '뒷받침', contrasts_with: '대조', exemplifies: '예시',
-				applies_to: '적용', analogous_to: '유사', isomorphic_to: '동형',
-			};
 			for (const r of ranks) {
 				const chip = rankArea.createEl('div', { cls: 'tb-conflict-rank-chip' });
 				const pct = Math.round(r.confidence * 100);
@@ -3279,20 +3823,25 @@ class ConflictResolutionModal extends Modal {
 				chip.addEventListener('click', () => { void this.applyReclassify(r.relation, r.reason); });
 			}
 		}).catch(() => {
-			loadingEl.setText('AI 분석 실패');
+			loadingEl.setText(aiFailText);
 		});
 
 		contentEl.createEl('hr');
 
 		// ── 옵션 2: 상위 노트 추가 ───────────────────────────────
-		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: '옵션 2 — 상위 개념 노트 추가 (precondition_of)' });
+		const opt2Label = this.settings.lang === 'en'
+			? 'Option 2 — Add parent premise (precondition_of)'
+			: '옵션 2 — 상위 개념 노트 추가 (precondition_of)';
+		const parentPlaceholder = this.settings.lang === 'en' ? 'Enter parent concept title...' : '상위 개념 제목 입력...';
+		const parentBtnLabel = this.settings.lang === 'en' ? 'Create & link note' : '노트 생성 후 연결';
+		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt2Label });
 		const parentArea = contentEl.createEl('div', { cls: 'tb-conflict-parent-area' });
 		const parentInput = parentArea.createEl('input', {
 			type: 'text',
 			cls: 'tb-conflict-parent-input',
-			placeholder: '상위 개념 제목 입력...',
+			placeholder: parentPlaceholder,
 		});
-		const parentBtn = parentArea.createEl('button', { cls: 'tb-btn', text: '노트 생성 후 연결' });
+		const parentBtn = parentArea.createEl('button', { cls: 'tb-btn', text: parentBtnLabel });
 		parentBtn.addEventListener('click', () => {
 			const title = parentInput.value.trim();
 			if (!title) return;
@@ -3301,16 +3850,26 @@ class ConflictResolutionModal extends Modal {
 
 		contentEl.createEl('hr');
 
-		// ── 옵션 3: 한쪽 삭제 ────────────────────────────────────
-		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: '옵션 3 — 한쪽 명제 삭제' });
+		// ── 옵션 3: 폐기 (차원별 레이블 분기) ───────────────────
+		const opt3Label = this.settings.lang === 'en' ? 'Option 3 — Discard a proposition' : '옵션 3 — 한쪽 명제 폐기';
+		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt3Label });
 		const deleteArea = contentEl.createEl('div', { cls: 'tb-conflict-delete-area' });
-		const delABtn = deleteArea.createEl('button', { cls: 'tb-btn tb-btn-danger', text: `A 삭제: ${this.conflict.nodeA.title.slice(0, 30)}` });
-		const delBBtn = deleteArea.createEl('button', { cls: 'tb-btn tb-btn-danger', text: `B 삭제: ${this.conflict.nodeB.title.slice(0, 30)}` });
+
+		const aIsFact = this.conflict.nodeA.proposition_type === 'fact';
+		const bIsFact = this.conflict.nodeB.proposition_type === 'fact';
+		const delPrefixA = aIsFact ? this.t('conflict_delete_bad_data') : (bIsFact ? this.t('conflict_delete_claim') : this.t('conflict_delete_node'));
+		const delPrefixB = bIsFact ? this.t('conflict_delete_bad_data') : (aIsFact ? this.t('conflict_delete_claim') : this.t('conflict_delete_node'));
+
+		const delABtn = deleteArea.createEl('button', { cls: 'tb-btn tb-btn-danger', text: `${delPrefixA}${this.conflict.nodeA.title.slice(0, 28)}` });
+		const delBBtn = deleteArea.createEl('button', { cls: 'tb-btn tb-btn-danger', text: `${delPrefixB}${this.conflict.nodeB.title.slice(0, 28)}` });
 		delABtn.addEventListener('click', () => { void this.applyDelete(this.conflict.nodeA); });
 		delBBtn.addEventListener('click', () => { void this.applyDelete(this.conflict.nodeB); });
 
 		contentEl.createEl('hr');
-		contentEl.createEl('div', { cls: 'tb-conflict-footer', text: '닫기 시 모순이 그래프에 그대로 유지됩니다.' });
+		const footerText = this.settings.lang === 'en'
+			? 'Closing without action keeps the conflict edge in the graph.'
+			: '닫기 시 모순 엣지가 그래프에 그대로 유지됩니다.';
+		contentEl.createEl('div', { cls: 'tb-conflict-footer', text: footerText });
 	}
 
 	private async applyReclassify(relation: TBEdgeRelation, reason: string): Promise<void> {

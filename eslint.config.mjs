@@ -7,10 +7,13 @@ export default defineConfig([
   ...obsidianmd.configs.recommended,
   {
     files: ["src/**/*.ts"],
-    plugins: { obsidianmd, "@typescript-eslint": tsplugin },
+    plugins: { obsidianmd },
     languageOptions: {
       parser: tsparser,
       parserOptions: { project: "./tsconfig.json" },
+    },
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
     },
     rules: {
       // ── obsidianmd 규칙 (review 시스템과 동일하게 활성화) ──
