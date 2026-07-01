@@ -125,9 +125,9 @@ var KO = {
   btn_save_report: "[ \u{1F4CB} \uB9AC\uD3EC\uD2B8 \uC800\uC7A5 ]",
   btn_save_connection: "[ \uC120\uD0DD \uC5F0\uACB0 \uC800\uC7A5 ]",
   btn_view_all: "\uC804\uCCB4 \uACB0\uACFC \uBCF4\uAE30",
-  btn_open_graph: "\uC9C0\uC2DD \uADF8\uB798\uD504",
+  btn_open_graph: "\uADF8\uB798\uD504 \uBCF4\uAE30",
   btn_bridge_run: "\uBE0C\uB9AC\uC9C0 \uC2E4\uD589",
-  btn_analyze_start: "\uBD84\uC11D \uC2DC\uC791",
+  btn_analyze_start: "AI \uBD84\uC11D",
   btn_search: "\uD0D0\uC0C9",
   btn_searching: "\uD0D0\uC0C9 \uC911...",
   // notices
@@ -145,6 +145,7 @@ var KO = {
   notice_select_two_folders: "[ThirdBrain] \uB450 \uD3F4\uB354\uB97C \uBAA8\uB450 \uC120\uD0DD\uD558\uC138\uC694.",
   notice_diff_folders: "[ThirdBrain] \uC11C\uB85C \uB2E4\uB978 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
   notice_select_folder_analysis: "[ThirdBrain] \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
+  notice_ai_busy: "[ThirdBrain] AI \uC791\uC5C5\uC774 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4. \uC644\uB8CC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
   // progress
   progress_context: "1/4  \uBB38\uB9E5 \uBD84\uC808 \uC911...",
   progress_proposition: "2/3  \uBA85\uC81C \uCD94\uCD9C \uC911...",
@@ -201,6 +202,51 @@ var KO = {
   modal_content_type_sub: "\uC774 \uB0B4\uC6A9\uC758 \uC131\uACA9\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
   modal_content_type_info: "\u{1F4F0} \uC815\uBCF4\xB7\uC9C0\uC2DD",
   modal_content_type_action: "\u{1F4CB} \uD68C\uC758\xB7\uC77C\uC815",
+  modal_content_type_subtype_title: "\uD68C\uC758 \uC720\uD615",
+  modal_content_type_subtype_sub: "\uC774 \uD68C\uC758\uC758 \uC131\uACA9\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
+  modal_content_type_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
+  modal_content_type_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
+  modal_content_type_review: "\u{1F50D} \uAC80\uD1A0\xB7\uD68C\uACE0",
+  // action meeting type labels
+  action_meeting_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
+  action_meeting_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
+  action_meeting_review: "\u{1F50D} \uAC80\uD1A0\xB7\uD68C\uACE0",
+  action_meeting_none: "\uAE30\uD0C0",
+  // expression analysis tab — mode selection
+  tab_expression_analysis: "\uC804\uC0AC\uBCF8 \uBD84\uC11D",
+  expression_analysis_sub: "\uBD84\uC11D \uBAA8\uB4DC\uB97C \uC120\uD0DD\uD558\uACE0 \uB300\uC0C1 \uD3F4\uB354\uB97C \uC9C0\uC815\uD558\uBA74 AI\uAC00 \uC804\uC0AC\uBCF8\uC744 \uBD84\uC11D\uD569\uB2C8\uB2E4.",
+  expression_mode_title: "\uBD84\uC11D \uBAA8\uB4DC \uC120\uD0DD",
+  expression_mode_placeholder: "-- \uBAA8\uB4DC \uC120\uD0DD --",
+  expression_mode_not_selected: "\uBD84\uC11D \uBAA8\uB4DC\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
+  expression_mode1_label: "\uC5B4\uD559 \uC2A4\uD130\uB514",
+  expression_mode1_desc: "\uC601\uC5B4 \uD68C\uD654 \uC804\uC0AC\uBCF8 \uAD50\uC815 \uBC0F \uB300\uC548 \uD45C\uD604 \uCD94\uCC9C",
+  expression_mode2_label: "\uC815\uBCF4 \uACF5\uC720 \uD68C\uC758",
+  expression_mode2_desc: "\uC804\uC0AC\uBCF8\uC5D0\uC11C \uC21C\uC218 \uD329\uD2B8(Fact) \uCD94\uCD9C \uBC0F \uCD9C\uCC98 \uB9F5\uD551",
+  expression_mode3_label: "\uC5C5\uBB34 \uC9C0\uC2DC \uD68C\uC758",
+  expression_mode3_desc: "\uC561\uC158 \uCD94\uCD9C + 3\uB2E8\uACC4 \uBAA8\uC21C \uAC80\uC99D",
+  expression_mode4_label: "PARA \uBD84\uB958",
+  expression_mode4_desc: "\uB178\uB4DC\uB97C \uD504\uB85C\uC81D\uD2B8\xB7\uC601\uC5ED\xB7\uC790\uC6D0\xB7\uC544\uCE74\uC774\uBE0C\uB85C \uC790\uB3D9 \uBD84\uB958",
+  expression_no_nodes: "\uC120\uD0DD\uD55C \uD3F4\uB354\uC5D0 \uB178\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  expression_analyze_btn: "AI \uBD84\uC11D",
+  expression_analyzing: "\uBD84\uC11D \uC911...",
+  // mode 1 results
+  expression_correction_label: "\uAD50\uC815 \uBC0F \uB300\uC548 \uD45C\uD604",
+  expression_save_btn: "\uACB0\uACFC \uC800\uC7A5",
+  expression_saved_notice: "[ThirdBrain] \uBD84\uC11D \uACB0\uACFC \uC800\uC7A5 \uC644\uB8CC: ",
+  // mode 2 results
+  meeting_facts_label: "\uCD94\uCD9C\uB41C \uD329\uD2B8",
+  meeting_fact_source: "\uCD9C\uCC98: ",
+  meeting_fact_speaker: "\uBC1C\uC5B8\uC790: ",
+  // mode 3 results
+  meeting_actions_label: "\uCD94\uCD9C\uB41C \uC561\uC158",
+  meeting_action_assignee: "\uB2F4\uB2F9: ",
+  meeting_action_deadline: "\uAE30\uD55C: ",
+  meeting_action_source: "\uCD9C\uCC98: ",
+  meeting_contradictions_label: "\uAC10\uC9C0\uB41C \uBAA8\uC21C",
+  meeting_no_contradictions: "\uBAA8\uC21C\uC774 \uAC10\uC9C0\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
+  meeting_conflict_context: "\uBAA9\uD45C \uCDA9\uB3CC",
+  meeting_conflict_proposition: "\uD329\uD2B8 \uCDA9\uB3CC",
+  meeting_conflict_action: "\uC561\uC158 \uCDA9\uB3CC",
   // save folder modal
   modal_save_folder_title: "\uC800\uC7A5 \uD3F4\uB354 \uC120\uD0DD",
   modal_save_folder_sub: "\uB178\uB4DC\uB97C \uC800\uC7A5\uD560 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
@@ -209,17 +255,19 @@ var KO = {
   modal_save_folder_new_btn: "\uB9CC\uB4E4\uAE30",
   // graph view modal
   modal_graph_title: "\uADF8\uB798\uD504 \uBCF4\uAE30",
-  modal_graph_sub: "\uC5EC\uB7EC \uD3F4\uB354\uB97C \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+  modal_graph_native_sub: "Obsidian \uAE30\uBCF8 \uADF8\uB798\uD504\uB85C \uC120\uD0DD\uD55C \uD3F4\uB354\uC758 \uB178\uB4DC \uC5F0\uACB0\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.",
+  modal_graph_canvas_sub: "\uAD00\uACC4 \uC720\uD615 \uD544\uD130\uC640 AI \uCFFC\uB9AC\uB85C \uC9C0\uC2DD \uAD6C\uC870\uB97C \uD0D0\uC0C9\uD569\uB2C8\uB2E4.",
   modal_graph_empty: "\uD3F4\uB354 \uC5C6\uC74C",
   graph_exclude_conflicts: "\uBAA8\uC21C \uC5F0\uACB0 (conflicts_with) \uB178\uB4DC \uC81C\uC678",
   // graph query modal
   modal_query_title: "\uADF8\uB798\uD504 \uCFFC\uB9AC",
   modal_query_sub: "\uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uACE0 \uD0D0\uC0C9\uD560 \uB17C\uB9AC \uD750\uB984\uC744 \uC9C0\uC815\uD558\uC138\uC694.",
   modal_query_preset_label: "\uD504\uB9AC\uC14B \uCFFC\uB9AC",
-  modal_query_preset_causal: "\uC778\uACFC\uCCB4\uC778",
-  modal_query_preset_evidence: "\uC99D\uAC70\uCCB4\uC778",
-  modal_query_preset_hierarchy: "\uACC4\uCE35\uAD6C\uC870",
-  modal_query_preset_structural: "\uAD6C\uC870\uC801 \uC720\uC0AC",
+  modal_query_preset_all: "\uC804\uCCB4 \uBCF4\uAE30",
+  modal_query_preset_causal: "\uC6D0\uC778\xB7\uACB0\uACFC",
+  modal_query_preset_evidence: "\uC9C0\uC9C0\xB7\uCDA9\uB3CC",
+  modal_query_preset_hierarchy: "\uC608\uC2DC\xB7\uC801\uC6A9",
+  modal_query_preset_structural: "\uB2EE\uC740 \uAD6C\uC870",
   modal_query_ai_label: "AI \uCFFC\uB9AC (\uC790\uC5F0\uC5B4)",
   modal_query_ai_placeholder: "\uC608) \uCCAB \uBC88\uC9F8 \uBA85\uC81C\uC5D0\uC11C \uBAA8\uC21C\uAE4C\uC9C0 \uC778\uACFC \uD750\uB984\uC744 \uBCF4\uC5EC\uC918",
   modal_query_ai_btn: "AI \uCFFC\uB9AC \uC0DD\uC131",
@@ -390,9 +438,9 @@ var EN = {
   btn_save_report: "[ \u{1F4CB} Save Report ]",
   btn_save_connection: "[ Save Selected ]",
   btn_view_all: "View All Results",
-  btn_open_graph: "Knowledge Graph",
+  btn_open_graph: "View Graph",
   btn_bridge_run: "Run Bridge",
-  btn_analyze_start: "Analyze",
+  btn_analyze_start: "AI Analyze",
   btn_search: "Search",
   btn_searching: "Searching...",
   notice_file_type: "[ThirdBrain] Only .md / .txt / .pdf files are supported.",
@@ -409,6 +457,7 @@ var EN = {
   notice_select_two_folders: "[ThirdBrain] Please select both folders.",
   notice_diff_folders: "[ThirdBrain] Please select two different folders.",
   notice_select_folder_analysis: "[ThirdBrain] Please select a folder.",
+  notice_ai_busy: "[ThirdBrain] AI is currently running. Please wait for it to finish.",
   progress_context: "1/4  Segmenting context...",
   progress_proposition: "2/3  Extracting propositions...",
   progress_edge: "3/3  Extracting edges...",
@@ -457,23 +506,68 @@ var EN = {
   modal_content_type_sub: "Select the type of this content.",
   modal_content_type_info: "\u{1F4F0} Information",
   modal_content_type_action: "\u{1F4CB} Meeting / Schedule",
+  modal_content_type_subtype_title: "Meeting Type",
+  modal_content_type_subtype_sub: "Select the type of this meeting.",
+  modal_content_type_brainstorm: "\u{1F4A1} Brainstorm",
+  modal_content_type_execution: "\u26A1 Execution",
+  modal_content_type_review: "\u{1F50D} Review",
+  action_meeting_brainstorm: "\u{1F4A1} Brainstorm",
+  action_meeting_execution: "\u26A1 Execution",
+  action_meeting_review: "\u{1F50D} Review",
+  action_meeting_none: "Other",
+  tab_expression_analysis: "Transcript Analysis",
+  expression_analysis_sub: "Select an analysis mode and target folder to let AI analyze your transcript.",
+  expression_mode_title: "Select Analysis Mode",
+  expression_mode_placeholder: "-- Select Mode --",
+  expression_mode_not_selected: "Please select an analysis mode.",
+  expression_mode1_label: "Language Study",
+  expression_mode1_desc: "Grammar correction & alternative expression suggestions for conversation transcripts",
+  expression_mode2_label: "Info Meeting",
+  expression_mode2_desc: "Extract pure facts and map source paragraphs from brainstorming / info-sharing meetings",
+  expression_mode3_label: "Directive Meeting",
+  expression_mode3_desc: "Extract actions + 3-stage contradiction check",
+  expression_mode4_label: "PARA Classification",
+  expression_mode4_desc: "Auto-classify nodes into Project / Area / Resource / Archive",
+  expression_no_nodes: "No nodes in the selected folder.",
+  expression_analyze_btn: "AI Analyze",
+  expression_analyzing: "Analyzing...",
+  // mode 1 results
+  expression_correction_label: "Corrections & Alternatives",
+  expression_save_btn: "Save Results",
+  expression_saved_notice: "[ThirdBrain] Analysis saved: ",
+  // mode 2 results
+  meeting_facts_label: "Extracted Facts",
+  meeting_fact_source: "Source: ",
+  meeting_fact_speaker: "Speaker: ",
+  // mode 3 results
+  meeting_actions_label: "Extracted Actions",
+  meeting_action_assignee: "Assignee: ",
+  meeting_action_deadline: "Deadline: ",
+  meeting_action_source: "Source: ",
+  meeting_contradictions_label: "Detected Contradictions",
+  meeting_no_contradictions: "No contradictions detected.",
+  meeting_conflict_context: "Goal Conflict",
+  meeting_conflict_proposition: "Fact Conflict",
+  meeting_conflict_action: "Action Conflict",
   modal_save_folder_title: "Save Folder",
   modal_save_folder_sub: "Select a folder to save nodes.",
   modal_save_folder_root: "Root (top level)",
   modal_save_folder_new_placeholder: "New folder name",
   modal_save_folder_new_btn: "Create",
   modal_graph_title: "Graph View",
-  modal_graph_sub: "You can select multiple folders.",
+  modal_graph_native_sub: "View node connections in selected folders using Obsidian's built-in graph.",
+  modal_graph_canvas_sub: "Explore your knowledge structure with relation filters and AI queries.",
   modal_graph_empty: "No folders",
   graph_exclude_conflicts: "Exclude conflict (conflicts_with) nodes",
   // graph query modal
   modal_query_title: "Graph Query",
   modal_query_sub: "Select folders and specify the logic flow to explore.",
   modal_query_preset_label: "Preset Queries",
-  modal_query_preset_causal: "Causal Chain",
-  modal_query_preset_evidence: "Evidence Chain",
-  modal_query_preset_hierarchy: "Hierarchy",
-  modal_query_preset_structural: "Structural Similarity",
+  modal_query_preset_all: "Show All",
+  modal_query_preset_causal: "Cause & Effect",
+  modal_query_preset_evidence: "Support & Conflict",
+  modal_query_preset_hierarchy: "Examples & Applied",
+  modal_query_preset_structural: "Similar Patterns",
   modal_query_ai_label: "AI Query (Natural Language)",
   modal_query_ai_placeholder: "e.g. Show the causal path from the first premise to the contradiction",
   modal_query_ai_btn: "Generate AI Query",
@@ -1957,50 +2051,6 @@ function parseJson(raw, fallback) {
     return fallback;
   }
 }
-async function parseGraphQuery(query, nodes, settings) {
-  const nodeList = nodes.slice(0, 100).map((n) => `- ${n.title} (${n.type})`).join("\n");
-  const prompt = `Convert the user's natural language query into a graph filter spec.
-${jsonLangInstr(settings.lang)}
-
-Available relations (10 types):
-causes | precedes | precondition_of | supports | conflicts_with | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
-
-Node list (partial):
-${nodeList}
-
-Query: "${query}"
-
-rules:
-- relations: relation types relevant to the query (return all if none match)
-- startNodeTitle: title of the node to start BFS from (null if none)
-
-Return JSON only (no code blocks):
-{"relations":["supports","causes"],"startNodeTitle":null}`;
-  try {
-    const raw = await callClaudeWithModel(
-      prompt,
-      settings.cliBin,
-      "fast",
-      settings.aiProvider,
-      settings.claudeApiKey,
-      settings.geminiApiKey
-    );
-    const parsed = parseJson(raw, { relations: [] });
-    const relations = (parsed.relations ?? []).map((r) => {
-      try {
-        return toRelation(r);
-      } catch {
-        return null;
-      }
-    }).filter((r) => r !== null);
-    return {
-      relations: relations.length > 0 ? relations : ["causes", "precedes", "precondition_of", "supports", "conflicts_with", "contrasts_with", "exemplifies", "applies_to", "analogous_to", "isomorphic_to"],
-      startNodeTitle: parsed.startNodeTitle ?? void 0
-    };
-  } catch {
-    return { relations: ["causes", "precedes", "precondition_of", "supports", "conflicts_with", "contrasts_with", "exemplifies", "applies_to", "analogous_to", "isomorphic_to"] };
-  }
-}
 async function rankEdgeRelations(nodeA, nodeB, evidence, settings) {
   const prompt = `Analyze the relationship between two propositions. Although they may conflict, a more precise relation may exist.
 ${jsonLangInstr(settings.lang)}
@@ -2038,6 +2088,131 @@ Return JSON only (no code blocks):
     }).filter((r) => r !== null);
   } catch {
     return [];
+  }
+}
+async function analyzeTranscriptNodes(nodes, mode, settings) {
+  const isKo = (settings.lang ?? "en") === "ko";
+  const nodeList = nodes.map((n) => `[${n.type}] ${n.title}
+${n.content.slice(0, 600)}`).join("\n\n---\n\n");
+  const titleIndex = nodes.map((n) => `[[${n.title}]]`).join(", ");
+  const wikilinkRule = isKo ? `
+
+## \uC704\uD0A4\uB9C1\uD06C \uADDC\uCE59
+\uCD9C\uCC98 \uB178\uB4DC\uB97C \uC5B8\uAE09\uD560 \uB54C\uB294 \uBC18\uB4DC\uC2DC [[\uB178\uB4DC \uC81C\uBAA9]] \uD615\uC2DD\uC758 \uC704\uD0A4\uB9C1\uD06C\uB97C \uC0AC\uC6A9\uD558\uC138\uC694.
+\uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uB178\uB4DC: ${titleIndex}` : `
+
+## Wikilink Rule
+When referencing a source node, always use [[Node Title]] wikilink syntax.
+Available nodes: ${titleIndex}`;
+  const systemPrompt = (() => {
+    if (mode === "language")
+      return isKo ? `\uB2F9\uC2E0\uC740 \uC601\uC5B4 \uD68C\uD654 \uCF54\uCE58\uC785\uB2C8\uB2E4. \uC544\uB798\uB294 \uC601\uC5B4 \uC2A4\uD130\uB514 \uC138\uC158\uC5D0\uC11C \uCD94\uCD9C\uB41C \uD45C\uD604/\uBB38\uB9E5 \uB178\uB4DC\uB4E4\uC785\uB2C8\uB2E4.
+\uBC18\uBCF5 \uD328\uD134, \uBB38\uBC95 \uBB38\uC81C\uB97C \uC9DA\uC5B4\uC8FC\uACE0 \uB354 \uC790\uC5F0\uC2A4\uB7EC\uC6B4 \uB300\uC548 \uD45C\uD604\uC744 \uCD94\uCC9C\uD574 \uC8FC\uC138\uC694. \uB9C8\uD06C\uB2E4\uC6B4\uC73C\uB85C \uC815\uB9AC\uD558\uC138\uC694.${wikilinkRule}
+
+## \uB178\uB4DC \uBAA9\uB85D
+
+${nodeList}` : `You are an English conversation coach. Below are expression/context nodes from a language study session.
+Point out recurring patterns and grammar issues, and recommend more natural alternatives. Organize in markdown.${wikilinkRule}
+
+## Node List
+
+${nodeList}`;
+    if (mode === "info")
+      return isKo ? `\uB2F9\uC2E0\uC740 \uC9C0\uC2DD \uC815\uB9AC \uC804\uBB38\uAC00\uC785\uB2C8\uB2E4. \uC544\uB798\uB294 \uC815\uBCF4 \uACF5\uC720 \uD68C\uC758\uC5D0\uC11C \uCD94\uCD9C\uB41C \uB9E5\uB77D\xB7\uBA85\uC81C\xB7\uC778\uC0AC\uC774\uD2B8 \uB178\uB4DC\uB4E4\uC785\uB2C8\uB2E4.
+\uD575\uC2EC \uC815\uBCF4\uB97C \uCCB4\uACC4\uC801\uC73C\uB85C \uC815\uB9AC\uD558\uACE0 \uB17C\uB9AC \uD750\uB984\uC744 \uC694\uC57D\uD574 \uC8FC\uC138\uC694. \uB9C8\uD06C\uB2E4\uC6B4\uC73C\uB85C \uC791\uC131\uD558\uC138\uC694.${wikilinkRule}
+
+## \uB178\uB4DC \uBAA9\uB85D
+
+${nodeList}` : `You are a knowledge organizer. Below are context/proposition/insight nodes from an information-sharing meeting.
+Organize the key information systematically and summarize the logical flow. Write in markdown.${wikilinkRule}
+
+## Node List
+
+${nodeList}`;
+    if (mode === "para")
+      return isKo ? `\uB2F9\uC2E0\uC740 PARA \uBC29\uBC95\uB860 \uC804\uBB38\uAC00\uC785\uB2C8\uB2E4. \uC544\uB798 \uB178\uB4DC\uB4E4\uC744 \uD2F0\uC544\uACE0 \uD3EC\uB974\uD14C\uC758 PARA \uCCB4\uACC4\uB85C \uBD84\uB958\uD574 \uC8FC\uC138\uC694.
+
+- **Project (\uD504\uB85C\uC81D\uD2B8)**: \uBA85\uD655\uD55C \uAE30\uD55C\uACFC \uBAA9\uD45C\uAC00 \uC788\uB294 \uB2E8\uAE30 \uC5C5\uBB34
+- **Area (\uC601\uC5ED)**: \uC9C0\uC18D\uC801\uC73C\uB85C \uAD00\uB9AC\uD574\uC57C \uD560 \uCC45\uC784 \uBD84\uC57C
+- **Resource (\uC790\uC6D0)**: \uB098\uC911\uC5D0 \uCC38\uACE0\uD560 \uC815\uBCF4 \uBC0F \uAD00\uC2EC\uC0AC
+- **Archive (\uC544\uCE74\uC774\uBE0C)**: \uC644\uB8CC\uB418\uC5C8\uAC70\uB098 \uBE44\uD65C\uC131\uD654\uB41C \uC815\uBCF4
+
+\uAC01 \uBC94\uC8FC \uC544\uB798 \uD574\uB2F9 \uB178\uB4DC\uB97C \uB098\uC5F4\uD558\uACE0 \uBD84\uB958 \uC774\uC720\uB97C \uD55C \uC904\uB85C \uC124\uBA85\uD558\uC138\uC694. \uB9C8\uD06C\uB2E4\uC6B4\uC73C\uB85C \uC791\uC131\uD558\uC138\uC694.${wikilinkRule}
+
+## \uB178\uB4DC \uBAA9\uB85D
+
+${nodeList}` : `You are a PARA methodology expert. Classify the nodes below using Tiago Forte's PARA system.
+
+- **Project**: Short-term efforts with a clear deadline and goal
+- **Area**: Ongoing responsibilities to maintain over time
+- **Resource**: Reference information and interests for future use
+- **Archive**: Completed or inactive information
+
+List nodes under each category with a one-line reason. Write in markdown.${wikilinkRule}
+
+## Node List
+
+${nodeList}`;
+    return isKo ? `\uB2F9\uC2E0\uC740 \uC5C5\uBB34 \uC815\uB9AC \uC804\uBB38\uAC00\uC785\uB2C8\uB2E4. \uC544\uB798\uB294 \uC9C0\uC2DC\uC131 \uD68C\uC758\uC5D0\uC11C \uCD94\uCD9C\uB41C \uB9E5\uB77D\xB7\uC561\uC158 \uB178\uB4DC\uB4E4\uC785\uB2C8\uB2E4.
+\uC9C0\uC2DC \uC0AC\uD56D\uC744 \uB2F4\uB2F9\uC790\uBCC4, \uC6B0\uC120\uC21C\uC704\uBCC4\uB85C \uBA85\uD655\uD558\uAC8C \uC815\uB9AC\uD574 \uC8FC\uC138\uC694. \uB9C8\uD06C\uB2E4\uC6B4\uC73C\uB85C \uC791\uC131\uD558\uC138\uC694.${wikilinkRule}
+
+## \uB178\uB4DC \uBAA9\uB85D
+
+${nodeList}` : `You are a task management expert. Below are context/action nodes from a directive meeting.
+Clearly organize the directives by assignee and priority. Write in markdown.${wikilinkRule}
+
+## Node List
+
+${nodeList}`;
+  })();
+  const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+  const raw = typeof rawUnknown === "string" ? rawUnknown : JSON.stringify(rawUnknown);
+  return raw.trim();
+}
+async function parseGraphQuery(prompt, nodeContext, settings) {
+  const sampleTitles = nodeContext.slice(0, 50).map((n) => `"${n.title}" (${n.type})`).join(", ");
+  const systemPrompt = `You are a graph query assistant that translates natural-language requests into structured filter specs.
+
+Available relation types (return only these exact strings):
+- causes: A directly causes B
+- precedes: A temporally precedes B
+- precondition_of: A is a prerequisite for B
+- supports: A provides evidence for B
+- conflicts_with: A contradicts B
+- contrasts_with: A differs from B in a notable way
+- exemplifies: A is a concrete example of B
+- applies_to: A applies a principle to domain B
+- analogous_to: A has similar structure to B
+- isomorphic_to: A has identical logical structure to B
+
+Sample nodes available: ${sampleTitles}
+
+User request: "${prompt}"
+
+Return ONLY compact JSON (no markdown, no explanation):
+{"relations":["relation1","relation2"],"startNodeTitle":"optional exact title from sample","maxHops":3}
+- relations: which edge types to highlight (required, 1\u201310)
+- startNodeTitle: BFS origin node if user mentions a specific concept (optional, must be from sample list)
+- maxHops: BFS depth if startNodeTitle set (optional, default 3)`;
+  try {
+    const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+    const raw = typeof rawUnknown === "string" ? rawUnknown : JSON.stringify(rawUnknown);
+    const json = raw.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(json);
+    const validRelations = (parsed.relations ?? []).map((r) => {
+      try {
+        return toRelation(r);
+      } catch {
+        return null;
+      }
+    }).filter((r) => r !== null);
+    return {
+      relations: validRelations.length > 0 ? validRelations : ["causes", "supports"],
+      startNodeTitle: typeof parsed.startNodeTitle === "string" ? parsed.startNodeTitle : void 0,
+      maxHops: typeof parsed.maxHops === "number" ? parsed.maxHops : 3
+    };
+  } catch {
+    return { relations: ["causes", "supports"] };
   }
 }
 
@@ -2447,6 +2622,7 @@ ${body}`;
       `tb_link_type: ${node.link_type}`,
       `tb_origin: ${node.origin}`,
       `tb_motivation_context_ids: ${motivCtxIds}`,
+      ...node.meeting_type ? [`tb_meeting_type: ${node.meeting_type}`] : [],
       "---"
     ].join("\n");
     const content = `${frontmatter}
@@ -2515,7 +2691,8 @@ ${node.content}`;
       link_type: fm?.tb_link_type ?? fm?.tb_action_link_type ?? "implements",
       origin: fm?.tb_origin ?? fm?.tb_action_origin ?? "extracted",
       created: String(fm?.tb_created ?? fm?.tb_action_created ?? ""),
-      filePath: file.path
+      filePath: file.path,
+      meeting_type: fm?.tb_meeting_type ? fm.tb_meeting_type : void 0
     };
   }
   /**
@@ -35267,7 +35444,7 @@ var GraphView = class {
   }
   showNodePopup(node, screenX, screenY) {
     this.closeNodePopup();
-    const popup = this.container.createEl("div", { cls: "tb-node-popup" });
+    const popup = document.body.createEl("div", { cls: "tb-node-popup" });
     this.nodePopupEl = popup;
     popup.createEl("div", { cls: "tb-node-popup-title", text: node.title });
     const typeColors = {
@@ -35302,16 +35479,22 @@ var GraphView = class {
     } else {
       popup.createEl("div", { cls: "tb-node-popup-empty", text: "\uC5F0\uACB0 \uC5C6\uC74C" });
     }
+    const canvasRect = this.canvas.getBoundingClientRect();
     const PAD = 10;
-    let left = screenX + 14;
-    let top = screenY - 10;
-    if (left + 240 > this.w)
-      left = screenX - 250;
-    if (top + 200 > this.h)
-      top = this.h - 210;
+    let left = canvasRect.left + screenX + 14;
+    let top = canvasRect.top + screenY - 10;
+    const vpW = window.innerWidth;
+    const vpH = window.innerHeight;
+    if (left + 240 > vpW)
+      left = canvasRect.left + screenX - 250;
+    if (top + 200 > vpH)
+      top = vpH - 210;
     if (top < PAD)
       top = PAD;
-    popup.setCssStyles({ left: `${left}px`, top: `${top}px` });
+    popup.setCssStyles({ position: "fixed", zIndex: "1000", left: `${left}px`, top: `${top}px` });
+  }
+  cleanup() {
+    this.closeNodePopup();
   }
   hitTest(screenX, screenY) {
     const wx = (screenX - this.transform.x) / this.transform.k;
@@ -35394,12 +35577,23 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.pipelineModal = null;
+    // 전사본 분석 백그라운드 작업 상태 (모달 닫혀도 유지)
+    this.transcriptJob = null;
     // 재분석용 문맥 캐시
     this._cachedContexts = null;
     // 인제스트 소스 추적 (raw 폴더 박제용)
     this.ingestSource = null;
     // ── 상태 헬퍼 ────────────────────────────────────────
-    this._busy = false;
+    // 버튼 비활성 규칙 (독립 3축 — CLAUDE.md "버튼 Busy 규칙" 참조):
+    //   생성(ingest)        : _busyAI || _busyBridge || _busyIngest
+    //   분석(analysis)      : _busyIngest || _busyBridge  (AI 백그라운드는 허용)
+    //   연결(bridge)        : _busyAI || _busyIngest || _busyBridge
+    //   그래프분석-AI분석   : _busyAI || _busyIngest || _busyBridge
+    this._busyAI = false;
+    // 백그라운드 AI (전사본·그래프 분석 등)
+    this._busyIngest = false;
+    // 생성 파이프라인
+    this._busyBridge = false;
     this._graphOpening = false;
     this.plugin = plugin;
   }
@@ -35517,9 +35711,22 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     });
     this.analysisBtn = actions.createEl("button", { cls: "tb-btn-secondary", text: this.t("btn_analyze") });
     this.analysisBtn.addEventListener("click", () => {
-      new AnalysisTabbedModal(this.app, this.getFolderPaths(), this.store, (folder, mode, intent, includeActions) => {
-        void this.runFolderAnalysis(folder, mode, intent, includeActions);
-      }, this.plugin.settings.lang).open();
+      new AnalysisTabbedModal(
+        this.app,
+        this.getFolderPaths(),
+        this.store,
+        (folder, mode, intent, includeActions) => {
+          void this.runFolderAnalysis(folder, mode, intent, includeActions);
+        },
+        this.plugin.settings.lang,
+        this.plugin.settings,
+        this.transcriptJob,
+        (job) => {
+          this.transcriptJob = job;
+          this.setAIBusy(job?.running ?? false);
+        },
+        () => this._busyAI || this._busyIngest || this._busyBridge
+      ).open();
     });
     const graphBtn = actions.createEl("button", { cls: "tb-btn-secondary", text: this.t("btn_graph") });
     graphBtn.addEventListener("click", () => {
@@ -35665,7 +35872,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
   }
   // 외부 호출용 (NodeTransplantModal → raw 파일 인제스트)
   async ingestContent(content, targetFolder) {
-    this.setBusy(true);
+    this.setIngestBusy(true);
     this.resultsEl.empty();
     this.stepLogEl?.empty();
     await this.runPipeline(content, void 0, targetFolder);
@@ -35685,8 +35892,8 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     if (!this.app.vault.getFolderByPath(rawDir)) {
       await this.app.vault.createFolder(rawDir);
     }
-    const includeActionLayer = await new Promise((resolve) => {
-      new ContentTypeModal(this.app, resolve, this.plugin.settings.lang).open();
+    const [includeActionLayer, meetingType] = await new Promise((resolve) => {
+      new ContentTypeModal(this.app, (inc, mt) => resolve([inc, mt]), this.plugin.settings.lang).open();
     });
     if (includeActionLayer === null)
       return;
@@ -35724,7 +35931,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
       needsAutoTitle = !isAlreadyInRaw;
     } catch {
     }
-    this.setBusy(true);
+    this.setIngestBusy(true);
     this.resultsEl.empty();
     this.pipelineModal?.close();
     this.pipelineModal = null;
@@ -35732,15 +35939,15 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     if (text.length > CHUNK_SIZE) {
       const chunks = splitIntoChunks(text, CHUNK_SIZE);
       for (let i = 0; i < chunks.length; i++) {
-        this.setBusy(true);
+        this.setIngestBusy(true);
         this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t("progress_chunk")}`);
         const isLast = i === chunks.length - 1;
-        const links = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast);
+        const links = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
         if (links)
           allRawLinks.push(...links);
       }
     } else {
-      const links = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true);
+      const links = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
       if (links)
         allRawLinks.push(...links);
     }
@@ -35750,7 +35957,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     }
   }
   // ── 메인 파이프라인 (Auto vs Architect 모드) ──────
-  async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true) {
+  async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true, meetingType) {
     let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, "") : void 0;
     this.pipelineModal?.close();
     const modal = new PipelineInfoModal(this.app, this.plugin.settings.lang);
@@ -35816,7 +36023,7 @@ ${diagMsg}`, 15e3);
 ${diagMsg}`
         });
         this.hideProgress();
-        this.setBusy(false);
+        this.setIngestBusy(false);
         return [];
       }
       this.setProgress(6, this.t("progress_edge"));
@@ -35826,10 +36033,10 @@ ${diagMsg}`
       );
       const logic = { propositions, edges: rawEdges };
       this.hideProgress();
-      this.setBusy(false);
+      this.setIngestBusy(false);
       this.renderLogicLayer(logic);
       this.hideProgress();
-      this.setBusy(false);
+      this.setIngestBusy(false);
       if (targetFolder) {
         const preExistingNodes = await this.store.loadNodesInFolder(targetFolder);
         this.setProgress(8, this.t("progress_save"));
@@ -35853,7 +36060,8 @@ ${diagMsg}`
               contexts,
               contextFileMap,
               propFileMap,
-              targetFolder
+              targetFolder,
+              meetingType
             );
           }
           if (preExistingNodes.length > 0) {
@@ -35885,7 +36093,7 @@ ${diagMsg}`
       }
     } catch (e) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setIngestBusy(false);
       const msg = e instanceof Error ? e.message : String(e);
       const stack = e instanceof Error ? e.stack : "";
       this.resultsEl.empty();
@@ -36190,6 +36398,10 @@ ${diagMsg}`
   renderActionCard(parent, node, propById) {
     const card = parent.createEl("div", { cls: `tb-action-card is-${node.status}` });
     const head = card.createEl("div", { cls: "tb-action-card-head" });
+    if (node.meeting_type) {
+      const mtKey = `action_meeting_${node.meeting_type}`;
+      head.createEl("span", { cls: `tb-action-meeting-badge is-${node.meeting_type}`, text: this.t(mtKey) });
+    }
     if (node.origin === "from_resolution") {
       head.createEl("span", { cls: "tb-action-badge-conflict", text: this.t("badge_conflict_resolved") });
     } else if (node.origin === "extracted") {
@@ -36243,7 +36455,7 @@ ${diagMsg}`
     }
   }
   // Phase 8: 액션 레이어 추출 → 저장 → 문맥 엣지 연결 → 결과 패널 렌더
-  async extractAndSaveActions(text, propositions, contexts, contextFileMap, propFileMap, folder) {
+  async extractAndSaveActions(text, propositions, contexts, contextFileMap, propFileMap, folder, meetingType) {
     try {
       let actions = await extractActions(text, propositions, contexts, this.plugin.settings);
       if (actions.length === 0)
@@ -36253,7 +36465,8 @@ ${diagMsg}`
       const propById = new Map(propositions.map((p) => [p.id, p]));
       const savedActions = [];
       for (const a2 of actions) {
-        const actionFile = await this.store.createActionNode(a2, folder, propFileMap);
+        const actionWithMeeting = meetingType ? { ...a2, meeting_type: meetingType } : a2;
+        const actionFile = await this.store.createActionNode(actionWithMeeting, folder, propFileMap);
         for (const ctxId of a2.motivation_context_ids ?? []) {
           const ctx = ctxById.get(ctxId);
           if (!ctx)
@@ -36270,7 +36483,7 @@ ${diagMsg}`
             axiom_basis: "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9 \uC5F0\uACB0"
           });
         }
-        savedActions.push({ ...a2, filePath: actionFile.path, _propById: propById });
+        savedActions.push({ ...actionWithMeeting, filePath: actionFile.path, _propById: propById });
       }
       this.renderActionResults(savedActions, propById);
     } catch (e) {
@@ -36284,8 +36497,28 @@ ${diagMsg}`
       `${this.t("layer_action_header")} \xB7 ${actions.length}${this.t("layer_count_generic")}`,
       false
     );
-    for (const a2 of actions) {
-      this.renderActionCard(content, a2, propById);
+    const hasMeetingType = actions.some((a2) => !!a2.meeting_type);
+    if (hasMeetingType) {
+      const groups = /* @__PURE__ */ new Map();
+      for (const a2 of actions) {
+        const key = a2.meeting_type ?? "none";
+        if (!groups.has(key))
+          groups.set(key, []);
+        groups.get(key).push(a2);
+      }
+      const groupOrder = ["brainstorm", "execution", "review", "none"];
+      for (const key of groupOrder) {
+        const group = groups.get(key);
+        if (!group || group.length === 0)
+          continue;
+        const labelKey = key === "none" ? "action_meeting_none" : `action_meeting_${key}`;
+        content.createEl("div", { cls: "tb-action-group-header", text: this.t(labelKey) });
+        for (const a2 of group)
+          this.renderActionCard(content, a2, propById);
+      }
+    } else {
+      for (const a2 of actions)
+        this.renderActionCard(content, a2, propById);
     }
   }
   renderConflictNotice(conflicts) {
@@ -36595,12 +36828,12 @@ ${diagMsg}`
   // ── 8-2: 폴더 분석 실행 ──────────────────────────────
   async runFolderAnalysis(folderPath, mode, intent, includeActions) {
     this.resultsEl.empty();
-    this.setBusy(true);
+    this.setAIBusy(true);
     this.setProgress(5, `${this.t("analysis_progress_label")} (${mode === "rich" ? this.t("analysis_depth_rich") : this.t("analysis_depth_summary")})`);
     const folder = this.app.vault.getFolderByPath(folderPath);
     if (!folder) {
       new import_obsidian2.Notice("[ThirdBrain] \uD3F4\uB354\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
-      this.setBusy(false);
+      this.setAIBusy(false);
       this.hideProgress();
       return;
     }
@@ -36639,18 +36872,18 @@ ${diagMsg}`
     }
     if (nodes.length === 0) {
       new import_obsidian2.Notice("[ThirdBrain] \uD3F4\uB354\uC5D0 \uB9C8\uD06C\uB2E4\uC6B4 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
-      this.setBusy(false);
+      this.setAIBusy(false);
       this.hideProgress();
       return;
     }
     try {
       const result = await summarizeFolder(nodes, this.plugin.settings, mode, intent);
       this.hideProgress();
-      this.setBusy(false);
+      this.setAIBusy(false);
       this.renderSummaryResult(result, folderPath, mode, intent);
     } catch (e) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setAIBusy(false);
       new import_obsidian2.Notice(`[ThirdBrain] \uBD84\uC11D \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -36666,25 +36899,21 @@ ${diagMsg}`
     const openBtn = btnRow.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_view_all") });
     const openModal = () => {
       new AnalysisResultModal(this.app, result, folderPath, mode, intent, () => {
-        const folders = this.getFolderPaths();
-        new SaveFolderModal(this.app, folders, this.plugin.settings.rootFolder, (tf) => {
-          void this.saveAnalysisResult(result, folderPath, tf, openBtn, mode, intent);
-        }, this.plugin.settings.lang, this.plugin.settings.rootFolder).open();
+        void this.saveAnalysisResult(result, folderPath, openBtn, mode, intent);
       }, this.plugin.settings.lang).open();
     };
     openBtn.addEventListener("click", openModal);
     openModal();
   }
-  // 🆕 분석 결과 저장
-  async saveAnalysisResult(result, sourceFolderPath, targetFolderPath, saveBtn, mode, intent) {
+  // 🆕 분석 결과 저장 — ThirdBrainRoot/분석/ 자동 사용
+  async saveAnalysisResult(result, sourceFolderPath, saveBtn, mode, intent) {
     saveBtn.disabled = true;
     const originalText = saveBtn.textContent;
     saveBtn.textContent = this.t("btn_saving");
+    const targetFolderPath = `${this.plugin.settings.rootFolder}/\uBD84\uC11D`;
     try {
-      const folder = this.app.vault.getFolderByPath(targetFolderPath);
-      if (!folder) {
-        new import_obsidian2.Notice(this.t("notice_no_target_folder"));
-        return;
+      if (!this.app.vault.getFolderByPath(targetFolderPath)) {
+        await this.app.vault.createFolder(targetFolderPath);
       }
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const modeTag = mode === "rich" ? "deep" : "summary";
@@ -36800,25 +37029,38 @@ ${theme.description}
       }
     })());
   }
-  setBusy(busy) {
-    this._busy = busy;
-    this.analysisBtn.disabled = busy;
-    this.bridgeBtn.disabled = busy;
-    this.ingestBtn.toggleClass("is-busy", busy);
-    if (busy) {
-      this.ingestBtn.disabled = true;
+  // 연결 파이프라인
+  updateBusyUI() {
+    this.ingestBtn.toggleClass("is-busy", this._busyIngest);
+    this.ingestBtn.disabled = this._busyAI || this._busyBridge || this._busyIngest;
+    if (this._busyIngest) {
       this.ingestBtn.textContent = this.t("progress_chunk");
     } else {
       this.ingestBtn.textContent = this.t("btn_generate");
-      this.syncIngestBtnState();
+      if (!this._busyAI && !this._busyBridge)
+        this.syncIngestBtnState();
     }
+    this.analysisBtn.disabled = this._busyIngest || this._busyBridge;
+    this.bridgeBtn.disabled = this._busyAI || this._busyIngest || this._busyBridge;
+  }
+  setAIBusy(on) {
+    this._busyAI = on;
+    this.updateBusyUI();
+  }
+  setIngestBusy(on) {
+    this._busyIngest = on;
+    this.updateBusyUI();
+  }
+  setBridgeBusy(on) {
+    this._busyBridge = on;
+    this.updateBusyUI();
   }
   updateCharCount() {
     const len = this.ingestTextarea.value.length;
     this.charCountEl.textContent = `${len}${this.t("char_suffix")}`;
   }
   syncIngestBtnState() {
-    if (this._busy)
+    if (this._busyAI || this._busyIngest || this._busyBridge)
       return;
     const empty2 = this.ingestTextarea.value.trim().length === 0;
     this.ingestBtn.disabled = empty2;
@@ -37000,7 +37242,7 @@ ${query}`);
   // ── TB 노드 인제스트 → 브릿지 ──────────────────────────
   // vault 파일 1개가 TB 노드일 때 인제스트 버튼을 누르면 여기로 진입
   async runBridgeFromIngest(sourceFile, targetFolder) {
-    this.setBusy(true);
+    this.setBridgeBusy(true);
     this.resultsEl.empty();
     this.setProgress(2, `"${sourceFile.basename}" \uBCF5\uC0AC \uC911...`);
     const base = targetFolder ? `${targetFolder}/${sourceFile.name}` : sourceFile.name;
@@ -37023,13 +37265,13 @@ ${query}`);
       movedFile = await this.app.vault.create(targetPath, content);
     } catch (e) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       new import_obsidian2.Notice(`[ThirdBrain] \uD30C\uC77C \uBCF5\uC0AC \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
     if (!movedFile) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       new import_obsidian2.Notice("[ThirdBrain] \uC774\uB3D9\uB41C \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
@@ -37054,14 +37296,14 @@ ${query}`);
     });
     if (!movedNode) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       new import_obsidian2.Notice("[ThirdBrain] \uB178\uB4DC \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     const targetNodes = (await this.store.loadNodesInFolder(targetFolder)).filter((n) => n.filePath !== movedFile.path);
     if (targetNodes.length === 0) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       new import_obsidian2.Notice(`\u2705 \uC774\uC2DD \uC644\uB8CC: ${movedFile.basename} \u2192 ${targetFolder || "\uB8E8\uD2B8"} (\uC5F0\uACB0 \uD6C4\uBCF4 \uC5C6\uC74C)`);
       this.ingestTextarea.value = "";
       this.updateCharCount();
@@ -37095,13 +37337,13 @@ ${query}`);
         (msg) => this.setProgress(7, msg)
       );
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       this.ingestTextarea.value = "";
       this.updateCharCount();
       await this.renderSingleNodeBridge(movedFile, movedNode.title, candidates, targetNodes);
     } catch (e) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       new import_obsidian2.Notice(`[ThirdBrain] \uBE0C\uB9BF\uC9C0 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -37110,7 +37352,7 @@ ${query}`);
     const foldersA = Array.isArray(folderAPath) ? folderAPath : [folderAPath];
     const foldersB = Array.isArray(folderBPath) ? folderBPath : [folderBPath];
     this.resultsEl.empty();
-    this.setBusy(true);
+    this.setBridgeBusy(true);
     this.setProgress(2, "\uD3F4\uB354 \uB178\uB4DC \uB85C\uB4DC \uC911...");
     try {
       const [tbNodesA, tbNodesB] = await Promise.all([
@@ -37123,7 +37365,7 @@ ${query}`);
           text: this.t("label_no_propositions")
         });
         this.hideProgress();
-        this.setBusy(false);
+        this.setBridgeBusy(false);
         return;
       }
       const fileMapA = /* @__PURE__ */ new Map();
@@ -37155,7 +37397,7 @@ ${query}`);
         (msg) => this.setProgress(6, msg)
       );
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       new BridgeResultModal(
         this.app,
         result,
@@ -37171,7 +37413,7 @@ ${query}`);
       ).open();
     } catch (e) {
       this.hideProgress();
-      this.setBusy(false);
+      this.setBridgeBusy(false);
       const msg = e instanceof Error ? e.message : String(e);
       new import_obsidian2.Notice(`[ThirdBrain] ${this.t("save_error_prefix")}${msg}`);
       this.resultsEl.createEl("div", { cls: "tb-error-msg", text: `${this.t("error_title")}: ${msg}` });
@@ -37236,6 +37478,7 @@ var GraphCanvasModal = class extends import_obsidian2.Modal {
     }, 0);
   }
   onClose() {
+    this.graphView?.cleanup();
     this.contentEl.empty();
   }
 };
@@ -37323,7 +37566,7 @@ var GraphViewModal = class extends import_obsidian2.Modal {
     this.buildCanvasPane(paneCanvas);
   }
   buildNativePane(container) {
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_sub") });
+    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_native_sub") });
     container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const checkboxes = this.buildFolderList(container);
     const footer = container.createEl("div", { cls: "tb-popup-footer" });
@@ -37345,27 +37588,38 @@ var GraphViewModal = class extends import_obsidian2.Modal {
     });
   }
   buildCanvasPane(container) {
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_sub") });
+    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_canvas_sub") });
     container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const checkboxes = this.buildFolderList(container);
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("modal_query_preset_label") });
-    const chipRow = container.createEl("div", { cls: "tb-intent-chips" });
-    const chipEls = [];
+    const presetRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    presetRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("modal_query_preset_label") });
+    const presetSelect = presetRow.createEl("select", { cls: "tb-popup-select" });
+    presetSelect.createEl("option", { attr: { value: "all" }, text: this.t("modal_query_preset_all") });
     for (const preset of PRESET_QUERIES) {
-      const chip = chipRow.createEl("button", { cls: "tb-intent-chip is-active", text: this.t(preset.key) });
-      chipEls.push(chip);
-      chip.addEventListener("click", () => {
-        const anyActive = preset.relations.some((r) => this.activeRelations.has(r));
-        if (anyActive) {
-          preset.relations.forEach((r) => this.activeRelations.delete(r));
-          chip.removeClass("is-active");
-        } else {
-          preset.relations.forEach((r) => this.activeRelations.add(r));
-          chip.addClass("is-active");
-        }
-        this.querySpec = null;
-      });
+      presetSelect.createEl("option", { attr: { value: preset.key }, text: this.t(preset.key) });
     }
+    presetSelect.addEventListener("change", () => {
+      const val = presetSelect.value;
+      if (val === "all") {
+        this.activeRelations = /* @__PURE__ */ new Set([
+          "causes",
+          "precedes",
+          "precondition_of",
+          "supports",
+          "conflicts_with",
+          "contrasts_with",
+          "exemplifies",
+          "applies_to",
+          "analogous_to",
+          "isomorphic_to"
+        ]);
+      } else {
+        const found = PRESET_QUERIES.find((p) => p.key === val);
+        if (found)
+          this.activeRelations = new Set(found.relations);
+      }
+      this.querySpec = null;
+    });
     container.createEl("div", { cls: "tb-popup-select-label", text: this.t("modal_query_ai_label") });
     const customRow = container.createEl("div", { cls: "tb-popup-select-row" });
     const aiInput = customRow.createEl("textarea", {
@@ -37387,17 +37641,17 @@ var GraphViewModal = class extends import_obsidian2.Modal {
       const spec = await parseGraphQuery(prompt, allNodes.map((n) => ({ title: n.title, type: n.type })), this.settings);
       this.querySpec = spec;
       this.activeRelations = new Set(spec.relations);
-      for (let i = 0; i < PRESET_QUERIES.length; i++) {
-        const anyActive = PRESET_QUERIES[i].relations.some((r) => this.activeRelations.has(r));
-        chipEls[i]?.toggleClass("is-active", anyActive);
-      }
+      const matched = PRESET_QUERIES.find(
+        (p) => p.relations.length === spec.relations.length && p.relations.every((r) => this.activeRelations.has(r))
+      );
+      presetSelect.value = matched ? matched.key : "all";
       const labelStr = spec.relations.map((r) => relLabel(r, this.lang)).join(", ");
       aiStatus.setText(labelStr + (spec.startNodeTitle ? ` \xB7 BFS: ${spec.startNodeTitle}` : ""));
       aiBtn.disabled = false;
     })());
     const footer = container.createEl("div", { cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
-    footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("modal_query_open_canvas") }).addEventListener("click", () => {
+    footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selected.length === 0) {
         new import_obsidian2.Notice(this.t("notice_select_folder"));
@@ -37592,14 +37846,17 @@ var ContentTypeModal = class extends import_obsidian2.Modal {
   t(key) {
     return getT(this.lang)(key);
   }
-  resolve(value) {
+  resolve(value, meetingType) {
     if (this.resolved)
       return;
     this.resolved = true;
-    this.onSelect(value);
+    this.onSelect(value, meetingType);
   }
   onOpen() {
     this.modalEl.addClass("tb-popup");
+    this.renderTypeScreen();
+  }
+  renderTypeScreen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_title") });
@@ -37612,8 +37869,30 @@ var ContentTypeModal = class extends import_obsidian2.Modal {
       this.close();
     });
     btnAction.addEventListener("click", () => {
-      this.resolve(true);
-      this.close();
+      this.renderSubtypeScreen();
+    });
+  }
+  renderSubtypeScreen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_subtype_title") });
+    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_content_type_subtype_sub") });
+    const row = contentEl.createEl("div", { cls: "tb-content-type-modal-row" });
+    const types = [
+      { key: "modal_content_type_brainstorm", val: "brainstorm" },
+      { key: "modal_content_type_execution", val: "execution" },
+      { key: "modal_content_type_review", val: "review" }
+    ];
+    for (const { key, val } of types) {
+      const btn = row.createEl("button", { cls: "tb-content-type-btn", text: this.t(key) });
+      btn.addEventListener("click", () => {
+        this.resolve(true, val);
+        this.close();
+      });
+    }
+    const backBtn = contentEl.createEl("button", { cls: "tb-btn tb-content-type-back-btn", text: "\u2190 \uB4A4\uB85C" });
+    backBtn.addEventListener("click", () => {
+      this.renderTypeScreen();
     });
   }
   onClose() {
@@ -37742,13 +38021,18 @@ var SaveFolderModal = class extends import_obsidian2.Modal {
   }
 };
 var AnalysisTabbedModal = class extends import_obsidian2.Modal {
-  constructor(app, folders, store, onRun, lang) {
+  constructor(app, folders, store, onRun, lang, settings, initialJob = null, onJobUpdate = () => {
+  }, isAnythingBusy = () => false) {
     super(app);
     this.folders = folders;
     this.store = store;
     this.onRun = onRun;
+    this.settings = settings;
+    this.isAnythingBusy = isAnythingBusy;
     this.loadedNodes = [];
     this.lang = lang ?? "en";
+    this.transcriptJob = initialJob;
+    this.onTranscriptJobUpdate = onJobUpdate;
     this.modalEl.addClass("tb-popup");
   }
   t(key) {
@@ -37761,24 +38045,23 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
     makeDraggable(this.modalEl, titleEl);
     const tabBar = contentEl.createEl("div", { cls: "tb-tab-bar" });
     const tabAnalysis = tabBar.createEl("button", { cls: "tb-tab is-active", text: this.t("tab_graph_analysis") });
-    const tabPath = tabBar.createEl("button", { cls: "tb-tab", text: this.t("tab_path_finder") });
+    const tabExpr = tabBar.createEl("button", { cls: "tb-tab", text: this.t("tab_expression_analysis") });
     const paneAnalysis = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
-    const panePath = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
-    panePath.hide();
-    tabAnalysis.addEventListener("click", () => {
-      tabAnalysis.addClass("is-active");
-      tabPath.removeClass("is-active");
-      paneAnalysis.show();
-      panePath.hide();
-    });
-    tabPath.addEventListener("click", () => {
-      tabPath.addClass("is-active");
-      tabAnalysis.removeClass("is-active");
-      panePath.show();
-      paneAnalysis.hide();
-    });
+    const paneExpr = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
+    paneExpr.hide();
+    const switchTab = (active, activePane) => {
+      for (const [tab, pane] of [[tabAnalysis, paneAnalysis], [tabExpr, paneExpr]]) {
+        tab.toggleClass("is-active", tab === active);
+        if (pane === activePane)
+          pane.show();
+        else
+          pane.hide();
+      }
+    };
+    tabAnalysis.addEventListener("click", () => switchTab(tabAnalysis, paneAnalysis));
+    tabExpr.addEventListener("click", () => switchTab(tabExpr, paneExpr));
     this.buildAnalysisPane(paneAnalysis);
-    this.buildPathPane(panePath);
+    this.buildExpressionPane(paneExpr);
   }
   buildAnalysisPane(container) {
     container.createEl("div", {
@@ -37880,7 +38163,13 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
     modeSel.createEl("option", { attr: { value: "rich" }, text: this.t("analysis_depth_rich") });
     const footer = container.createEl("div", { cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
-    footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_analyze_start") }).addEventListener("click", () => {
+    const analyzeStartBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_analyze_start") });
+    analyzeStartBtn.disabled = this.isAnythingBusy();
+    analyzeStartBtn.addEventListener("click", () => {
+      if (this.isAnythingBusy()) {
+        new import_obsidian2.Notice(this.t("notice_ai_busy"));
+        return;
+      }
       const folder = analysisCbs.filter((c2) => c2.cb.checked)[0]?.folder ?? "";
       const mode = modeSel.value;
       if (!folder) {
@@ -38083,6 +38372,169 @@ var AnalysisTabbedModal = class extends import_obsidian2.Modal {
         }
       })());
     }
+  }
+  buildExpressionPane(container) {
+    container.createEl("div", { cls: "tb-popup-sub", text: this.t("expression_analysis_sub") });
+    if (this.folders.length === 0) {
+      container.createEl("div", { cls: "tb-popup-empty", text: this.t("analysis_no_folder") });
+      const footer2 = container.createEl("div", { cls: "tb-popup-footer" });
+      footer2.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
+      return;
+    }
+    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    const analysisFolders = this.folders.filter((f) => !f.endsWith("/_actions") && f !== "_actions");
+    const folderList = container.createEl("div", { cls: "tb-popup-folder-list" });
+    const exprCbs = [];
+    for (const f of analysisFolders) {
+      const depth = f.split("/").length - 1;
+      const name = f.split("/").pop() ?? f;
+      const label = folderList.createEl("label", { cls: "tb-popup-folder-item" });
+      label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
+      const cb = label.createEl("input", { attr: { type: "checkbox" } });
+      cb.addClass("tb-popup-cb");
+      label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+      label.createEl("span", { cls: "tb-popup-folder-name", text: name });
+      exprCbs.push({ folder: f, cb });
+    }
+    for (let i = 0; i < exprCbs.length; i++) {
+      const { folder, cb } = exprCbs[i];
+      cb.addEventListener("change", () => {
+        for (let j = i + 1; j < exprCbs.length; j++) {
+          if (exprCbs[j].folder.startsWith(folder + "/"))
+            exprCbs[j].cb.checked = cb.checked;
+        }
+      });
+    }
+    const modeOptions = [
+      { id: "language", labelKey: "expression_mode1_label", descKey: "expression_mode1_desc" },
+      { id: "info", labelKey: "expression_mode2_label", descKey: "expression_mode2_desc" },
+      { id: "directive", labelKey: "expression_mode3_label", descKey: "expression_mode3_desc" },
+      { id: "para", labelKey: "expression_mode4_label", descKey: "expression_mode4_desc" }
+    ];
+    let selectedMode = null;
+    const modeRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    modeRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("expression_mode_title") });
+    const modeSelect = modeRow.createEl("select", { cls: "tb-popup-select" });
+    modeSelect.createEl("option", { attr: { value: "" }, text: this.t("expression_mode_placeholder") });
+    for (const opt of modeOptions) {
+      modeSelect.createEl("option", { attr: { value: opt.id }, text: this.t(opt.labelKey) });
+    }
+    modeSelect.addEventListener("change", () => {
+      selectedMode = modeSelect.value || null;
+    });
+    const resultEl = container.createEl("div", { cls: "tb-expression-result" });
+    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    footer.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
+    const analyzeBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("expression_analyze_btn") });
+    const setRunningUI = (on) => {
+      analyzeBtn.disabled = on;
+      analyzeBtn.textContent = on ? this.t("expression_analyzing") : this.t("expression_analyze_btn");
+      modeSelect.disabled = on;
+      for (const { cb } of exprCbs)
+        cb.disabled = on;
+    };
+    const showResult = (text) => {
+      resultEl.empty();
+      const textarea = resultEl.createEl("textarea", { cls: "tb-expr-result-textarea" });
+      textarea.value = text;
+      if (!footer.querySelector(".tb-expr-save-btn")) {
+        const saveBtn = footer.createEl("button", { cls: "tb-btn tb-expr-save-btn", text: this.t("expression_save_btn") });
+        saveBtn.addEventListener("click", () => void (async () => {
+          saveBtn.disabled = true;
+          saveBtn.textContent = this.t("btn_saving");
+          try {
+            new SaveFolderModal(
+              this.app,
+              this.folders,
+              this.folders[0] ?? "",
+              (targetFolder) => void (async (f) => {
+                const currentText = textarea.value;
+                const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "_").replace(":", "-");
+                const filename = `transcript-analysis_${timestamp}.md`;
+                if (!this.app.vault.getFolderByPath(f))
+                  await this.app.vault.createFolder(f);
+                await this.app.vault.create(`${f}/${filename}`, currentText);
+                new import_obsidian2.Notice(filename);
+              })(targetFolder),
+              this.lang,
+              this.settings?.rootFolder ?? ""
+            ).open();
+          } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = this.t("expression_save_btn");
+          }
+        })());
+      }
+    };
+    if (this.transcriptJob?.running) {
+      setRunningUI(true);
+      resultEl.createEl("div", { cls: "tb-popup-empty", text: this.t("expression_analyzing") });
+    } else if (this.transcriptJob?.result) {
+      showResult(this.transcriptJob.result);
+    } else if (this.transcriptJob?.error) {
+      resultEl.createEl("div", { cls: "tb-path-empty", text: this.transcriptJob.error });
+    }
+    analyzeBtn.addEventListener("click", () => {
+      const selectedFolders = exprCbs.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
+      if (selectedFolders.length === 0) {
+        new import_obsidian2.Notice(this.t("notice_select_folder_analysis"));
+        return;
+      }
+      if (!selectedMode) {
+        new import_obsidian2.Notice(this.t("expression_mode_not_selected"));
+        return;
+      }
+      if (this.transcriptJob?.running)
+        return;
+      const mode = selectedMode;
+      this.transcriptJob = { running: true, mode };
+      this.onTranscriptJobUpdate(this.transcriptJob);
+      setRunningUI(true);
+      resultEl.empty();
+      resultEl.createEl("div", { cls: "tb-popup-empty", text: this.t("expression_analyzing") });
+      void (async () => {
+        try {
+          const allNodes = [];
+          for (const f of selectedFolders) {
+            const nodes = await this.store.loadNodesInFolder(f);
+            for (const n of nodes)
+              allNodes.push({ title: n.title, type: n.type, content: n.content });
+          }
+          if (allNodes.length === 0) {
+            const msg = this.t("expression_no_nodes");
+            this.transcriptJob = { running: false, mode, error: msg };
+            this.onTranscriptJobUpdate(this.transcriptJob);
+            if (activeDocument.body.contains(resultEl)) {
+              setRunningUI(false);
+              resultEl.empty();
+              resultEl.createEl("div", { cls: "tb-popup-empty", text: msg });
+            }
+            return;
+          }
+          const settings = this.settings ?? { rootFolder: "ThirdBrainRoot", cliBin: "claude", maxEdgeCandidates: 3, aiProvider: "claude-cli" };
+          const resultText = await analyzeTranscriptNodes(allNodes, mode, settings);
+          this.transcriptJob = { running: false, mode, result: resultText };
+          this.onTranscriptJobUpdate(this.transcriptJob);
+          if (activeDocument.body.contains(resultEl)) {
+            setRunningUI(false);
+            showResult(resultText);
+          } else {
+            new import_obsidian2.Notice(this.t("expression_analyze_btn") + " \u2713");
+          }
+        } catch (err) {
+          const msg = `${this.t("path_error_prefix")}${err instanceof Error ? err.message : String(err)}`;
+          this.transcriptJob = { running: false, mode, error: msg };
+          this.onTranscriptJobUpdate(this.transcriptJob);
+          if (activeDocument.body.contains(resultEl)) {
+            setRunningUI(false);
+            resultEl.empty();
+            resultEl.createEl("div", { cls: "tb-path-empty", text: msg });
+          } else {
+            new import_obsidian2.Notice(msg, 8e3);
+          }
+        }
+      })();
+    });
   }
   onClose() {
     this.contentEl.empty();
