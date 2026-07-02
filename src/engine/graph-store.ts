@@ -1,5 +1,6 @@
 import { App, TFile, normalizePath } from 'obsidian';
 import { toRelation } from '../types';
+import { detectConflicts } from './contradiction-engine';
 import type {
 	TBNode,
 	TBEdge,
@@ -14,6 +15,7 @@ import type {
 	ActionStatus,
 	ActionLinkType,
 	MeetingType,
+	ConflictReport,
 } from '../types';
 
 export interface TBFrontMatter {
@@ -50,6 +52,9 @@ export interface TBFrontMatter {
 	tb_action_origin?: string;
 	tb_action_created?: string;
 	tb_meeting_type?: string;
+	tb_block_id?: string;
+	tb_heading_path?: string;
+	tb_raw_path?: string;
 }
 
 export class GraphStore {
@@ -60,6 +65,12 @@ export class GraphStore {
 		const nodes: TBNode[] = [];
 		await this.collectNodes(folderPath || '/', nodes);
 		return nodes;
+	}
+
+	// 볼트 전체(rootFolder) conflicts_with 엣지 스캔 → 미해소 모순 목록
+	async scanConflicts(): Promise<ConflictReport[]> {
+		const nodes = await this.loadNodesInFolder(this.settings.rootFolder || '/');
+		return detectConflicts(nodes);
 	}
 
 	private async collectNodes(folderPath: string, out: TBNode[]): Promise<void> {
@@ -98,6 +109,9 @@ export class GraphStore {
 			filePath: file.path,
 			is_core_concept: fm.tb_is_core === true,
 			proposition_type: fm.tb_proposition_type === 'fact' ? 'fact' : 'claim',
+			block_id: typeof fm.tb_block_id === 'string' ? fm.tb_block_id : undefined,
+			heading_path: typeof fm.tb_heading_path === 'string' ? fm.tb_heading_path : undefined,
+			raw_path: typeof fm.tb_raw_path === 'string' ? fm.tb_raw_path : undefined,
 		};
 	}
 
@@ -119,7 +133,8 @@ export class GraphStore {
 		// 출처 블록: 원본 위키링크 + (있으면) source_span 발췌 인용구
 		let body = node.content;
 		if (rawSourcePath) {
-			body += `\n\n---\n[[${rawSourcePath}]]`;
+			const anchor = node.block_id ? `#^${node.block_id}` : '';
+			body += `\n\n---\n[[${rawSourcePath}${anchor}]]`;
 			if (node.source_span?.text.trim()) {
 				body += `\n\n> ${node.source_span.text.replace(/\n/g, '\n> ')}`;
 			}
@@ -183,6 +198,44 @@ export class GraphStore {
 		// 방금 생성된 raw 파일이라 기존 링크가 없어 다이얼로그가 불필요함
 		await this.app.vault.rename(file, newPath);
 		return this.app.vault.getFileByPath(newPath) ?? file;
+	}
+
+	/**
+	 * raw 파일의 각 단락 끝에 Obsidian 블록 ID(^tb-XXXXXX)를 삽입한다.
+	 * 이미 ^tb- 로 시작하는 앵커가 있는 단락은 건너뛴다 (중복 방지).
+	 */
+	async insertBlockIds(
+		rawFile: TFile,
+		items: Array<{ blockId: string; spanText: string }>
+	): Promise<void> {
+		if (items.length === 0) return;
+		let content = await this.app.vault.read(rawFile);
+
+		const paraEnd = (src: string, from: number): number => {
+			const next = src.indexOf('\n\n', from);
+			return next !== -1 ? next : src.length;
+		};
+
+		const insertions = new Map<number, string>();
+		for (const { blockId, spanText } of items) {
+			const trimmed = spanText.trim();
+			if (!trimmed || !content.includes(trimmed)) continue;
+			const pos = content.indexOf(trimmed);
+			const end = paraEnd(content, pos + trimmed.length);
+			const near = content.slice(Math.max(0, end - 30), end);
+			if (!near.includes('^tb-')) {
+				insertions.set(end, blockId);
+			}
+		}
+
+		const positions = [...insertions.keys()].sort((a, b) => b - a);
+		let result = content;
+		for (const pos of positions) {
+			const bid = insertions.get(pos)!;
+			result = result.slice(0, pos) + ` ^${bid}` + result.slice(pos);
+		}
+
+		await this.app.vault.modify(rawFile, result);
 	}
 
 	/**
@@ -356,6 +409,9 @@ export class GraphStore {
 					is_core_concept: p.is_core_concept === true,
 					source_span: p.source_span,
 					proposition_type: p.proposition_type,
+					block_id: p.block_id,
+					heading_path: p.heading_path,
+					raw_path: rawSourcePath,
 				}, rawSourcePath);
 				fileMap.set(p.id, file);
 			} catch {
@@ -501,6 +557,9 @@ export class GraphStore {
 			lines.push(`tb_source_span: ${JSON.stringify(node.source_span)}`);
 		}
 		if (node.proposition_type === 'fact') lines.push('tb_proposition_type: fact');
+		if (node.block_id) lines.push(`tb_block_id: "${node.block_id}"`);
+		if (node.heading_path) lines.push(`tb_heading_path: "${node.heading_path.replace(/"/g, '\\"')}"`);
+		if (node.raw_path) lines.push(`tb_raw_path: "${node.raw_path.replace(/"/g, '\\"')}"`);
 		// Phase 2-4: conflicts_with 엣지가 있으면 tb_conflict 마킹
 		const hasConflict = edges.some(e => e.label === 'conflicts_with' && e.confirmed);
 		if (hasConflict) lines.push('tb_conflict: true');

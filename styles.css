@@ -447,6 +447,24 @@
 	grid-column: span 2;
 }
 
+/* ── 미해소 모순 배지 ─────────────────────────────────────── */
+.tb-conflict-badge {
+	display: block;
+	width: 100%;
+	margin: 6px 0 0;
+	padding: 6px 12px;
+	background: transparent;
+	border: 1px solid var(--tb-warning, #ff4500);
+	color: var(--tb-warning, #ff4500);
+	font-size: 12px;
+	font-family: var(--font-monospace);
+	cursor: pointer;
+	text-align: left;
+}
+.tb-conflict-badge:hover {
+	background: rgba(255, 69, 0, 0.08);
+}
+
 /* ── 범용 소형 버튼 (결과 카드 안에서 사용) ──────────────── */
 .tb-btn {
 	padding: 4px 12px;

@@ -101,6 +101,7 @@ export class ThirdBrainView extends ItemView {
 	private stepLogEl!: HTMLElement;
 	private pipelineModal: PipelineInfoModal | null = null;
 	private resultsEl!: HTMLElement;
+	private conflictBadgeEl!: HTMLElement;
 
 	// 전사본 분석 백그라운드 작업 상태 (모달 닫혀도 유지)
 	private transcriptJob: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null = null;
@@ -142,6 +143,7 @@ export class ThirdBrainView extends ItemView {
 		this.buildIngestPanel(inputPane);
 		this.buildProgressBar(inputPane);
 		this.syncIngestBtnState(); // 초기 빈 상태에서 버튼 비활성
+		void this.refreshConflictBadge();
 
 		this.resultsEl = this.ingestContainer.createEl('div', { cls: 'tb-results' });
 	}
@@ -291,6 +293,32 @@ export class ThirdBrainView extends ItemView {
 
 
 		this.fileCountEl = actions.createEl('div', { cls: 'tb-file-count', text: this.vaultCountText() });
+
+		// 미해소 모순 배지 (모순이 있을 때만 표시)
+		this.conflictBadgeEl = parent.createEl('button', { cls: 'tb-conflict-badge' });
+		this.conflictBadgeEl.hide();
+		this.conflictBadgeEl.addEventListener('click', () => {
+			new ManualConflictModal(
+				this.app, this.store, this.plugin.settings,
+				() => { void this.refreshConflictBadge(); }
+			).open();
+		});
+	}
+
+	private async refreshConflictBadge(): Promise<void> {
+		try {
+			const conflicts = await this.store.scanConflicts();
+			if (conflicts.length > 0) {
+				this.conflictBadgeEl.textContent = this.plugin.settings.lang === 'ko'
+					? `⚠ 미해소 모순 ${conflicts.length}건`
+					: `⚠ ${conflicts.length} unresolved conflict${conflicts.length > 1 ? 's' : ''}`;
+				this.conflictBadgeEl.show();
+			} else {
+				this.conflictBadgeEl.hide();
+			}
+		} catch {
+			this.conflictBadgeEl.hide();
+		}
 	}
 
 	private handleFileDrop(e: DragEvent) {
@@ -523,6 +551,7 @@ export class ThirdBrainView extends ItemView {
 
 		type RawLink = { file: TFile; sourceSpan?: { text: string; offset: number } };
 		const allRawLinks: RawLink[] = [];
+		const allBlockIdSpans: Array<{ blockId: string; spanText: string }> = [];
 
 		if (text.length > CHUNK_SIZE) {
 			const chunks = splitIntoChunks(text, CHUNK_SIZE);
@@ -530,17 +559,22 @@ export class ThirdBrainView extends ItemView {
 				this.setIngestBusy(true);
 				this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
 				const isLast = i === chunks.length - 1;
-				const links = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
-				if (links) allRawLinks.push(...links);
+				const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+				if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 			}
 		} else {
-			const links = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
-			if (links) allRawLinks.push(...links);
+			const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
+			if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 		}
 
 		// 모든 청크의 rawLinks를 한 번에 원본 파일에 기록 (청크별 덮어쓰기 방지)
-		if (rawFile && allRawLinks.length > 0) {
-			await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
+		if (rawFile) {
+			if (allBlockIdSpans.length > 0) {
+				await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {});
+			}
+			if (allRawLinks.length > 0) {
+				await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
+			}
 		}
 	}
 
@@ -631,7 +665,7 @@ export class ThirdBrainView extends ItemView {
 				});
 				this.hideProgress();
 				this.setIngestBusy(false);
-				return [];
+				return undefined;
 			}
 
 			// 2.5차: 엣지 추출 (명제 간 크로스-컨텍스트만)
@@ -656,7 +690,7 @@ export class ThirdBrainView extends ItemView {
 				this.setProgress(8, this.t('progress_save'));
 				try {
 					const result = await this.saveNodes(contexts, logic, targetFolder, rawSourcePath, rawFile);
-					const { contextFileMap, propFileMap, rawLinks } = result;
+					const { contextFileMap, propFileMap, rawLinks, blockIdSpans } = result;
 					this.hideProgress();
 					new Notice(`${this.t('notice_graph_save_done_full')} (${logic.propositions.length}${this.t('notice_prop_suffix')}${logic.edges.length}${this.t('notice_edge_suffix')})`);
 
@@ -667,6 +701,7 @@ export class ThirdBrainView extends ItemView {
 						if (conflicts.length > 0) {
 							this.renderConflictNotice(conflicts);
 						}
+						void this.refreshConflictBadge();
 					}
 
 					// Phase 8: 액션 레이어 추출 (회의·일정 선택 시에만)
@@ -698,7 +733,7 @@ export class ThirdBrainView extends ItemView {
 						void this.openNativeGraph([targetFolder]);
 					}, 300);
 
-					return rawLinks;
+					return { rawLinks, blockIdSpans };
 				} catch (err) {
 					this.hideProgress();
 					new Notice(`${this.t('save_error_ingest_prefix')}${err instanceof Error ? err.message : String(err)}`);
@@ -1021,7 +1056,7 @@ export class ThirdBrainView extends ItemView {
 		targetFolder = '',
 		rawSourcePath?: string,
 		rawFile?: TFile
-	): Promise<{ files: TFile[]; folder: string; actualPath: string; propFileMap: Map<string, TFile>; contextFileMap: Map<string, TFile>; rawLinks: Array<{ file: TFile; sourceSpan?: { text: string; offset: number } }> }> {
+	): Promise<{ files: TFile[]; folder: string; actualPath: string; propFileMap: Map<string, TFile>; contextFileMap: Map<string, TFile>; rawLinks: Array<{ file: TFile; sourceSpan?: { text: string; offset: number } }>; blockIdSpans: Array<{ blockId: string; spanText: string }> }> {
 		if (logic.propositions.length === 0) {
 			throw new Error('저장할 노드가 없습니다. 파이프라인을 먼저 실행해주세요.');
 		}
@@ -1044,14 +1079,17 @@ export class ThirdBrainView extends ItemView {
 			contexts, logic.propositions, contextFileMap, propFileMap
 		);
 
-		// rawLinks 수집 (appendLinksToRawFile는 호출하지 않음 — 호출자가 청크 누적 후 일괄 처리)
+		// rawLinks + blockIdSpans 수집 (appendLinksToRawFile/insertBlockIds는 호출하지 않음 — 호출자가 청크 누적 후 일괄 처리)
 		const propLinks = logic.propositions
 			.map(p => ({ file: propFileMap.get(p.id)!, sourceSpan: p.source_span }))
 			.filter(l => l.file);
 		const ctxLinks = [...new Set(contextFileMap.values())].map(f => ({ file: f }));
 		const rawLinks = [...propLinks, ...ctxLinks];
+		const blockIdSpans = logic.propositions
+			.filter(p => p.block_id && p.source_span?.text)
+			.map(p => ({ blockId: p.block_id!, spanText: p.source_span.text }));
 
-		return { files: allFiles, folder, actualPath: targetFolder, propFileMap, contextFileMap, rawLinks };
+		return { files: allFiles, folder, actualPath: targetFolder, propFileMap, contextFileMap, rawLinks, blockIdSpans };
 	}
 
 	// ── Phase 8: 액션 레이어 결과 렌더 ─────────────────────────
@@ -2263,7 +2301,9 @@ class GraphCanvasModal extends Modal {
 
 		// 캔버스 — 전체 영역
 		const canvasWrap = contentEl.createEl('div', { cls: 'tb-canvas-wrap' });
-		this.graphView = new GraphView(canvasWrap, () => { }, this.lang);
+		this.graphView = new GraphView(canvasWrap, () => { }, this.lang, (rawPath, blockId) => {
+			void this.app.workspace.openLinkText(`${rawPath}#^${blockId}`, '');
+		});
 		const legendEntries = [...this.activeRelations].map(rel => ({
 			color: EDGE_COLOR[rel] ?? '#888',
 			label: relLabel(rel, this.lang),
@@ -3931,6 +3971,75 @@ class ConflictResolutionModal extends Modal {
 			this.onResolved?.(`'${node.title}' 폐기됨`);
 		} catch (e) {
 			new Notice(`[ThirdBrain] 삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
+		}
+	}
+
+	onClose() { this.contentEl.empty(); }
+}
+
+// ── 모순 수동 해결 모달 ────────────────────────────────────
+
+class ManualConflictModal extends Modal {
+	constructor(
+		app: App,
+		private store: GraphStore,
+		private settings: ThirdBrainSettings,
+		private onResolved: () => void,
+	) {
+		super(app);
+	}
+
+	private get t() { return getT(this.settings.lang); }
+
+	async onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.addClass('tb-popup-content', 'tb-manual-conflict-modal');
+		this.setTitle(this.settings.lang === 'ko' ? '미해소 모순 목록' : 'Unresolved Conflicts');
+
+		const loading = contentEl.createEl('div', { text: this.settings.lang === 'ko' ? '스캔 중...' : 'Scanning…' });
+
+		let conflicts: ConflictReport[];
+		try {
+			conflicts = await this.store.scanConflicts();
+		} catch {
+			loading.textContent = this.settings.lang === 'ko' ? '스캔 실패' : 'Scan failed';
+			return;
+		}
+		loading.remove();
+
+		if (conflicts.length === 0) {
+			contentEl.createEl('div', {
+				cls: 'tb-manual-conflict-empty',
+				text: this.settings.lang === 'ko' ? '✓ 미해소 모순 없음' : '✓ No unresolved conflicts',
+			});
+			return;
+		}
+
+		contentEl.createEl('div', {
+			cls: 'tb-manual-conflict-count',
+			text: this.settings.lang === 'ko'
+				? `${conflicts.length}건의 미해소 모순이 있습니다.`
+				: `${conflicts.length} unresolved conflict${conflicts.length > 1 ? 's' : ''} found.`,
+		});
+
+		const list = contentEl.createEl('div', { cls: 'tb-manual-conflict-list' });
+
+		for (const c of conflicts) {
+			const card = list.createEl('div', { cls: 'tb-conflict-notice-row' });
+			card.createEl('span', { cls: 'tb-conflict-notice-a', text: c.nodeA.title });
+			card.createEl('span', { cls: 'tb-conflict-notice-vs', text: '⟷' });
+			card.createEl('span', { cls: 'tb-conflict-notice-b', text: c.nodeB.title });
+			const btn = card.createEl('button', { cls: 'tb-btn tb-conflict-resolve-btn', text: this.t('conflict_btn_resolve') });
+			const resolvedMsg = card.createEl('span', { cls: 'tb-conflict-resolved-msg' });
+			btn.addEventListener('click', () => {
+				new ConflictResolutionModal(this.app, c, this.store, this.settings, (msg) => {
+					btn.remove();
+					resolvedMsg.textContent = `✓ ${msg}`;
+					resolvedMsg.addClass('is-visible');
+					this.onResolved();
+				}).open();
+			});
 		}
 	}
 

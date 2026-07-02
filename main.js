@@ -173,6 +173,7 @@ var KO = {
   badge_core: "\u2B21 \uD575\uC2EC",
   badge_no_source: "\uCD9C\uCC98 \uC5C6\uC74C",
   badge_conflict_resolved: "\uBAA8\uC21C\uD574\uC18C",
+  conflict_btn_resolve: "\uD574\uC18C\uD558\uAE30",
   badge_ai_extracted: "AI \uCD94\uCD9C",
   // labels
   source_toggle: "\u2317 \uCD9C\uCC98",
@@ -204,9 +205,9 @@ var KO = {
   modal_content_type_action: "\u{1F4CB} \uD68C\uC758\xB7\uC77C\uC815",
   modal_content_type_subtype_title: "\uD68C\uC758 \uC720\uD615",
   modal_content_type_subtype_sub: "\uC774 \uD68C\uC758\uC758 \uC131\uACA9\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
-  modal_content_type_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
-  modal_content_type_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
-  modal_content_type_review: "\u{1F50D} \uAC80\uD1A0\xB7\uD68C\uACE0",
+  modal_content_type_brainstorm: "\u{1F4A1} \uBE0C\uB808\uC778\uC2A4\uD1A0\uBC0D",
+  modal_content_type_execution: "\u26A1 \uC2E4\uD589 \uBC0F \uACB0\uC815",
+  modal_content_type_review: "\u{1F50D} \uB9AC\uBDF0",
   // action meeting type labels
   action_meeting_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
   action_meeting_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
@@ -387,6 +388,8 @@ var KO = {
   settings_claude_api_key_desc: "Anthropic API \uD0A4. https://console.anthropic.com",
   settings_gemini_api_key_name: "Gemini API \uD0A4",
   settings_gemini_api_key_desc: "Google Generative AI \uD0A4. https://aistudio.google.com",
+  settings_openai_api_key_name: "OpenAI API \uD0A4",
+  settings_openai_api_key_desc: "OpenAI API \uD0A4. https://platform.openai.com",
   settings_lang_name: "\uC5B8\uC5B4",
   settings_lang_desc: "UI \uBC0F AI \uCD9C\uB825 \uC5B8\uC5B4 (\uBCC0\uACBD \uC2DC \uD328\uB110 \uC790\uB3D9 \uC0C8\uB85C\uACE0\uCE68)",
   // onboarding
@@ -479,6 +482,7 @@ var EN = {
   badge_core: "\u2B21 Core",
   badge_no_source: "No source",
   badge_conflict_resolved: "Conflict Resolved",
+  conflict_btn_resolve: "Resolve",
   badge_ai_extracted: "AI Extracted",
   source_toggle: "\u2317 Source",
   label_logic_edge: "Logic Edges",
@@ -681,6 +685,8 @@ var EN = {
   settings_claude_api_key_desc: "Anthropic API key. https://console.anthropic.com",
   settings_gemini_api_key_name: "Gemini API Key",
   settings_gemini_api_key_desc: "Google Generative AI key. https://aistudio.google.com",
+  settings_openai_api_key_name: "OpenAI API Key",
+  settings_openai_api_key_desc: "OpenAI API key. https://platform.openai.com",
   settings_lang_name: "Language",
   settings_lang_desc: "UI and AI output language (panel refreshes on change)",
   ob_title: "Welcome to ThirdBrain",
@@ -978,6 +984,12 @@ var GEMINI_MODEL_MAP = {
   standard: "gemini-2.5-pro"
   // Gemini 2.5 Pro (가장 강력)
 };
+var OPENAI_MODEL_MAP = {
+  fast: "gpt-4o-mini",
+  // GPT-4o Mini (저렴·빠름)
+  standard: "gpt-4o"
+  // GPT-4o (플래그십)
+};
 async function callClaudeAPI(prompt, apiKey, model = "standard") {
   try {
     if (!apiKey || apiKey.trim().length === 0) {
@@ -1084,7 +1096,56 @@ async function callGeminiAPI(prompt, apiKey, model = "standard") {
     throw new Error(`Gemini API \uD638\uCD9C \uC2E4\uD328: ${msg}`);
   }
 }
-async function callClaudeWithModel(prompt, cliBin = "claude", model = "standard", provider = "claude-cli", claudeApiKey, geminiApiKey) {
+async function callOpenAIAPI(prompt, apiKey, model = "standard", jsonMode = true) {
+  try {
+    if (!apiKey || apiKey.trim().length === 0) {
+      throw new Error("OpenAI API \uD0A4\uAC00 \uBE44\uC5B4\uC788\uC2B5\uB2C8\uB2E4");
+    }
+    if (!apiKey.startsWith("sk-")) {
+      throw new Error("OpenAI API \uD0A4 \uD615\uC2DD\uC774 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4 (sk-\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4)");
+    }
+    if (!_requestUrl) {
+      throw new Error("Obsidian requestUrl\uC774 \uCD08\uAE30\uD654\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
+    }
+    const response = await _requestUrl({
+      url: "https://api.openai.com/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey.trim()}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL_MAP[model],
+        max_tokens: 4096,
+        ...jsonMode ? { response_format: { type: "json_object" } } : {},
+        messages: [{ role: "user", content: prompt }]
+      }),
+      throw: false
+    });
+    if (response.status === 401)
+      throw new Error("API \uD0A4 \uC778\uC99D \uC2E4\uD328 (HTTP 401) - API \uD0A4\uB97C \uD655\uC778\uD558\uC138\uC694");
+    if (response.status === 429)
+      throw new Error("\uC694\uCCAD \uD55C\uB3C4 \uCD08\uACFC (HTTP 429) - \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694");
+    if (response.status >= 400) {
+      const errData = response.json;
+      throw new Error(`OpenAI API \uC624\uB958: ${errData?.error?.message ?? `HTTP ${response.status}`}`);
+    }
+    const data = response.json;
+    const text = data?.choices?.[0]?.message?.content;
+    if (text) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+    return data;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`OpenAI API \uD638\uCD9C \uC2E4\uD328: ${msg}`);
+  }
+}
+async function callClaudeWithModel(prompt, cliBin = "claude", model = "standard", provider = "claude-cli", claudeApiKey, geminiApiKey, openaiApiKey, jsonMode = true) {
   switch (provider) {
     case "claude-cli":
       return callClaude(prompt, cliBin);
@@ -1096,6 +1157,10 @@ async function callClaudeWithModel(prompt, cliBin = "claude", model = "standard"
       if (!geminiApiKey)
         throw new Error("Gemini API \uD0A4\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4");
       return callGeminiAPI(prompt, geminiApiKey, model);
+    case "openai":
+      if (!openaiApiKey)
+        throw new Error("OpenAI API \uD0A4\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4");
+      return callOpenAIAPI(prompt, openaiApiKey, model, jsonMode);
     default:
       throw new Error(`\uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 AI \uC81C\uACF5\uC790: ${provider}`);
   }
@@ -1322,7 +1387,8 @@ ${text}`;
     "fast",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(raw, { contexts: [] });
   const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
@@ -1353,7 +1419,8 @@ ${text.slice(0, 6e3)}`;
     "fast",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(raw, { contexts: [] });
   const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
@@ -1404,34 +1471,58 @@ var SYSTEM_PROP_PARA = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uBA85\uC81C \uCD
 - id: p1~p3 | title: 8~20\uC790 \uBA85\uC0AC\uAD6C | text: \uC644\uACB0\uB41C \uD55C \uBB38\uC7A5
 - role: claim | premise | conclusion | example | contrast | application
 - proposition_type: "fact" (\uAC80\uC99D \uAC00\uB2A5\uD55C \uC218\uCE58\xB7\uC0AC\uAC74\xB7\uAD00\uCE21) | "claim" (\uD574\uC11D\xB7\uD310\uB2E8\xB7\uC8FC\uC7A5\xB7\uC758\uACAC) \u2014 \uAE30\uBCF8\uAC12 claim
-- context: \uC544\uB798 \uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D\uC5D0\uC11C \uAC00\uC7A5 \uC801\uD569\uD55C \uC81C\uBAA9 \uC120\uD0DD
+- context: \uC544\uB798 \uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D\uC5D0\uC11C \uAC00\uC7A5 \uC801\uD569\uD55C \uC81C\uBAA9 \uC120\uD0DD. [\uC18C\uC18D \uC139\uC158] \uD544\uB4DC\uAC00 \uC788\uC73C\uBA74 \uADF8 \uC139\uC158\uBA85\uACFC \uAC00\uC7A5 \uC77C\uCE58\uD558\uB294 context\uB97C \uC6B0\uC120 \uC120\uD0DD\uD558\uB77C
 - is_core_concept: \uC774 \uBB38\uB9E5\uC758 \uD575\uC2EC \uC8FC\uC7A5\uC774\uBA74 true
 
 \u2605 source_span \uD544\uB4DC\uB294 \uC791\uC131\uD558\uC9C0 \uB9C8\uB77C \u2014 \uC2DC\uC2A4\uD15C\uC774 \uC774 \uB2E8\uB77D \uC790\uCCB4\uB97C \uCD9C\uCC98\uB85C \uAE30\uB85D\uD55C\uB2E4.`;
-function splitIntoParagraphs(text, minLen = 50) {
-  const result = [];
-  const re = /\n{2,}/g;
-  let lastIndex = 0;
-  let match;
-  while ((match = re.exec(text)) !== null) {
-    const segment = text.slice(lastIndex, match.index);
-    const trimmed = segment.trim();
-    if (trimmed.length >= minLen) {
-      const leadingWS = segment.length - segment.trimStart().length;
-      result.push({ text: trimmed, offset: lastIndex + leadingWS });
-    }
-    lastIndex = match.index + match[0].length;
+function shortHash(text) {
+  let h = 5381;
+  for (let i = 0; i < Math.min(text.length, 300); i++) {
+    h = (h << 5) + h ^ text.charCodeAt(i);
+    h |= 0;
   }
-  const last = text.slice(lastIndex);
-  const lastTrimmed = last.trim();
-  if (lastTrimmed.length >= minLen) {
-    const leadingWS = last.length - last.trimStart().length;
-    result.push({ text: lastTrimmed, offset: lastIndex + leadingWS });
-  }
-  return result;
+  return Math.abs(h).toString(36).slice(0, 6).padStart(6, "0");
 }
 async function extractPropositions(contexts, rawText, settings) {
-  const paragraphs = splitIntoParagraphs(rawText);
+  const paragraphs = [];
+  {
+    const headings = ["", "", ""];
+    const re2 = /\n{2,}/g;
+    let lastIdx = 0;
+    let m2;
+    while ((m2 = re2.exec(rawText)) !== null) {
+      const seg = rawText.slice(lastIdx, m2.index);
+      const trimmed = seg.trim();
+      if (trimmed.startsWith("#")) {
+        const level = (trimmed.match(/^(#+)/)?.[1] ?? "").length;
+        const headingText = trimmed.replace(/^#+\s*/, "").trim();
+        if (level === 1) {
+          headings[0] = headingText;
+          headings[1] = "";
+          headings[2] = "";
+        } else if (level === 2) {
+          headings[1] = headingText;
+          headings[2] = "";
+        } else {
+          headings[2] = headingText;
+        }
+      } else if (trimmed.length >= 50) {
+        const lws = seg.length - seg.trimStart().length;
+        const sectionHint = headings[2] || headings[1] || headings[0];
+        const headingPath = headings.filter(Boolean).join(" > ");
+        paragraphs.push({ text: trimmed, offset: lastIdx + lws, sectionHint, headingPath });
+      }
+      lastIdx = m2.index + m2[0].length;
+    }
+    const lastSeg = rawText.slice(lastIdx);
+    const lastTrimmed = lastSeg.trim();
+    if (!lastTrimmed.startsWith("#") && lastTrimmed.length >= 50) {
+      const lws = lastSeg.length - lastSeg.trimStart().length;
+      const sectionHint = headings[2] || headings[1] || headings[0];
+      const headingPath = headings.filter(Boolean).join(" > ");
+      paragraphs.push({ text: lastTrimmed, offset: lastIdx + lws, sectionHint, headingPath });
+    }
+  }
   if (paragraphs.length === 0) {
     throw new Error("[\uBA85\uC81C \uCD94\uCD9C 0\uAC1C]\n\uB2E8\uB77D \uBD84\uB9AC \uACB0\uACFC \uC5C6\uC74C (rawText\uAC00 \uBE44\uC5B4\uC788\uAC70\uB098 \uB2E8\uB77D \uAD6C\uBD84\uC774 \uC5C6\uC74C)");
   }
@@ -1441,13 +1532,16 @@ async function extractPropositions(contexts, rawText, settings) {
   let lastError = null;
   let errorCount = 0;
   const callPara = async (para) => {
+    const sectionLine = para.sectionHint ? `[\uC18C\uC18D \uC139\uC158]: ${para.sectionHint}
+
+` : "";
     const prompt = `${SYSTEM_PROP_PARA}
 ${jsonLangInstr(settings.lang)}
 
 [\uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D \u2014 context \uD544\uB4DC \uC120\uD0DD\uC6A9]
 ${contextList}
 
-[\uB2E8\uB77D]
+` + sectionLine + `[\uB2E8\uB77D]
 ${para.text}
 
 ` + schema;
@@ -1458,7 +1552,8 @@ ${para.text}
         "fast",
         settings.aiProvider,
         settings.claudeApiKey,
-        settings.geminiApiKey
+        settings.geminiApiKey,
+        settings.openaiApiKey
       );
       const parsed = parseJson(raw, { propositions: [] });
       return { para, props: (parsed.propositions ?? []).filter((p) => p && p.text?.trim()) };
@@ -1487,7 +1582,9 @@ ${para.text}
         proposition_type: p.proposition_type === "fact" ? "fact" : "claim",
         context: typeof p.context === "string" ? p.context.trim() : "",
         is_core_concept: p.is_core_concept === true,
-        source_span: { text: r.para.text, offset: r.para.offset }
+        source_span: { text: r.para.text, offset: r.para.offset },
+        block_id: `tb-${shortHash(r.para.text)}`,
+        heading_path: r.para.headingPath || void 0
       });
     }
   }
@@ -1514,7 +1611,7 @@ Axis 4 (\uC704\uC0C1 \uAD50\uCC28): analogous_to | isomorphic_to
 \uAC01 \uAD00\uACC4 \uC120\uD0DD \uC2DC axiom_basis(\uC120\uD0DD \uADFC\uAC70 \uC6D0\uBB38 \uC778\uC6A9)\uB97C \uBC18\uB4DC\uC2DC \uC791\uC131\uD558\uB77C.
 
 \u2605 \uAC01 \uD544\uB4DC:
-- source, target: \uBA85\uC81C ID (p1, p2, ...)
+- source, target: \uBA85\uC81C ID (p1, p2, ...) \u2014 \uAC19\uC740 ### \uADF8\uB8F9 \uB0B4 \uC5F0\uACB0\uACFC \uB2E4\uB978 \uADF8\uB8F9 \uAC04 \uAD50\uCC28 \uC5F0\uACB0\uC744 \uBAA8\uB450 \uD0D0\uC0C9\uD558\uB77C
 - relation: \uC704 10\uC885 \uC911 \uC815\uD655\uD788 \uD558\uB098 \uC120\uD0DD
 - reason: \uC5F0\uACB0 \uADFC\uAC70 \uD55C\uAD6D\uC5B4 \uD55C \uBB38\uC7A5
 - axiom_basis: \uC774 relation\uC744 \uC120\uD0DD\uD55C \uB17C\uB9AC\uC801 \uADFC\uAC70 (\uC6D0\uBB38 \uAD6C\uC808 \uC778\uC6A9 \uB610\uB294 \uC774\uC720 \uC124\uBA85, \uBE48 \uBB38\uC790\uC5F4 \uAE08\uC9C0)
@@ -1527,11 +1624,17 @@ Axis 4 (\uC704\uC0C1 \uAD50\uCC28): analogous_to | isomorphic_to
 async function extractEdges(allPropositions, contexts, _insights, settings) {
   if (allPropositions.length < 2)
     return [];
-  const propBlock = allPropositions.map((p, idx) => {
-    const ctx = p.context ? ` (${p.context})` : "";
-    const text = p.title.slice(0, 80);
-    return `p${idx + 1} [${p.role}${ctx}]: ${text}`;
-  }).join("\n");
+  const ctxToProps = /* @__PURE__ */ new Map();
+  allPropositions.forEach((p, idx) => {
+    const key = p.context || "(\uAE30\uD0C0)";
+    if (!ctxToProps.has(key))
+      ctxToProps.set(key, []);
+    ctxToProps.get(key).push({ idx, p });
+  });
+  const propBlock = [...ctxToProps.entries()].map(
+    ([ctx, items]) => `### ${ctx}
+` + items.map(({ idx, p }) => `p${idx + 1} [${p.role}]: ${p.title.slice(0, 80)}`).join("\n")
+  ).join("\n\n");
   const contextBlock = contexts.map((c2) => `- ${c2.title}: ${c2.summary.slice(0, 150)}`).join("\n").slice(0, 1500);
   const edgeSchema = `{"edges":[{"source":"p1","target":"p2","relation":"supports","reason":"...","axiom_basis":"\uC774 \uAD00\uACC4\uB97C \uC120\uD0DD\uD55C \uADFC\uAC70 \uC6D0\uBB38","confidence":0.85}]}`;
   const prompt = `${SYSTEM_EDGES}
@@ -1551,12 +1654,14 @@ ${contextBlock}
       "standard",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { edges: [] });
     const pIndexMap = /* @__PURE__ */ new Map();
     allPropositions.forEach((p, idx) => {
       pIndexMap.set(`p${idx + 1}`, p.id);
+      pIndexMap.set(String(idx + 1), p.id);
     });
     const seen = /* @__PURE__ */ new Set();
     const validEdges = (parsed.edges ?? []).map((e) => {
@@ -1650,7 +1755,8 @@ ${propList || "(\uC5C6\uC74C)"}`;
       "fast",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { actions: [] });
     const propByTitle = new Map(propositions.map((p) => [p.title, p.id]));
@@ -1703,7 +1809,8 @@ ${propList}`;
       "fast",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { mappings: [] });
     const mapped = /* @__PURE__ */ new Map();
@@ -1764,7 +1871,8 @@ JSON \uC751\uB2F5 \uC608\uC2DC:
     "standard",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(
     raw,
@@ -1844,7 +1952,8 @@ ${digest}`;
     "standard",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(raw, {
     synthesis: "",
@@ -1910,7 +2019,7 @@ ${newContent.slice(0, 4e3)}
 ## \uAE30\uC874 \uB178\uB4DC \uBAA9\uB85D
 ${nodeList}`;
   try {
-    const raw = await callClaudeWithModel(prompt, settings.cliBin, "standard", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+    const raw = await callClaudeWithModel(prompt, settings.cliBin, "standard", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
     const result = parseJson(raw, { edges: [] });
     return Array.isArray(result.edges) ? result.edges.map((e) => ({ ...e, confidence: typeof e.confidence === "number" ? e.confidence : 0.5 })).slice(0, 6) : [];
   } catch {
@@ -1964,7 +2073,8 @@ ${existingList}`;
       "standard",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const result = parseJson(raw, { connections: [] });
     return Array.isArray(result.connections) ? result.connections.map((c2) => ({ ...c2, confidence: typeof c2.confidence === "number" ? c2.confidence : 0.5 })).slice(0, 8) : [];
@@ -2077,7 +2187,8 @@ Return JSON only (no code blocks):
       "standard",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { relations: [] });
     return (parsed.relations ?? []).slice(0, 4).map((r) => {
@@ -2166,7 +2277,7 @@ Clearly organize the directives by assignee and priority. Write in markdown.${wi
 
 ${nodeList}`;
   })();
-  const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+  const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey, false);
   const raw = typeof rawUnknown === "string" ? rawUnknown : JSON.stringify(rawUnknown);
   return raw.trim();
 }
@@ -2196,7 +2307,7 @@ Return ONLY compact JSON (no markdown, no explanation):
 - startNodeTitle: BFS origin node if user mentions a specific concept (optional, must be from sample list)
 - maxHops: BFS depth if startNodeTitle set (optional, default 3)`;
   try {
-    const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+    const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
     const raw = typeof rawUnknown === "string" ? rawUnknown : JSON.stringify(rawUnknown);
     const json = raw.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(json);
@@ -2219,6 +2330,38 @@ Return ONLY compact JSON (no markdown, no explanation):
 
 // src/engine/graph-store.ts
 var import_obsidian = require("obsidian");
+
+// src/engine/contradiction-engine.ts
+function detectConflicts(nodes) {
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const nodeByTitle = new Map(nodes.map((n) => [n.title, n]));
+  const reports = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const node of nodes) {
+    for (const edge of node.edges) {
+      if (edge.label !== "conflicts_with")
+        continue;
+      const rawTarget = edge.target.replace(/^\[\[|\]\]$/g, "");
+      const targetNode = nodeById.get(rawTarget) ?? nodeByTitle.get(rawTarget);
+      if (!targetNode)
+        continue;
+      const pairKey = [node.id, targetNode.id].sort().join("\u2194");
+      if (seen.has(pairKey))
+        continue;
+      seen.add(pairKey);
+      reports.push({
+        nodeA: node,
+        nodeB: targetNode,
+        relation: "conflicts_with",
+        evidence: edge.axiom_basis || edge.reason,
+        detectedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+  }
+  return reports;
+}
+
+// src/engine/graph-store.ts
 var GraphStore = class {
   constructor(app, settings) {
     this.app = app;
@@ -2229,6 +2372,11 @@ var GraphStore = class {
     const nodes = [];
     await this.collectNodes(folderPath || "/", nodes);
     return nodes;
+  }
+  // 볼트 전체(rootFolder) conflicts_with 엣지 스캔 → 미해소 모순 목록
+  async scanConflicts() {
+    const nodes = await this.loadNodesInFolder(this.settings.rootFolder || "/");
+    return detectConflicts(nodes);
   }
   async collectNodes(folderPath, out) {
     const folder = this.app.vault.getFolderByPath(folderPath);
@@ -2264,7 +2412,10 @@ var GraphStore = class {
       edges: Array.isArray(fm.tb_edges) ? fm.tb_edges : [],
       filePath: file.path,
       is_core_concept: fm.tb_is_core === true,
-      proposition_type: fm.tb_proposition_type === "fact" ? "fact" : "claim"
+      proposition_type: fm.tb_proposition_type === "fact" ? "fact" : "claim",
+      block_id: typeof fm.tb_block_id === "string" ? fm.tb_block_id : void 0,
+      heading_path: typeof fm.tb_heading_path === "string" ? fm.tb_heading_path : void 0,
+      raw_path: typeof fm.tb_raw_path === "string" ? fm.tb_raw_path : void 0
     };
   }
   // 새 노드 .md 파일을 vault에 생성
@@ -2280,10 +2431,11 @@ var GraphStore = class {
     const finalPath = await this.resolveConflict(filePath);
     let body = node.content;
     if (rawSourcePath) {
+      const anchor = node.block_id ? `#^${node.block_id}` : "";
       body += `
 
 ---
-[[${rawSourcePath}]]`;
+[[${rawSourcePath}${anchor}]]`;
       if (node.source_span?.text.trim()) {
         body += `
 
@@ -2329,6 +2481,38 @@ ${body}`;
     const newPath = await this.resolveConflict((0, import_obsidian.normalizePath)(`${parentPath}${newBasename}.md`));
     await this.app.vault.rename(file, newPath);
     return this.app.vault.getFileByPath(newPath) ?? file;
+  }
+  /**
+   * raw 파일의 각 단락 끝에 Obsidian 블록 ID(^tb-XXXXXX)를 삽입한다.
+   * 이미 ^tb- 로 시작하는 앵커가 있는 단락은 건너뛴다 (중복 방지).
+   */
+  async insertBlockIds(rawFile, items) {
+    if (items.length === 0)
+      return;
+    let content = await this.app.vault.read(rawFile);
+    const paraEnd = (src, from) => {
+      const next = src.indexOf("\n\n", from);
+      return next !== -1 ? next : src.length;
+    };
+    const insertions = /* @__PURE__ */ new Map();
+    for (const { blockId, spanText } of items) {
+      const trimmed = spanText.trim();
+      if (!trimmed || !content.includes(trimmed))
+        continue;
+      const pos = content.indexOf(trimmed);
+      const end = paraEnd(content, pos + trimmed.length);
+      const near = content.slice(Math.max(0, end - 30), end);
+      if (!near.includes("^tb-")) {
+        insertions.set(end, blockId);
+      }
+    }
+    const positions = [...insertions.keys()].sort((a2, b) => b - a2);
+    let result = content;
+    for (const pos of positions) {
+      const bid = insertions.get(pos);
+      result = result.slice(0, pos) + ` ^${bid}` + result.slice(pos);
+    }
+    await this.app.vault.modify(rawFile, result);
   }
   /**
    * raw 원본 파일에 명제 출처 주석을 삽입한다.
@@ -2452,7 +2636,10 @@ ${body}`;
           edges: outEdges,
           is_core_concept: p.is_core_concept === true,
           source_span: p.source_span,
-          proposition_type: p.proposition_type
+          proposition_type: p.proposition_type,
+          block_id: p.block_id,
+          heading_path: p.heading_path,
+          raw_path: rawSourcePath
         }, rawSourcePath);
         fileMap.set(p.id, file);
       } catch {
@@ -2566,6 +2753,12 @@ ${body}`;
     }
     if (node.proposition_type === "fact")
       lines.push("tb_proposition_type: fact");
+    if (node.block_id)
+      lines.push(`tb_block_id: "${node.block_id}"`);
+    if (node.heading_path)
+      lines.push(`tb_heading_path: "${node.heading_path.replace(/"/g, '\\"')}"`);
+    if (node.raw_path)
+      lines.push(`tb_raw_path: "${node.raw_path.replace(/"/g, '\\"')}"`);
     const hasConflict = edges.some((e) => e.label === "conflicts_with" && e.confirmed);
     if (hasConflict)
       lines.push("tb_conflict: true");
@@ -2910,36 +3103,6 @@ function _hasDirectEdge(tensor, srcId, dstId, layerFilter) {
       return true;
   }
   return false;
-}
-
-// src/engine/contradiction-engine.ts
-function detectConflicts(nodes) {
-  const nodeById = new Map(nodes.map((n) => [n.id, n]));
-  const nodeByTitle = new Map(nodes.map((n) => [n.title, n]));
-  const reports = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const node of nodes) {
-    for (const edge of node.edges) {
-      if (edge.label !== "conflicts_with")
-        continue;
-      const rawTarget = edge.target.replace(/^\[\[|\]\]$/g, "");
-      const targetNode = nodeById.get(rawTarget) ?? nodeByTitle.get(rawTarget);
-      if (!targetNode)
-        continue;
-      const pairKey = [node.id, targetNode.id].sort().join("\u2194");
-      if (seen.has(pairKey))
-        continue;
-      seen.add(pairKey);
-      reports.push({
-        nodeA: node,
-        nodeB: targetNode,
-        relation: "conflicts_with",
-        evidence: edge.axiom_basis || edge.reason,
-        detectedAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    }
-  }
-  return reports;
 }
 
 // node_modules/pdfjs-dist/build/pdf.mjs
@@ -35004,10 +35167,11 @@ function nodeRadius(degree) {
   return Math.max(5, Math.min(18, 5 + Math.sqrt(degree) * 2.2));
 }
 var GraphView = class {
-  constructor(container, onNodeClickCb, lang = "en") {
+  constructor(container, onNodeClickCb, lang = "en", openSourceCb) {
     this.container = container;
     this.onNodeClickCb = onNodeClickCb;
     this.lang = lang;
+    this.openSourceCb = openSourceCb;
     this.simNodes = [];
     this.simLinks = [];
     this.transform = identity2;
@@ -35036,6 +35200,9 @@ var GraphView = class {
       title: n.title,
       type: n.type,
       degree: 0,
+      block_id: n.block_id,
+      raw_path: n.raw_path,
+      heading_path: n.heading_path,
       x: this.w / 2 + (Math.random() - 0.5) * 80,
       y: this.h / 2 + (Math.random() - 0.5) * 80
     }));
@@ -35480,6 +35647,22 @@ var GraphView = class {
     } else {
       popup.createEl("div", { cls: "tb-node-popup-empty", text: "\uC5F0\uACB0 \uC5C6\uC74C" });
     }
+    if (node.raw_path && node.block_id) {
+      const sourceDiv = popup.createEl("div", { cls: "tb-node-popup-source" });
+      if (node.heading_path) {
+        sourceDiv.createEl("div", { cls: "tb-node-popup-heading", text: node.heading_path });
+      }
+      if (this.openSourceCb) {
+        const rawPath = node.raw_path;
+        const blockId = node.block_id;
+        const link = sourceDiv.createEl("div", { cls: "tb-node-popup-source-link", text: "\u2197 \uC6D0\uBCF8 \uC704\uCE58\uB85C \uC774\uB3D9" });
+        link.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.openSourceCb(rawPath, blockId);
+          this.closeNodePopup();
+        });
+      }
+    }
     const canvasRect = this.canvas.getBoundingClientRect();
     const PAD = 10;
     let left = canvasRect.left + screenX + 14;
@@ -35622,6 +35805,7 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     this.buildIngestPanel(inputPane);
     this.buildProgressBar(inputPane);
     this.syncIngestBtnState();
+    void this.refreshConflictBadge();
     this.resultsEl = this.ingestContainer.createEl("div", { cls: "tb-results" });
   }
   async onClose() {
@@ -35752,6 +35936,31 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
       }, this.plugin.settings.lang).open();
     });
     this.fileCountEl = actions.createEl("div", { cls: "tb-file-count", text: this.vaultCountText() });
+    this.conflictBadgeEl = parent.createEl("button", { cls: "tb-conflict-badge" });
+    this.conflictBadgeEl.hide();
+    this.conflictBadgeEl.addEventListener("click", () => {
+      new ManualConflictModal(
+        this.app,
+        this.store,
+        this.plugin.settings,
+        () => {
+          void this.refreshConflictBadge();
+        }
+      ).open();
+    });
+  }
+  async refreshConflictBadge() {
+    try {
+      const conflicts = await this.store.scanConflicts();
+      if (conflicts.length > 0) {
+        this.conflictBadgeEl.textContent = this.plugin.settings.lang === "ko" ? `\u26A0 \uBBF8\uD574\uC18C \uBAA8\uC21C ${conflicts.length}\uAC74` : `\u26A0 ${conflicts.length} unresolved conflict${conflicts.length > 1 ? "s" : ""}`;
+        this.conflictBadgeEl.show();
+      } else {
+        this.conflictBadgeEl.hide();
+      }
+    } catch {
+      this.conflictBadgeEl.hide();
+    }
   }
   handleFileDrop(e) {
     const dm = this.app.dragManager;
@@ -35937,24 +36146,35 @@ var ThirdBrainView = class extends import_obsidian2.ItemView {
     this.pipelineModal?.close();
     this.pipelineModal = null;
     const allRawLinks = [];
+    const allBlockIdSpans = [];
     if (text.length > CHUNK_SIZE) {
       const chunks = splitIntoChunks(text, CHUNK_SIZE);
       for (let i = 0; i < chunks.length; i++) {
         this.setIngestBusy(true);
         this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t("progress_chunk")}`);
         const isLast = i === chunks.length - 1;
-        const links = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
-        if (links)
-          allRawLinks.push(...links);
+        const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+        if (res) {
+          allRawLinks.push(...res.rawLinks);
+          allBlockIdSpans.push(...res.blockIdSpans);
+        }
       }
     } else {
-      const links = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
-      if (links)
-        allRawLinks.push(...links);
+      const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
+      if (res) {
+        allRawLinks.push(...res.rawLinks);
+        allBlockIdSpans.push(...res.blockIdSpans);
+      }
     }
-    if (rawFile && allRawLinks.length > 0) {
-      await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {
-      });
+    if (rawFile) {
+      if (allBlockIdSpans.length > 0) {
+        await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {
+        });
+      }
+      if (allRawLinks.length > 0) {
+        await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {
+        });
+      }
     }
   }
   // ── 메인 파이프라인 (Auto vs Architect 모드) ──────
@@ -36025,7 +36245,7 @@ ${diagMsg}`
         });
         this.hideProgress();
         this.setIngestBusy(false);
-        return [];
+        return void 0;
       }
       this.setProgress(6, this.t("progress_edge"));
       const rawEdges = await timed(
@@ -36043,7 +36263,7 @@ ${diagMsg}`
         this.setProgress(8, this.t("progress_save"));
         try {
           const result = await this.saveNodes(contexts, logic, targetFolder, rawSourcePath, rawFile);
-          const { contextFileMap, propFileMap, rawLinks } = result;
+          const { contextFileMap, propFileMap, rawLinks, blockIdSpans } = result;
           this.hideProgress();
           new import_obsidian2.Notice(`${this.t("notice_graph_save_done_full")} (${logic.propositions.length}${this.t("notice_prop_suffix")}${logic.edges.length}${this.t("notice_edge_suffix")})`);
           if (isLastChunk) {
@@ -36052,6 +36272,7 @@ ${diagMsg}`
             if (conflicts.length > 0) {
               this.renderConflictNotice(conflicts);
             }
+            void this.refreshConflictBadge();
           }
           if (includeActionLayer) {
             this.setProgress(9, this.t("progress_action"));
@@ -36076,7 +36297,7 @@ ${diagMsg}`
           window.setTimeout(() => {
             void this.openNativeGraph([targetFolder]);
           }, 300);
-          return rawLinks;
+          return { rawLinks, blockIdSpans };
         } catch (err) {
           this.hideProgress();
           new import_obsidian2.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);
@@ -36393,7 +36614,8 @@ ${diagMsg}`
     const propLinks = logic.propositions.map((p) => ({ file: propFileMap.get(p.id), sourceSpan: p.source_span })).filter((l) => l.file);
     const ctxLinks = [...new Set(contextFileMap.values())].map((f) => ({ file: f }));
     const rawLinks = [...propLinks, ...ctxLinks];
-    return { files: allFiles, folder, actualPath: targetFolder, propFileMap, contextFileMap, rawLinks };
+    const blockIdSpans = logic.propositions.filter((p) => p.block_id && p.source_span?.text).map((p) => ({ blockId: p.block_id, spanText: p.source_span.text }));
+    return { files: allFiles, folder, actualPath: targetFolder, propFileMap, contextFileMap, rawLinks, blockIdSpans };
   }
   // ── Phase 8: 액션 레이어 결과 렌더 ─────────────────────────
   renderActionCard(parent, node, propById) {
@@ -37468,7 +37690,9 @@ var GraphCanvasModal = class extends import_obsidian2.Modal {
     this.setTitle(this.lang === "ko" ? "\uC9C0\uC2DD \uADF8\uB798\uD504" : "Knowledge Graph");
     const canvasWrap = contentEl.createEl("div", { cls: "tb-canvas-wrap" });
     this.graphView = new GraphView(canvasWrap, () => {
-    }, this.lang);
+    }, this.lang, (rawPath, blockId) => {
+      void this.app.workspace.openLinkText(`${rawPath}#^${blockId}`, "");
+    });
     const legendEntries = [...this.activeRelations].map((rel) => ({
       color: EDGE_COLOR[rel] ?? "#888",
       label: relLabel(rel, this.lang)
@@ -38956,6 +39180,63 @@ var ConflictResolutionModal = class extends import_obsidian2.Modal {
     this.contentEl.empty();
   }
 };
+var ManualConflictModal = class extends import_obsidian2.Modal {
+  constructor(app, store, settings, onResolved) {
+    super(app);
+    this.store = store;
+    this.settings = settings;
+    this.onResolved = onResolved;
+  }
+  get t() {
+    return getT(this.settings.lang);
+  }
+  async onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("tb-popup-content", "tb-manual-conflict-modal");
+    this.setTitle(this.settings.lang === "ko" ? "\uBBF8\uD574\uC18C \uBAA8\uC21C \uBAA9\uB85D" : "Unresolved Conflicts");
+    const loading = contentEl.createEl("div", { text: this.settings.lang === "ko" ? "\uC2A4\uCE94 \uC911..." : "Scanning\u2026" });
+    let conflicts;
+    try {
+      conflicts = await this.store.scanConflicts();
+    } catch {
+      loading.textContent = this.settings.lang === "ko" ? "\uC2A4\uCE94 \uC2E4\uD328" : "Scan failed";
+      return;
+    }
+    loading.remove();
+    if (conflicts.length === 0) {
+      contentEl.createEl("div", {
+        cls: "tb-manual-conflict-empty",
+        text: this.settings.lang === "ko" ? "\u2713 \uBBF8\uD574\uC18C \uBAA8\uC21C \uC5C6\uC74C" : "\u2713 No unresolved conflicts"
+      });
+      return;
+    }
+    contentEl.createEl("div", {
+      cls: "tb-manual-conflict-count",
+      text: this.settings.lang === "ko" ? `${conflicts.length}\uAC74\uC758 \uBBF8\uD574\uC18C \uBAA8\uC21C\uC774 \uC788\uC2B5\uB2C8\uB2E4.` : `${conflicts.length} unresolved conflict${conflicts.length > 1 ? "s" : ""} found.`
+    });
+    const list = contentEl.createEl("div", { cls: "tb-manual-conflict-list" });
+    for (const c2 of conflicts) {
+      const card = list.createEl("div", { cls: "tb-conflict-notice-row" });
+      card.createEl("span", { cls: "tb-conflict-notice-a", text: c2.nodeA.title });
+      card.createEl("span", { cls: "tb-conflict-notice-vs", text: "\u27F7" });
+      card.createEl("span", { cls: "tb-conflict-notice-b", text: c2.nodeB.title });
+      const btn = card.createEl("button", { cls: "tb-btn tb-conflict-resolve-btn", text: this.t("conflict_btn_resolve") });
+      const resolvedMsg = card.createEl("span", { cls: "tb-conflict-resolved-msg" });
+      btn.addEventListener("click", () => {
+        new ConflictResolutionModal(this.app, c2, this.store, this.settings, (msg) => {
+          btn.remove();
+          resolvedMsg.textContent = `\u2713 ${msg}`;
+          resolvedMsg.addClass("is-visible");
+          this.onResolved();
+        }).open();
+      });
+    }
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 
 // src/settings.ts
 var import_obsidian3 = require("obsidian");
@@ -39005,7 +39286,7 @@ var ThirdBrainSettingTab = class extends import_obsidian3.PluginSettingTab {
       })
     );
     new import_obsidian3.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown(
-      (dropdown) => dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)").addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").setValue(this.plugin.settings.aiProvider).onChange(async (value) => {
+      (dropdown) => dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)").addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(this.plugin.settings.aiProvider).onChange(async (value) => {
         this.plugin.settings.aiProvider = value;
         await this.plugin.saveSettings();
         this.display();
@@ -39023,6 +39304,14 @@ var ThirdBrainSettingTab = class extends import_obsidian3.PluginSettingTab {
       new import_obsidian3.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
         (text) => text.setPlaceholder("AIza...").setValue(this.plugin.settings.geminiApiKey || "").onChange(async (value) => {
           this.plugin.settings.geminiApiKey = value || "";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    if (this.plugin.settings.aiProvider === "openai") {
+      new import_obsidian3.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
+        (text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey || "").onChange(async (value) => {
+          this.plugin.settings.openaiApiKey = value || "";
           await this.plugin.saveSettings();
         })
       );

@@ -92,6 +92,35 @@ export const SOOTBALL_ICON = `
   <rect x="62" y="80" width="12" height="6" fill="#2b2b2b"/>
 `;
 
+// 눈 찡그리고 V자 눈썹, 아랫방향 입꼬리, 머리 위 김 두 줄기 (미해소 모순 배지용)
+export const SOOTBALL_ANGRY = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="28" height="28" shape-rendering="crispEdges" class="tb-sootball-svg tb-sootball-angry">
+  <rect x="20"  y="0"   width="16" height="8"  fill="#ff4500"/>
+  <rect x="92"  y="0"   width="16" height="8"  fill="#ff4500"/>
+  <rect x="32"  y="8"   width="16" height="8"  fill="#2b2b2b"/>
+  <rect x="80"  y="8"   width="16" height="8"  fill="#2b2b2b"/>
+  <rect x="24"  y="16"  width="80" height="8"  fill="#2b2b2b"/>
+  <rect x="16"  y="24"  width="96" height="8"  fill="#2b2b2b"/>
+  <rect x="8"   y="32"  width="112" height="8" fill="#2b2b2b"/>
+  <rect x="8"   y="40"  width="16" height="8"  fill="#2b2b2b"/>
+  <rect x="24"  y="40"  width="16" height="8"  fill="#f2f2e8"/>
+  <rect x="40"  y="40"  width="48" height="8"  fill="#2b2b2b"/>
+  <rect x="88"  y="40"  width="16" height="8"  fill="#f2f2e8"/>
+  <rect x="104" y="40"  width="16" height="8"  fill="#2b2b2b"/>
+  <rect x="32"  y="40"  width="8"  height="5"  fill="#2b2b2b"/>
+  <rect x="88"  y="40"  width="8"  height="5"  fill="#2b2b2b"/>
+  <rect x="8"   y="48"  width="112" height="8" fill="#2b2b2b"/>
+  <rect x="8"   y="56"  width="112" height="8" fill="#2b2b2b"/>
+  <rect x="8"   y="64"  width="112" height="16" fill="#2b2b2b"/>
+  <rect x="48"  y="68"  width="32"  height="4" fill="#1a0808"/>
+  <rect x="40"  y="72"  width="8"   height="4" fill="#1a0808"/>
+  <rect x="80"  y="72"  width="8"   height="4" fill="#1a0808"/>
+  <rect x="8"   y="80"  width="112" height="8" fill="#2b2b2b"/>
+  <rect x="16"  y="88"  width="96"  height="8" fill="#2b2b2b"/>
+  <rect x="24"  y="96"  width="80"  height="8" fill="#2b2b2b"/>
+  <rect x="32"  y="104" width="16"  height="8" fill="#2b2b2b"/>
+  <rect x="80"  y="104" width="16"  height="8" fill="#2b2b2b"/>
+</svg>`;
+
 // Full SVG for the settings tab logo (128×128, pixel=8)
 export const SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="64" height="64" shape-rendering="crispEdges" class="tb-sootball-svg">
   <rect x="32" y="8"   width="16" height="8" fill="#2b2b2b"/>

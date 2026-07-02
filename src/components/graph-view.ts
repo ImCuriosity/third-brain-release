@@ -8,6 +8,9 @@ interface SimNode extends d3.SimulationNodeDatum {
 	title: string;
 	type: string;
 	degree: number;
+	block_id?: string;
+	raw_path?: string;
+	heading_path?: string;
 }
 
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
@@ -91,6 +94,7 @@ export class GraphView {
 		private container: HTMLElement,
 		private onNodeClickCb: (nodeId: string) => void,
 		private lang: string = 'en',
+		private openSourceCb?: (rawPath: string, blockId: string) => void,
 	) {}
 
 	setLegend(entries: Array<{ color: string; label: string }>): void {
@@ -112,6 +116,9 @@ export class GraphView {
 		// 노드 초기 위치를 중앙 근처에 집중 → 수렴 과정(장력/인력)이 시각적으로 보임
 		this.simNodes = nodes.map(n => ({
 			id: n.id, title: n.title, type: n.type, degree: 0,
+			block_id: n.block_id,
+			raw_path: n.raw_path,
+			heading_path: n.heading_path,
 			x: this.w / 2 + (Math.random() - 0.5) * 80,
 			y: this.h / 2 + (Math.random() - 0.5) * 80,
 		}));
@@ -602,6 +609,24 @@ export class GraphView {
 			}
 		} else {
 			popup.createEl('div', { cls: 'tb-node-popup-empty', text: '연결 없음' });
+		}
+
+		// 원본 위치 링크
+		if (node.raw_path && node.block_id) {
+			const sourceDiv = popup.createEl('div', { cls: 'tb-node-popup-source' });
+			if (node.heading_path) {
+				sourceDiv.createEl('div', { cls: 'tb-node-popup-heading', text: node.heading_path });
+			}
+			if (this.openSourceCb) {
+				const rawPath = node.raw_path;
+				const blockId = node.block_id;
+				const link = sourceDiv.createEl('div', { cls: 'tb-node-popup-source-link', text: '↗ 원본 위치로 이동' });
+				link.addEventListener('click', (e) => {
+					e.stopPropagation();
+					this.openSourceCb!(rawPath, blockId);
+					this.closeNodePopup();
+				});
+			}
 		}
 
 		// 뷰포트 기준 fixed 위치 계산 (canvas 로컬 좌표 → 뷰포트 좌표)

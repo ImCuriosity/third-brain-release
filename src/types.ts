@@ -105,6 +105,9 @@ export interface TBNode {
 	is_core_concept?: boolean; // 추상 허브 판별용 (tb_is_core 프론트매터)
 	source_span?: SourceSpan; // 원문 역추적 (ingested 노드에 필수)
 	proposition_type?: 'fact' | 'claim'; // 명제 차원 (없으면 'claim' 기본값)
+	block_id?: string;        // ^tb-XXXXXX — raw 파일 블록 앵커
+	heading_path?: string;    // h1 > h2 > h3 형태 헤딩 경로
+	raw_path?: string;        // raw 원본 파일 경로 (확장자 제외)
 }
 
 // ── 파이프라인 레이어 타입 (v0 포팅) ─────────────────────
@@ -135,6 +138,8 @@ export interface Proposition {
 	is_core_concept: boolean;   // 핵심 개념 여부 (최대 2개)
 	source_span: SourceSpan;    // 원문 역추적 (필수 — 누락 시 파이프라인 Reject)
 	proposition_type: 'fact' | 'claim'; // 명제 차원: 검증 가능한 사실 vs 해석·주장
+	block_id?: string;          // ^tb-XXXXXX — raw 파일 블록 앵커
+	heading_path?: string;      // h1 > h2 > h3 형태 헤딩 경로
 }
 
 /** 2차: 명제 간 방향 논리 엣지 */
@@ -406,7 +411,7 @@ export interface ActionNode {
 
 // ── 플러그인 설정 ─────────────────────────────────────────
 
-export type AIProvider = 'claude-cli' | 'claude-api' | 'gemini';
+export type AIProvider = 'claude-cli' | 'claude-api' | 'gemini' | 'openai';
 
 export interface ThirdBrainSettings {
 	rootFolder: string;               // 모든 ThirdBrain 파일의 최상위 폴더
@@ -415,6 +420,7 @@ export interface ThirdBrainSettings {
 	aiProvider: AIProvider;           // AI 제공자 선택
 	claudeApiKey?: string;            // Claude API 키
 	geminiApiKey?: string;            // Gemini API 키
+	openaiApiKey?: string;            // OpenAI API 키
 	bridgeTopKPerNode?: number;       // 폴더 브리지 위상 필터링 - 노드당 후보 수 (기본 3)
 	onboardingComplete?: boolean;     // 최초 설정 완료 여부
 	lang?: 'en' | 'ko';              // UI 및 AI 출력 언어
