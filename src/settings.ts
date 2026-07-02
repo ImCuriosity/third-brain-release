@@ -91,6 +91,7 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 				.addOption('claude-cli', this.plugin.settings.lang === 'en' ? 'Claude CLI (local, default)' : 'Claude CLI (로컬, 기본값)')
 				.addOption('claude-api', this.plugin.settings.lang === 'en' ? 'Claude API (API key required)' : 'Claude API (API 키 필요)')
 				.addOption('gemini', this.plugin.settings.lang === 'en' ? 'Gemini (API key required)' : 'Gemini (API 키 필요)')
+				.addOption('openai', this.plugin.settings.lang === 'en' ? 'OpenAI GPT (API key required)' : 'OpenAI GPT (API 키 필요)')
 				.setValue(this.plugin.settings.aiProvider)
 				.onChange(async (value) => {
 					this.plugin.settings.aiProvider = value as AIProvider;
@@ -122,6 +123,20 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.geminiApiKey || '')
 					.onChange(async (value) => {
 						this.plugin.settings.geminiApiKey = value || '';
+						await this.plugin.saveSettings();
+					})
+				);
+		}
+
+		if (this.plugin.settings.aiProvider === 'openai') {
+			new Setting(containerEl)
+				.setName(t('settings_openai_api_key_name'))
+				.setDesc(t('settings_openai_api_key_desc'))
+				.addText(text => text
+					.setPlaceholder('sk-...')
+					.setValue(this.plugin.settings.openaiApiKey || '')
+					.onChange(async (value) => {
+						this.plugin.settings.openaiApiKey = value || '';
 						await this.plugin.saveSettings();
 					})
 				);

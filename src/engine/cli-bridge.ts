@@ -232,6 +232,11 @@ const GEMINI_MODEL_MAP: Record<ModelTier, string> = {
 	standard: 'gemini-2.5-pro',                 // Gemini 2.5 Pro (가장 강력)
 };
 
+const OPENAI_MODEL_MAP: Record<ModelTier, string> = {
+	fast:     'gpt-4o-mini',                    // GPT-4o Mini (저렴·빠름)
+	standard: 'gpt-4o',                         // GPT-4o (플래그십)
+};
+
 // ── Claude API 호출 (v0 호환: Obsidian requestUrl 사용) ──────
 
 async function callClaudeAPI(
@@ -374,11 +379,69 @@ async function callGeminiAPI(
 	}
 }
 
+// ── OpenAI API 호출 (Obsidian requestUrl 사용) ───────────────
+
+interface OpenAIApiResponse {
+	choices?: Array<{ message?: { content?: string } }>;
+	error?: { message?: string };
+}
+
+async function callOpenAIAPI(
+	prompt: string,
+	apiKey: string,
+	model: ModelTier = 'standard'
+): Promise<unknown> {
+	try {
+		if (!apiKey || apiKey.trim().length === 0) {
+			throw new Error('OpenAI API 키가 비어있습니다');
+		}
+		if (!apiKey.startsWith('sk-')) {
+			throw new Error('OpenAI API 키 형식이 올바르지 않습니다 (sk-로 시작해야 합니다)');
+		}
+		if (!_requestUrl) {
+			throw new Error('Obsidian requestUrl이 초기화되지 않았습니다.');
+		}
+
+		const response = await _requestUrl({
+			url: 'https://api.openai.com/v1/chat/completions',
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey.trim()}`,
+			},
+			body: JSON.stringify({
+				model: OPENAI_MODEL_MAP[model],
+				max_tokens: 4096,
+				messages: [{ role: 'user', content: prompt }],
+			}),
+			throw: false,
+		});
+
+		if (response.status === 401) throw new Error('API 키 인증 실패 (HTTP 401) - API 키를 확인하세요');
+		if (response.status === 429) throw new Error('요청 한도 초과 (HTTP 429) - 잠시 후 다시 시도하세요');
+		if (response.status >= 400) {
+			const errData = response.json as OpenAIApiResponse;
+			throw new Error(`OpenAI API 오류: ${errData?.error?.message ?? `HTTP ${response.status}`}`);
+		}
+
+		const data = response.json as OpenAIApiResponse;
+		const text = data?.choices?.[0]?.message?.content;
+		if (text) {
+			try { return JSON.parse(text); } catch { return text; }
+		}
+		return data;
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		throw new Error(`OpenAI API 호출 실패: ${msg}`);
+	}
+}
+
 /**
  * Provider별 모델 라우팅
  * - claude-cli: 로컬 claude CLI (기본값)
  * - claude-api: Claude API (API 키 필요)
  * - gemini: Gemini API (API 키 필요)
+ * - openai: OpenAI GPT API (API 키 필요)
  */
 export async function callClaudeWithModel(
 	prompt: string,
@@ -386,7 +449,8 @@ export async function callClaudeWithModel(
 	model: ModelTier = 'standard',
 	provider: AIProvider = 'claude-cli',
 	claudeApiKey?: string,
-	geminiApiKey?: string
+	geminiApiKey?: string,
+	openaiApiKey?: string
 ): Promise<unknown> {
 
 	switch (provider) {
@@ -400,6 +464,10 @@ export async function callClaudeWithModel(
 		case 'gemini':
 			if (!geminiApiKey) throw new Error('Gemini API 키가 설정되지 않았습니다');
 			return callGeminiAPI(prompt, geminiApiKey, model);
+
+		case 'openai':
+			if (!openaiApiKey) throw new Error('OpenAI API 키가 설정되지 않았습니다');
+			return callOpenAIAPI(prompt, openaiApiKey, model);
 
 		default:
 			throw new Error(`지원하지 않는 AI 제공자: ${provider as string}`);

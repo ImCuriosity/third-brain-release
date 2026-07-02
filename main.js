@@ -204,9 +204,9 @@ var KO = {
   modal_content_type_action: "\u{1F4CB} \uD68C\uC758\xB7\uC77C\uC815",
   modal_content_type_subtype_title: "\uD68C\uC758 \uC720\uD615",
   modal_content_type_subtype_sub: "\uC774 \uD68C\uC758\uC758 \uC131\uACA9\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
-  modal_content_type_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
-  modal_content_type_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
-  modal_content_type_review: "\u{1F50D} \uAC80\uD1A0\xB7\uD68C\uACE0",
+  modal_content_type_brainstorm: "\u{1F4A1} \uBE0C\uB808\uC778\uC2A4\uD1A0\uBC0D",
+  modal_content_type_execution: "\u26A1 \uC2E4\uD589 \uBC0F \uACB0\uC815",
+  modal_content_type_review: "\u{1F50D} \uB9AC\uBDF0",
   // action meeting type labels
   action_meeting_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
   action_meeting_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
@@ -387,6 +387,8 @@ var KO = {
   settings_claude_api_key_desc: "Anthropic API \uD0A4. https://console.anthropic.com",
   settings_gemini_api_key_name: "Gemini API \uD0A4",
   settings_gemini_api_key_desc: "Google Generative AI \uD0A4. https://aistudio.google.com",
+  settings_openai_api_key_name: "OpenAI API \uD0A4",
+  settings_openai_api_key_desc: "OpenAI API \uD0A4. https://platform.openai.com",
   settings_lang_name: "\uC5B8\uC5B4",
   settings_lang_desc: "UI \uBC0F AI \uCD9C\uB825 \uC5B8\uC5B4 (\uBCC0\uACBD \uC2DC \uD328\uB110 \uC790\uB3D9 \uC0C8\uB85C\uACE0\uCE68)",
   // onboarding
@@ -681,6 +683,8 @@ var EN = {
   settings_claude_api_key_desc: "Anthropic API key. https://console.anthropic.com",
   settings_gemini_api_key_name: "Gemini API Key",
   settings_gemini_api_key_desc: "Google Generative AI key. https://aistudio.google.com",
+  settings_openai_api_key_name: "OpenAI API Key",
+  settings_openai_api_key_desc: "OpenAI API key. https://platform.openai.com",
   settings_lang_name: "Language",
   settings_lang_desc: "UI and AI output language (panel refreshes on change)",
   ob_title: "Welcome to ThirdBrain",
@@ -978,6 +982,12 @@ var GEMINI_MODEL_MAP = {
   standard: "gemini-2.5-pro"
   // Gemini 2.5 Pro (가장 강력)
 };
+var OPENAI_MODEL_MAP = {
+  fast: "gpt-4o-mini",
+  // GPT-4o Mini (저렴·빠름)
+  standard: "gpt-4o"
+  // GPT-4o (플래그십)
+};
 async function callClaudeAPI(prompt, apiKey, model = "standard") {
   try {
     if (!apiKey || apiKey.trim().length === 0) {
@@ -1084,7 +1094,55 @@ async function callGeminiAPI(prompt, apiKey, model = "standard") {
     throw new Error(`Gemini API \uD638\uCD9C \uC2E4\uD328: ${msg}`);
   }
 }
-async function callClaudeWithModel(prompt, cliBin = "claude", model = "standard", provider = "claude-cli", claudeApiKey, geminiApiKey) {
+async function callOpenAIAPI(prompt, apiKey, model = "standard") {
+  try {
+    if (!apiKey || apiKey.trim().length === 0) {
+      throw new Error("OpenAI API \uD0A4\uAC00 \uBE44\uC5B4\uC788\uC2B5\uB2C8\uB2E4");
+    }
+    if (!apiKey.startsWith("sk-")) {
+      throw new Error("OpenAI API \uD0A4 \uD615\uC2DD\uC774 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4 (sk-\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4)");
+    }
+    if (!_requestUrl) {
+      throw new Error("Obsidian requestUrl\uC774 \uCD08\uAE30\uD654\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.");
+    }
+    const response = await _requestUrl({
+      url: "https://api.openai.com/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey.trim()}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL_MAP[model],
+        max_tokens: 4096,
+        messages: [{ role: "user", content: prompt }]
+      }),
+      throw: false
+    });
+    if (response.status === 401)
+      throw new Error("API \uD0A4 \uC778\uC99D \uC2E4\uD328 (HTTP 401) - API \uD0A4\uB97C \uD655\uC778\uD558\uC138\uC694");
+    if (response.status === 429)
+      throw new Error("\uC694\uCCAD \uD55C\uB3C4 \uCD08\uACFC (HTTP 429) - \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694");
+    if (response.status >= 400) {
+      const errData = response.json;
+      throw new Error(`OpenAI API \uC624\uB958: ${errData?.error?.message ?? `HTTP ${response.status}`}`);
+    }
+    const data = response.json;
+    const text = data?.choices?.[0]?.message?.content;
+    if (text) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+    return data;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`OpenAI API \uD638\uCD9C \uC2E4\uD328: ${msg}`);
+  }
+}
+async function callClaudeWithModel(prompt, cliBin = "claude", model = "standard", provider = "claude-cli", claudeApiKey, geminiApiKey, openaiApiKey) {
   switch (provider) {
     case "claude-cli":
       return callClaude(prompt, cliBin);
@@ -1096,6 +1154,10 @@ async function callClaudeWithModel(prompt, cliBin = "claude", model = "standard"
       if (!geminiApiKey)
         throw new Error("Gemini API \uD0A4\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4");
       return callGeminiAPI(prompt, geminiApiKey, model);
+    case "openai":
+      if (!openaiApiKey)
+        throw new Error("OpenAI API \uD0A4\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4");
+      return callOpenAIAPI(prompt, openaiApiKey, model);
     default:
       throw new Error(`\uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 AI \uC81C\uACF5\uC790: ${provider}`);
   }
@@ -1322,7 +1384,8 @@ ${text}`;
     "fast",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(raw, { contexts: [] });
   const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
@@ -1353,7 +1416,8 @@ ${text.slice(0, 6e3)}`;
     "fast",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(raw, { contexts: [] });
   const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
@@ -1458,7 +1522,8 @@ ${para.text}
         "fast",
         settings.aiProvider,
         settings.claudeApiKey,
-        settings.geminiApiKey
+        settings.geminiApiKey,
+        settings.openaiApiKey
       );
       const parsed = parseJson(raw, { propositions: [] });
       return { para, props: (parsed.propositions ?? []).filter((p) => p && p.text?.trim()) };
@@ -1551,7 +1616,8 @@ ${contextBlock}
       "standard",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { edges: [] });
     const pIndexMap = /* @__PURE__ */ new Map();
@@ -1650,7 +1716,8 @@ ${propList || "(\uC5C6\uC74C)"}`;
       "fast",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { actions: [] });
     const propByTitle = new Map(propositions.map((p) => [p.title, p.id]));
@@ -1703,7 +1770,8 @@ ${propList}`;
       "fast",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { mappings: [] });
     const mapped = /* @__PURE__ */ new Map();
@@ -1764,7 +1832,8 @@ JSON \uC751\uB2F5 \uC608\uC2DC:
     "standard",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(
     raw,
@@ -1844,7 +1913,8 @@ ${digest}`;
     "standard",
     settings.aiProvider,
     settings.claudeApiKey,
-    settings.geminiApiKey
+    settings.geminiApiKey,
+    settings.openaiApiKey
   );
   const parsed = parseJson(raw, {
     synthesis: "",
@@ -1910,7 +1980,7 @@ ${newContent.slice(0, 4e3)}
 ## \uAE30\uC874 \uB178\uB4DC \uBAA9\uB85D
 ${nodeList}`;
   try {
-    const raw = await callClaudeWithModel(prompt, settings.cliBin, "standard", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+    const raw = await callClaudeWithModel(prompt, settings.cliBin, "standard", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
     const result = parseJson(raw, { edges: [] });
     return Array.isArray(result.edges) ? result.edges.map((e) => ({ ...e, confidence: typeof e.confidence === "number" ? e.confidence : 0.5 })).slice(0, 6) : [];
   } catch {
@@ -1964,7 +2034,8 @@ ${existingList}`;
       "standard",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const result = parseJson(raw, { connections: [] });
     return Array.isArray(result.connections) ? result.connections.map((c2) => ({ ...c2, confidence: typeof c2.confidence === "number" ? c2.confidence : 0.5 })).slice(0, 8) : [];
@@ -2077,7 +2148,8 @@ Return JSON only (no code blocks):
       "standard",
       settings.aiProvider,
       settings.claudeApiKey,
-      settings.geminiApiKey
+      settings.geminiApiKey,
+      settings.openaiApiKey
     );
     const parsed = parseJson(raw, { relations: [] });
     return (parsed.relations ?? []).slice(0, 4).map((r) => {
@@ -2166,7 +2238,7 @@ Clearly organize the directives by assignee and priority. Write in markdown.${wi
 
 ${nodeList}`;
   })();
-  const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+  const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
   const raw = typeof rawUnknown === "string" ? rawUnknown : JSON.stringify(rawUnknown);
   return raw.trim();
 }
@@ -2196,7 +2268,7 @@ Return ONLY compact JSON (no markdown, no explanation):
 - startNodeTitle: BFS origin node if user mentions a specific concept (optional, must be from sample list)
 - maxHops: BFS depth if startNodeTitle set (optional, default 3)`;
   try {
-    const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+    const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, "fast", settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
     const raw = typeof rawUnknown === "string" ? rawUnknown : JSON.stringify(rawUnknown);
     const json = raw.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(json);
@@ -39005,7 +39077,7 @@ var ThirdBrainSettingTab = class extends import_obsidian3.PluginSettingTab {
       })
     );
     new import_obsidian3.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown(
-      (dropdown) => dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)").addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").setValue(this.plugin.settings.aiProvider).onChange(async (value) => {
+      (dropdown) => dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)").addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(this.plugin.settings.aiProvider).onChange(async (value) => {
         this.plugin.settings.aiProvider = value;
         await this.plugin.saveSettings();
         this.display();
@@ -39023,6 +39095,14 @@ var ThirdBrainSettingTab = class extends import_obsidian3.PluginSettingTab {
       new import_obsidian3.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
         (text) => text.setPlaceholder("AIza...").setValue(this.plugin.settings.geminiApiKey || "").onChange(async (value) => {
           this.plugin.settings.geminiApiKey = value || "";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    if (this.plugin.settings.aiProvider === "openai") {
+      new import_obsidian3.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
+        (text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey || "").onChange(async (value) => {
+          this.plugin.settings.openaiApiKey = value || "";
           await this.plugin.saveSettings();
         })
       );

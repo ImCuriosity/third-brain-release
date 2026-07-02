@@ -406,7 +406,7 @@ export interface ActionNode {
 
 // ── 플러그인 설정 ─────────────────────────────────────────
 
-export type AIProvider = 'claude-cli' | 'claude-api' | 'gemini';
+export type AIProvider = 'claude-cli' | 'claude-api' | 'gemini' | 'openai';
 
 export interface ThirdBrainSettings {
 	rootFolder: string;               // 모든 ThirdBrain 파일의 최상위 폴더
@@ -415,6 +415,7 @@ export interface ThirdBrainSettings {
 	aiProvider: AIProvider;           // AI 제공자 선택
 	claudeApiKey?: string;            // Claude API 키
 	geminiApiKey?: string;            // Gemini API 키
+	openaiApiKey?: string;            // OpenAI API 키
 	bridgeTopKPerNode?: number;       // 폴더 브리지 위상 필터링 - 노드당 후보 수 (기본 3)
 	onboardingComplete?: boolean;     // 최초 설정 완료 여부
 	lang?: 'en' | 'ko';              // UI 및 AI 출력 언어

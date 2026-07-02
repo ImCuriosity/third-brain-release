@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // ThirdBrain v2 — 직렬 파이프라인
 //  0차: distillText()           — 대용량 입력 핵심 압축 (유저 확인 후 실행)
 //  1차: extractContexts()       — 의미 단위 분절
@@ -137,7 +137,8 @@ export async function extractContexts(text: string, settings: ThirdBrainSettings
 		'fast',
 		settings.aiProvider,
 		settings.claudeApiKey,
-		settings.geminiApiKey
+		settings.geminiApiKey,
+		settings.openaiApiKey
 	);
 	const parsed = parseJson<{ contexts?: Partial<ContextLayer>[] }>(raw, { contexts: [] });
 
@@ -179,7 +180,8 @@ async function retryContextSplit(text: string, today: string, settings: ThirdBra
 		'fast',
 		settings.aiProvider,
 		settings.claudeApiKey,
-		settings.geminiApiKey
+		settings.geminiApiKey,
+		settings.openaiApiKey
 	);
 	const parsed = parseJson<{ contexts?: Partial<ContextLayer>[] }>(raw, { contexts: [] });
 	const list = Array.isArray(parsed.contexts) ? parsed.contexts : [];
@@ -333,7 +335,8 @@ export async function extractPropositions(
 		try {
 			const raw = await callClaudeWithModel(
 				prompt, settings.cliBin, 'fast',
-				settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey
+				settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey,
+			settings.openaiApiKey
 			);
 			const parsed = parseJson<{ propositions?: RawProp[] }>(raw, { propositions: [] });
 			return { para, props: (parsed.propositions ?? []).filter(p => p && p.text?.trim()) };
@@ -445,7 +448,8 @@ export async function extractEdges(
 			'standard',
 			settings.aiProvider,
 			settings.claudeApiKey,
-			settings.geminiApiKey
+			settings.geminiApiKey,
+		settings.openaiApiKey
 		);
 		const parsed = parseJson<{ edges?: RawEdge[] }>(raw, { edges: [] });
 
@@ -565,7 +569,8 @@ export async function extractActions(
 			'fast',
 			settings.aiProvider,
 			settings.claudeApiKey,
-			settings.geminiApiKey
+			settings.geminiApiKey,
+		settings.openaiApiKey
 		);
 		type RawAction = {
 			title?: string;
@@ -645,7 +650,8 @@ export async function linkActionsToPropositions(
 			'fast',
 			settings.aiProvider,
 			settings.claudeApiKey,
-			settings.geminiApiKey
+			settings.geminiApiKey,
+		settings.openaiApiKey
 		);
 		type Mapping = { action_id?: string; prop_ids?: string[] };
 		const parsed = parseJson<{ mappings?: Mapping[] }>(raw, { mappings: [] });
@@ -759,7 +765,8 @@ export async function bridgeFolders(
 		'standard',
 		settings.aiProvider,
 		settings.claudeApiKey,
-		settings.geminiApiKey
+		settings.geminiApiKey,
+		settings.openaiApiKey
 	);
 	const parsed = parseJson<{ edges?: Array<Record<string, unknown>>; insight?: string }>(
 		raw, { edges: [], insight: '' }
@@ -850,7 +857,8 @@ synthesis 마지막 문장은 반드시 이 목적에 대한 직접적 결론이
 		'standard',
 		settings.aiProvider,
 		settings.claudeApiKey,
-		settings.geminiApiKey
+		settings.geminiApiKey,
+		settings.openaiApiKey
 	);
 	const parsed = parseJson<SummaryResult>(raw, {
 		synthesis: '',
@@ -943,7 +951,7 @@ export async function classifyNode(
 	onProgress?.('노드 속성 분류 중...');
 	const prompt = `${SYSTEM_CLASSIFY}\n\n다음 노트를 분류하라:\n\n"""\n${content.slice(0, 6000)}\n"""`;
 
-	const raw = await callClaudeWithModel(prompt, settings.cliBin, 'standard', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+	const raw = await callClaudeWithModel(prompt, settings.cliBin, 'standard', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
 	const result = parseJson<Partial<NodeClassification>>(raw, {});
 
 	return {
@@ -989,7 +997,7 @@ export async function recommendTransplantEdges(
 	const prompt = `${SYSTEM_TRANSPLANT_EDGES}\n${jsonLangInstr(settings.lang)}\n\n## 새로 이식할 노트\n제목: ${newTitle}\n\n${newContent.slice(0, 4000)}\n\n---\n## 기존 노드 목록\n${nodeList}`;
 
 	try {
-		const raw = await callClaudeWithModel(prompt, settings.cliBin, 'standard', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+		const raw = await callClaudeWithModel(prompt, settings.cliBin, 'standard', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
 		const result = parseJson<{ edges?: unknown[] }>(raw, { edges: [] });
 		return Array.isArray(result.edges)
 			? (result.edges as Array<{ target_title: string; relation: string; confidence?: number; reason: string }>)
@@ -1055,7 +1063,8 @@ export async function findCrossConnections(
 	try {
 		const raw = await callClaudeWithModel(
 			prompt, settings.cliBin, 'standard',
-			settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey
+			settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey,
+		settings.openaiApiKey
 		);
 		const result = parseJson<{ connections?: unknown[] }>(raw, { connections: [] });
 		return Array.isArray(result.connections)
@@ -1290,7 +1299,8 @@ Return JSON only (no code blocks):
 			'standard',
 			settings.aiProvider,
 			settings.claudeApiKey,
-			settings.geminiApiKey
+			settings.geminiApiKey,
+		settings.openaiApiKey
 		);
 		const parsed = parseJson<{ relations?: Array<{ relation: string; confidence: number; reason: string }> }>(raw, { relations: [] });
 		return (parsed.relations ?? [])
@@ -1349,7 +1359,7 @@ export async function analyzeTranscriptNodes(
 			: `You are a task management expert. Below are context/action nodes from a directive meeting.\nClearly organize the directives by assignee and priority. Write in markdown.${wikilinkRule}\n\n## Node List\n\n${nodeList}`;
 	})();
 
-	const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, 'fast', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+	const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, 'fast', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
 	const raw = typeof rawUnknown === 'string' ? rawUnknown : JSON.stringify(rawUnknown);
 	return raw.trim();
 }
@@ -1386,7 +1396,7 @@ Return ONLY compact JSON (no markdown, no explanation):
 - maxHops: BFS depth if startNodeTitle set (optional, default 3)`;
 
 	try {
-		const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, 'fast', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey);
+		const rawUnknown = await callClaudeWithModel(systemPrompt, settings.cliBin, 'fast', settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey);
 		const raw = typeof rawUnknown === 'string' ? rawUnknown : JSON.stringify(rawUnknown);
 		const json = raw.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
 		const parsed = JSON.parse(json) as { relations?: string[]; startNodeTitle?: string; maxHops?: number };
