@@ -163,6 +163,14 @@ export class GraphView {
 					const rect = (e.target as HTMLElement).getBoundingClientRect();
 					return this.hitTest(e.clientX - rect.left, e.clientY - rect.top) === null;
 				}
+				// 터치로 노드를 누른 경우 d3-zoom pan 비활성화 — 노드 드래그 핸들러가 처리
+				if (event.type === 'touchstart') {
+					const e = event as TouchEvent;
+					if (e.touches.length !== 1) return true;
+					const touch = e.touches[0];
+					const rect = (e.target as HTMLElement).getBoundingClientRect();
+					return this.hitTest(touch.clientX - rect.left, touch.clientY - rect.top) === null;
+				}
 				return !(event as MouseEvent).button;
 			})
 			.scaleExtent([0.05, 10])
@@ -231,6 +239,63 @@ export class GraphView {
 				this.canvas.removeClass('tb-graph-canvas--grabbing');
 			}
 			if (this.hoveredNode) { this.hoveredNode = null; this.draw(); }
+		});
+
+		// ── 터치 이벤트 (모바일: 탭 → 팝업, 드래그 → 노드 이동) ──────
+		let _tx = 0, _ty = 0, _tt = 0, _tmoved = false, _tnode: SimNode | null = null;
+
+		this.canvas.addEventListener('touchstart', (e: TouchEvent) => {
+			if (e.touches.length !== 1) return;
+			const touch = e.touches[0];
+			const rect = this.canvas.getBoundingClientRect();
+			_tx = touch.clientX - rect.left;
+			_ty = touch.clientY - rect.top;
+			_tt = Date.now();
+			_tmoved = false;
+			const node = this.hitTest(_tx, _ty);
+			_tnode = node;
+			if (node) {
+				e.preventDefault();
+				this.draggingNode = node;
+				node.fx = node.x ?? 0;
+				node.fy = node.y ?? 0;
+				this.simulation.alphaTarget(0.3).restart();
+				this.hoveredNode = node;
+				this.draw();
+			}
+		}, { passive: false });
+
+		this.canvas.addEventListener('touchmove', (e: TouchEvent) => {
+			if (e.touches.length !== 1 || !this.draggingNode) return;
+			e.preventDefault();
+			const touch = e.touches[0];
+			const rect = this.canvas.getBoundingClientRect();
+			const lx = touch.clientX - rect.left;
+			const ly = touch.clientY - rect.top;
+			if ((lx - _tx) ** 2 + (ly - _ty) ** 2 > 25) _tmoved = true;
+			const wx = (lx - this.transform.x) / this.transform.k;
+			const wy = (ly - this.transform.y) / this.transform.k;
+			this.draggingNode.fx = wx;
+			this.draggingNode.fy = wy;
+		}, { passive: false });
+
+		this.canvas.addEventListener('touchend', (e: TouchEvent) => {
+			if (this.draggingNode) {
+				this.draggingNode.fx = null;
+				this.draggingNode.fy = null;
+				this.simulation.alphaTarget(0);
+				this.draggingNode = null;
+			}
+			this.hoveredNode = null;
+			this.draw();
+			// 탭(이동 없음 + 500ms 이내) → 팝업 표시
+			if (!_tmoved && Date.now() - _tt < 500 && _tnode) {
+				e.preventDefault();
+				this.showNodePopup(_tnode, _tx, _ty);
+			} else if (!_tnode) {
+				this.closeNodePopup();
+			}
+			_tnode = null;
 		});
 
 		// ── 포스 시뮬레이션 ───────────────────────────────

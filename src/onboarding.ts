@@ -72,7 +72,11 @@ export class OnboardingModal extends Modal {
 		// ── 푸터 ────
 		const footer = contentEl.createDiv({ cls: 'tb-ob-footer' });
 		const skipLink = footer.createEl('span', { cls: 'tb-ob-skip', text: t('ob_skip') });
-		skipLink.addEventListener('click', () => this.close());
+		skipLink.addEventListener('click', () => {
+			this.plugin.settings.onboardingComplete = true;
+			void this.plugin.saveSettings();
+			this.close();
+		});
 
 		const confirmBtn = footer.createEl('button', { cls: 'tb-ob-confirm mod-cta', text: t('ob_confirm') });
 		confirmBtn.disabled = true;

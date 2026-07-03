@@ -35367,6 +35367,14 @@ var GraphView = class {
         const rect = e.target.getBoundingClientRect();
         return this.hitTest(e.clientX - rect.left, e.clientY - rect.top) === null;
       }
+      if (event.type === "touchstart") {
+        const e = event;
+        if (e.touches.length !== 1)
+          return true;
+        const touch = e.touches[0];
+        const rect = e.target.getBoundingClientRect();
+        return this.hitTest(touch.clientX - rect.left, touch.clientY - rect.top) === null;
+      }
       return !event.button;
     }).scaleExtent([0.05, 10]).on("zoom", (ev) => {
       this.transform = ev.transform;
@@ -35434,6 +35442,60 @@ var GraphView = class {
         this.hoveredNode = null;
         this.draw();
       }
+    });
+    let _tx = 0, _ty = 0, _tt = 0, _tmoved = false, _tnode = null;
+    this.canvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1)
+        return;
+      const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      _tx = touch.clientX - rect.left;
+      _ty = touch.clientY - rect.top;
+      _tt = Date.now();
+      _tmoved = false;
+      const node = this.hitTest(_tx, _ty);
+      _tnode = node;
+      if (node) {
+        e.preventDefault();
+        this.draggingNode = node;
+        node.fx = node.x ?? 0;
+        node.fy = node.y ?? 0;
+        this.simulation.alphaTarget(0.3).restart();
+        this.hoveredNode = node;
+        this.draw();
+      }
+    }, { passive: false });
+    this.canvas.addEventListener("touchmove", (e) => {
+      if (e.touches.length !== 1 || !this.draggingNode)
+        return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      const lx = touch.clientX - rect.left;
+      const ly = touch.clientY - rect.top;
+      if ((lx - _tx) ** 2 + (ly - _ty) ** 2 > 25)
+        _tmoved = true;
+      const wx = (lx - this.transform.x) / this.transform.k;
+      const wy = (ly - this.transform.y) / this.transform.k;
+      this.draggingNode.fx = wx;
+      this.draggingNode.fy = wy;
+    }, { passive: false });
+    this.canvas.addEventListener("touchend", (e) => {
+      if (this.draggingNode) {
+        this.draggingNode.fx = null;
+        this.draggingNode.fy = null;
+        this.simulation.alphaTarget(0);
+        this.draggingNode = null;
+      }
+      this.hoveredNode = null;
+      this.draw();
+      if (!_tmoved && Date.now() - _tt < 500 && _tnode) {
+        e.preventDefault();
+        this.showNodePopup(_tnode, _tx, _ty);
+      } else if (!_tnode) {
+        this.closeNodePopup();
+      }
+      _tnode = null;
     });
     this.simulation = simulation_default(this.simNodes).force(
       "link",
@@ -39760,7 +39822,11 @@ var OnboardingModal = class extends import_obsidian6.Modal {
     this.step2El.hide();
     const footer = contentEl.createDiv({ cls: "tb-ob-footer" });
     const skipLink = footer.createEl("span", { cls: "tb-ob-skip", text: t("ob_skip") });
-    skipLink.addEventListener("click", () => this.close());
+    skipLink.addEventListener("click", () => {
+      this.plugin.settings.onboardingComplete = true;
+      void this.plugin.saveSettings();
+      this.close();
+    });
     const confirmBtn = footer.createEl("button", { cls: "tb-ob-confirm mod-cta", text: t("ob_confirm") });
     confirmBtn.disabled = true;
     confirmBtn.addEventListener("click", () => {
@@ -39897,7 +39963,14 @@ var ThirdBrainPlugin = class extends import_obsidian7.Plugin {
     }
     void workspace.revealLeaf(leaf);
     if (!this.settings.onboardingComplete) {
-      const cliOk = await isClaudeCLIAvailable(this.settings.cliBin);
+      const hasApiKey = !!(this.settings.geminiApiKey || this.settings.claudeApiKey || this.settings.openaiApiKey);
+      const isApiProvider = this.settings.aiProvider !== "claude-cli";
+      if (hasApiKey && isApiProvider) {
+        this.settings.onboardingComplete = true;
+        await this.saveSettings();
+        return;
+      }
+      const cliOk = import_obsidian7.Platform.isMobile ? false : await isClaudeCLIAvailable(this.settings.cliBin);
       if (cliOk) {
         this.settings.onboardingComplete = true;
         await this.saveSettings();
