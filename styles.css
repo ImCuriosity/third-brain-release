@@ -465,6 +465,112 @@
 	background: rgba(255, 69, 0, 0.08);
 }
 
+.tb-orphan-badge {
+	display: block;
+	width: 100%;
+	margin: 4px 0 0;
+	padding: 6px 12px;
+	background: transparent;
+	border: 1px solid var(--tb-info, #0088ff);
+	color: var(--tb-info, #0088ff);
+	font-size: 12px;
+	font-family: var(--font-monospace);
+	cursor: pointer;
+	text-align: left;
+}
+.tb-orphan-badge:hover {
+	background: rgba(0, 136, 255, 0.08);
+}
+
+/* ── 고립 노드 린팅 모달 ────────────────────────────────── */
+.tb-orphan-card {
+	background: var(--tb-surface, #111111);
+	border: 1px solid #2a2a2a;
+	margin-bottom: 14px;
+	padding: 0;
+}
+.tb-orphan-card-header {
+	padding: 10px 14px;
+	border-bottom: 1px solid #1e1e1e;
+}
+.tb-orphan-card-title {
+	font-family: var(--font-monospace);
+	font-size: 13px;
+	color: var(--tb-accent);
+	margin-bottom: 3px;
+}
+.tb-orphan-card-preview {
+	font-size: 11px;
+	color: var(--tb-muted);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.tb-orphan-suggest-area {
+	padding: 8px 14px 12px;
+}
+.tb-orphan-loading {
+	font-size: 11px;
+	color: var(--tb-muted);
+	padding: 4px 0;
+}
+.tb-orphan-no-result {
+	font-size: 11px;
+	color: var(--tb-muted);
+	padding: 4px 0;
+}
+.tb-orphan-suggest-row {
+	padding: 8px 10px;
+	margin-top: 6px;
+	border: 1px solid #2a2a2a;
+	background: #161616;
+}
+.tb-orphan-suggest-top {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 5px;
+}
+.tb-orphan-suggest-target {
+	font-size: 12px;
+	color: #e0e0e0;
+	font-family: var(--font-monospace);
+	flex-shrink: 0;
+}
+.tb-orphan-suggest-relation {
+	font-size: 10px;
+	color: var(--tb-accent);
+	border: 1px solid var(--tb-accent);
+	padding: 1px 6px;
+	flex-shrink: 0;
+}
+.tb-orphan-suggest-conf {
+	font-size: 11px;
+	color: #888;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+.tb-orphan-accept-btn {
+	flex-shrink: 0;
+	border-color: var(--tb-accent);
+	color: var(--tb-accent);
+}
+.tb-orphan-done-msg {
+	display: none;
+	font-size: 11px;
+	color: var(--tb-accent);
+	flex-shrink: 0;
+}
+.tb-orphan-done-msg.is-visible {
+	display: inline;
+}
+.tb-orphan-suggest-reason {
+	font-size: 11px;
+	color: #999;
+	line-height: 1.5;
+	padding-left: 1px;
+}
+
 /* ── 범용 소형 버튼 (결과 카드 안에서 사용) ──────────────── */
 .tb-btn {
 	padding: 4px 12px;
@@ -3108,6 +3214,7 @@
 /* ── ContentTypeModal 뒤로 버튼 ── */
 .tb-content-type-back-btn {
 	margin-top: 8px;
+	margin-bottom: 16px;
 	font-size: 11px;
 	color: var(--tb-muted);
 }

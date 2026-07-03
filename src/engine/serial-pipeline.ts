@@ -1464,3 +1464,76 @@ Return ONLY compact JSON (no markdown, no explanation):
 		return { relations: ['causes', 'supports'] as TBEdgeRelation[] };
 	}
 }
+
+// ── 고립 노드 연결 후보 탐색 ──────────────────────────────
+
+export interface OrphanConnectionResult {
+	targetId: string;
+	targetTitle: string;
+	relation: TBEdgeRelation;
+	confidence: number;
+	reason: string;
+}
+
+export async function findOrphanConnections(
+	orphan: TBNode,
+	candidates: TBNode[],
+	settings: ThirdBrainSettings
+): Promise<OrphanConnectionResult[]> {
+	if (candidates.length === 0) return [];
+
+	// salience 기준 상위 8개로 압축
+	const sample = candidates.slice(0, 8);
+
+	const candidateList = sample
+		.map((n, i) => `[${i}] "${n.title}"${n.content ? `: ${n.content.slice(0, 120)}` : ''}`)
+		.join('\n');
+
+	const prompt =
+`You are analyzing an isolated knowledge node with no connections to the rest of the graph.
+${jsonLangInstr(settings.lang)}
+
+Isolated node: "${orphan.title}"${orphan.content ? `\nContent: ${orphan.content.slice(0, 300)}` : ''}
+
+Candidate nodes in the graph:
+${candidateList}
+
+Find the best logical connection(s) between the isolated node and one or more candidates.
+Only suggest connections with confidence >= 0.65. If none qualify, return an empty array.
+Relations: causes | precedes | precondition_of | supports | conflicts_with | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
+
+Return JSON only (no code blocks):
+{"connections":[{"index":0,"relation":"supports","confidence":0.82,"reason":"..."}]}`;
+
+	try {
+		const raw = await callClaudeWithModel(
+			prompt,
+			settings.cliBin,
+			'fast',
+			settings.aiProvider,
+			settings.claudeApiKey,
+			settings.geminiApiKey,
+			settings.openaiApiKey
+		);
+		const parsed = parseJson<{ connections?: Array<{ index: number; relation: string; confidence: number; reason: string }> }>(raw, { connections: [] });
+		return (parsed.connections ?? [])
+			.filter(c => typeof c.index === 'number' && c.index >= 0 && c.index < sample.length)
+			.map(c => {
+				try {
+					return {
+						targetId: sample[c.index].id,
+						targetTitle: sample[c.index].title,
+						relation: toRelation(c.relation),
+						confidence: c.confidence ?? 0,
+						reason: c.reason ?? '',
+					};
+				} catch {
+					return null;
+				}
+			})
+			.filter((r): r is OrphanConnectionResult => r !== null)
+			.filter(r => r.confidence >= 0.65);
+	} catch {
+		return [];
+	}
+}

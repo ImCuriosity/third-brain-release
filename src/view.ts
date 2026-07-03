@@ -25,6 +25,7 @@ import { extractPdfText } from './engine/pdf-extractor';
 import { extractActions, linkActionsToPropositions, rankEdgeRelations, parseGraphQuery, analyzeTranscriptNodes, type TranscriptAnalysisMode } from './engine/serial-pipeline';
 import type { EdgeRank, GraphQuerySpec } from './engine/serial-pipeline';
 import { GraphView, EDGE_COLOR } from './components/graph-view';
+import { OrphanQueueModal } from './components/vault-lint';
 import {
 	toRelation,
 } from './types';
@@ -102,6 +103,7 @@ export class ThirdBrainView extends ItemView {
 	private pipelineModal: PipelineInfoModal | null = null;
 	private resultsEl!: HTMLElement;
 	private conflictBadgeEl!: HTMLElement;
+	private orphanBadgeEl!: HTMLElement;
 
 	// 전사본 분석 백그라운드 작업 상태 (모달 닫혀도 유지)
 	private transcriptJob: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null = null;
@@ -144,6 +146,7 @@ export class ThirdBrainView extends ItemView {
 		this.buildProgressBar(inputPane);
 		this.syncIngestBtnState(); // 초기 빈 상태에서 버튼 비활성
 		void this.refreshConflictBadge();
+		void this.refreshOrphanBadge();
 
 		this.resultsEl = this.ingestContainer.createEl('div', { cls: 'tb-results' });
 	}
@@ -303,6 +306,17 @@ export class ThirdBrainView extends ItemView {
 				() => { void this.refreshConflictBadge(); }
 			).open();
 		});
+
+		// 고립 노드 배지 (고립 명제가 있을 때만 표시)
+		this.orphanBadgeEl = parent.createEl('button', { cls: 'tb-orphan-badge' });
+		this.orphanBadgeEl.hide();
+		this.orphanBadgeEl.addEventListener('click', () => {
+			new OrphanQueueModal(
+				this.app, this.store, this.plugin.settings,
+				this.getFolderPaths(),
+				() => { void this.refreshOrphanBadge(); }
+			).open();
+		});
 	}
 
 	private async refreshConflictBadge(): Promise<void> {
@@ -318,6 +332,22 @@ export class ThirdBrainView extends ItemView {
 			}
 		} catch {
 			this.conflictBadgeEl.hide();
+		}
+	}
+
+	private async refreshOrphanBadge(): Promise<void> {
+		try {
+			const count = await this.store.countOrphanPropositions();
+			if (count > 0) {
+				this.orphanBadgeEl.textContent = this.plugin.settings.lang === 'ko'
+					? `◈ 고립 노드 ${count}건`
+					: `◈ ${count} isolated node${count > 1 ? 's' : ''}`;
+				this.orphanBadgeEl.show();
+			} else {
+				this.orphanBadgeEl.hide();
+			}
+		} catch {
+			this.orphanBadgeEl.hide();
 		}
 	}
 
