@@ -340,8 +340,8 @@ export class ThirdBrainView extends ItemView {
 			const count = await this.store.countOrphanPropositions();
 			if (count > 0) {
 				this.orphanBadgeEl.textContent = this.plugin.settings.lang === 'ko'
-					? `◈ 고립 노드 ${count}건`
-					: `◈ ${count} isolated node${count > 1 ? 's' : ''}`;
+					? `◈ 미연결 명제 ${count}건`
+					: `◈ ${count} unlinked node${count > 1 ? 's' : ''}`;
 				this.orphanBadgeEl.show();
 			} else {
 				this.orphanBadgeEl.hide();

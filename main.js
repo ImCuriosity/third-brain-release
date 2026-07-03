@@ -114,10 +114,10 @@ var KO = {
   dropzone_raw_hint: "\uD30C\uC77C \uB4DC\uB86D\xB7\uBD99\uC5EC\uB123\uAE30 \uC2DC \uC6D0\uBCF8\uC774 raw/ \uD3F4\uB354\uC5D0 \uC790\uB3D9 \uC800\uC7A5\uB429\uB2C8\uB2E4",
   or_sep: "\uB610\uB294 \uD68C\uC758\uB85D\xB7\uC544\uC774\uB514\uC5B4\uB97C \uC9C1\uC811 \uC785\uB825\uD558\uC138\uC694.",
   // buttons
-  btn_generate: "\u2726 \uC0DD\uC131",
-  btn_analyze: "\u{1F50D} \uBD84\uC11D",
-  btn_graph: "\u2295 \uADF8\uB798\uD504",
-  btn_bridge: "\u{1F309} \uC5F0\uACB0",
+  btn_generate: "\u2726 \uADF8\uB798\uD504 \uCD94\uCD9C",
+  btn_analyze: "\u{1F50D} \uD3F4\uB354 \uBD84\uC11D",
+  btn_graph: "\u2295 \uADF8\uB798\uD504 \uBCF4\uAE30",
+  btn_bridge: "\u{1F309} \uD3F4\uB354 \uBE0C\uB9BF\uC9C0",
   btn_cancel: "\uCDE8\uC18C",
   btn_save: "\uC800\uC7A5",
   btn_close: "\uB2EB\uAE30",
@@ -430,10 +430,10 @@ var EN = {
   file_btn: "\u{1F4C1} Select File",
   dropzone_raw_hint: "Dropped files & pasted text are auto-saved to raw/ before analysis",
   or_sep: "Or type a memo, idea, or meeting note directly.",
-  btn_generate: "\u2726 Generate",
-  btn_analyze: "\u{1F50D} Analyze",
-  btn_graph: "\u2295 Graph",
-  btn_bridge: "\u{1F309} Bridge",
+  btn_generate: "\u2726 Extract Graph",
+  btn_analyze: "\u{1F50D} Folder Analysis",
+  btn_graph: "\u2295 Graph View",
+  btn_bridge: "\u{1F309} Folder Bridge",
   btn_cancel: "Cancel",
   btn_save: "Save",
   btn_close: "Close",
@@ -36322,7 +36322,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     try {
       const count = await this.store.countOrphanPropositions();
       if (count > 0) {
-        this.orphanBadgeEl.textContent = this.plugin.settings.lang === "ko" ? `\u25C8 \uACE0\uB9BD \uB178\uB4DC ${count}\uAC74` : `\u25C8 ${count} isolated node${count > 1 ? "s" : ""}`;
+        this.orphanBadgeEl.textContent = this.plugin.settings.lang === "ko" ? `\u25C8 \uBBF8\uC5F0\uACB0 \uBA85\uC81C ${count}\uAC74` : `\u25C8 ${count} unlinked node${count > 1 ? "s" : ""}`;
         this.orphanBadgeEl.show();
       } else {
         this.orphanBadgeEl.hide();
