@@ -9,7 +9,7 @@
 //  뷰어: summarizeSubgraph()   — 폴더 핵심 서브그래프 요약 (풍부한 분석)
 // ============================================================
 
-import { callClaude, callClaudeWithModel } from './cli-bridge';
+import { callClaudeWithModel } from './cli-bridge';
 import { jsonLangInstr, type Lang } from '../i18n';
 import { toRelation } from '../types';
 import type {

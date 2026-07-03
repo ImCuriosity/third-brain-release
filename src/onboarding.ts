@@ -1,4 +1,4 @@
-import { App, Modal } from 'obsidian';
+import { App, Modal, Platform } from 'obsidian';
 import type ThirdBrainPlugin from './main';
 import type { AIProvider } from './types';
 import { getT } from './i18n';
@@ -61,7 +61,9 @@ export class OnboardingModal extends Modal {
 		const cards = contentEl.createDiv({ cls: 'tb-ob-cards' });
 		this.renderProviderCard(cards, 'gemini',      '✦', 'Gemini',      t('ob_gemini_desc'));
 		this.renderProviderCard(cards, 'claude-api',  '◆', 'Claude API',  t('ob_claude_api_desc'));
-		this.renderProviderCard(cards, 'claude-cli',  '⌘', 'Claude Code', t('ob_claude_cli_desc'));
+		if (!Platform.isMobile) {
+			this.renderProviderCard(cards, 'claude-cli', '⌘', 'Claude Code', t('ob_claude_cli_desc'));
+		}
 
 		// ── Step 2: 세부 입력 ────
 		this.step2El = contentEl.createDiv({ cls: 'tb-ob-step2' });

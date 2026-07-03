@@ -45,6 +45,7 @@ const KO = {
 	notice_diff_folders: '[ThirdBrain] 서로 다른 폴더를 선택하세요.',
 	notice_select_folder_analysis: '[ThirdBrain] 폴더를 선택하세요.',
 	notice_ai_busy: '[ThirdBrain] AI 작업이 진행 중입니다. 완료 후 다시 시도하세요.',
+	notice_mobile_keep_screen: '[ThirdBrain] 작업 중 화면을 유지하세요. 백그라운드로 전환하면 중단될 수 있습니다.',
 	// progress
 	progress_context: '1/4  문맥 분절 중...',
 	progress_proposition: '2/3  명제 추출 중...',
@@ -363,6 +364,7 @@ const EN: Record<TKey, string> = {
 	notice_diff_folders: '[ThirdBrain] Please select two different folders.',
 	notice_select_folder_analysis: '[ThirdBrain] Please select a folder.',
 	notice_ai_busy: '[ThirdBrain] AI is currently running. Please wait for it to finish.',
+	notice_mobile_keep_screen: '[ThirdBrain] Keep the screen active. Switching to background may interrupt the process.',
 	progress_context: '1/4  Segmenting context...',
 	progress_proposition: '2/3  Extracting propositions...',
 	progress_edge: '3/3  Extracting edges...',

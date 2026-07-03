@@ -1,4 +1,4 @@
-import { App, ItemView, Modal, Notice, TFile, WorkspaceLeaf, requestUrl, sanitizeHTMLToDom } from 'obsidian';
+import { App, ItemView, Modal, Notice, Platform, TFile, WorkspaceLeaf, requestUrl, sanitizeHTMLToDom } from 'obsidian';
 import type ThirdBrainPlugin from './main';
 import { getT } from './i18n';
 import type { TKey, Lang } from './i18n';
@@ -579,32 +579,41 @@ export class ThirdBrainView extends ItemView {
 		this.pipelineModal?.close();
 		this.pipelineModal = null;
 
+		if (Platform.isMobile) {
+			new Notice(this.t('notice_mobile_keep_screen'), 6000);
+		}
+
 		type RawLink = { file: TFile; sourceSpan?: { text: string; offset: number } };
 		const allRawLinks: RawLink[] = [];
 		const allBlockIdSpans: Array<{ blockId: string; spanText: string }> = [];
 
-		if (text.length > CHUNK_SIZE) {
-			const chunks = splitIntoChunks(text, CHUNK_SIZE);
-			for (let i = 0; i < chunks.length; i++) {
-				this.setIngestBusy(true);
-				this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
-				const isLast = i === chunks.length - 1;
-				const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+		try {
+			if (text.length > CHUNK_SIZE) {
+				const chunks = splitIntoChunks(text, CHUNK_SIZE);
+				for (let i = 0; i < chunks.length; i++) {
+					this.setIngestBusy(true);
+					this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
+					const isLast = i === chunks.length - 1;
+					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+					if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
+				}
+			} else {
+				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
 				if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 			}
-		} else {
-			const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
-			if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
-		}
 
-		// 모든 청크의 rawLinks를 한 번에 원본 파일에 기록 (청크별 덮어쓰기 방지)
-		if (rawFile) {
-			if (allBlockIdSpans.length > 0) {
-				await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {});
+			// 모든 청크의 rawLinks를 한 번에 원본 파일에 기록 (청크별 덮어쓰기 방지)
+			if (rawFile) {
+				if (allBlockIdSpans.length > 0) {
+					await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {});
+				}
+				if (allRawLinks.length > 0) {
+					await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
+				}
 			}
-			if (allRawLinks.length > 0) {
-				await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
-			}
+		} catch {
+			this.hideProgress();
+			this.setIngestBusy(false);
 		}
 	}
 

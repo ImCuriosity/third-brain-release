@@ -67,7 +67,7 @@ __export(main_exports, {
   default: () => ThirdBrainPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/types.ts
 var TRANSITIVE_RELATIONS = /* @__PURE__ */ new Set(["causes", "precedes"]);
@@ -100,7 +100,7 @@ var DEFAULT_SETTINGS = {
 };
 
 // src/view.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/i18n.ts
 var KO = {
@@ -146,6 +146,7 @@ var KO = {
   notice_diff_folders: "[ThirdBrain] \uC11C\uB85C \uB2E4\uB978 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
   notice_select_folder_analysis: "[ThirdBrain] \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.",
   notice_ai_busy: "[ThirdBrain] AI \uC791\uC5C5\uC774 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4. \uC644\uB8CC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
+  notice_mobile_keep_screen: "[ThirdBrain] \uC791\uC5C5 \uC911 \uD654\uBA74\uC744 \uC720\uC9C0\uD558\uC138\uC694. \uBC31\uADF8\uB77C\uC6B4\uB4DC\uB85C \uC804\uD658\uD558\uBA74 \uC911\uB2E8\uB420 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
   // progress
   progress_context: "1/4  \uBB38\uB9E5 \uBD84\uC808 \uC911...",
   progress_proposition: "2/3  \uBA85\uC81C \uCD94\uCD9C \uC911...",
@@ -461,6 +462,7 @@ var EN = {
   notice_diff_folders: "[ThirdBrain] Please select two different folders.",
   notice_select_folder_analysis: "[ThirdBrain] Please select a folder.",
   notice_ai_busy: "[ThirdBrain] AI is currently running. Please wait for it to finish.",
+  notice_mobile_keep_screen: "[ThirdBrain] Keep the screen active. Switching to background may interrupt the process.",
   progress_context: "1/4  Segmenting context...",
   progress_proposition: "2/3  Extracting propositions...",
   progress_edge: "3/3  Extracting edges...",
@@ -837,7 +839,8 @@ var SOOTBALL_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 12
 </svg>`;
 
 // src/engine/cli-bridge.ts
-var _proc = process;
+var import_obsidian = require("obsidian");
+var _proc = window.process ?? { platform: "unknown", env: {} };
 function getReq() {
   return window.require;
 }
@@ -928,6 +931,8 @@ function resolveCliBin(cliBin) {
   return cliBin;
 }
 async function callClaude(prompt, cliBin = "claude") {
+  if (import_obsidian.Platform.isMobile)
+    throw new Error("Claude CLI\uB294 \uBAA8\uBC14\uC77C\uC5D0\uC11C \uC9C0\uC6D0\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC124\uC815\uC5D0\uC11C API \uAE30\uBC18 \uC81C\uACF5\uC790\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
   const bin = resolveCliBin(cliBin);
   const useShell = _proc.platform === "win32" && !bin.toLowerCase().endsWith(".exe");
   const req = getReq();
@@ -2410,7 +2415,7 @@ Return JSON only (no code blocks):
 }
 
 // src/engine/graph-store.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // src/engine/contradiction-engine.ts
 function detectConflicts(nodes) {
@@ -2502,11 +2507,11 @@ var GraphStore = class {
     if (!folder)
       return;
     for (const child of folder.children) {
-      if (child instanceof import_obsidian.TFile && child.extension === "md") {
+      if (child instanceof import_obsidian2.TFile && child.extension === "md") {
         const node = await this.fileToNode(child);
         if (node && node.type !== "summary")
           out.push(node);
-      } else if (!(child instanceof import_obsidian.TFile)) {
+      } else if (!(child instanceof import_obsidian2.TFile)) {
         await this.collectNodes(child.path, out);
       }
     }
@@ -2541,12 +2546,12 @@ var GraphStore = class {
   // node.folder = 절대 vault 경로 (비어있으면 settings.nodeFolder 사용)
   // rawSourcePath = raw/ 원본 파일 경로(확장자 제외). 있으면 본문에 위키링크 + 발췌 삽입
   async createNode(node, rawSourcePath) {
-    const folderPath = node.folder ? (0, import_obsidian.normalizePath)(node.folder) : "";
+    const folderPath = node.folder ? (0, import_obsidian2.normalizePath)(node.folder) : "";
     if (folderPath)
       await this.ensureFolder(folderPath);
     const rawTitle = node.title.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
     const safeTitle = rawTitle || node.id.replace(/[\\/:*?"<>|#^[\]]/g, "-").slice(0, 50) || "untitled";
-    const filePath = folderPath ? (0, import_obsidian.normalizePath)(`${folderPath}/${safeTitle}.md`) : `${safeTitle}.md`;
+    const filePath = folderPath ? (0, import_obsidian2.normalizePath)(`${folderPath}/${safeTitle}.md`) : `${safeTitle}.md`;
     const finalPath = await this.resolveConflict(filePath);
     let body = node.content;
     if (rawSourcePath) {
@@ -2575,7 +2580,7 @@ ${body}`;
    * @param existingVaultPath  이미 볼트 내에 있는 파일 경로 (raw/ 하위이면 생성 생략)
    */
   async createRawFile(text, sourceName, existingVaultPath) {
-    const rawFolder = (0, import_obsidian.normalizePath)(`${this.settings.rootFolder}/raw`);
+    const rawFolder = (0, import_obsidian2.normalizePath)(`${this.settings.rootFolder}/raw`);
     await this.ensureFolder(rawFolder);
     if (existingVaultPath && existingVaultPath.startsWith(rawFolder + "/")) {
       const existing = this.app.vault.getFileByPath(existingVaultPath);
@@ -2585,7 +2590,7 @@ ${body}`;
     const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10).replace(/-/g, "");
     const safeName = sourceName.replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, "_").slice(0, 40) || "paste";
     const fileName = `${date}_${safeName}.md`;
-    const filePath = await this.resolveConflict((0, import_obsidian.normalizePath)(`${rawFolder}/${fileName}`));
+    const filePath = await this.resolveConflict((0, import_obsidian2.normalizePath)(`${rawFolder}/${fileName}`));
     return this.app.vault.create(filePath, text);
   }
   /**
@@ -2597,7 +2602,7 @@ ${body}`;
     const datePrefix = file.basename.match(/^(\d{8})_?/)?.[1];
     const newBasename = datePrefix ? `${datePrefix}_${safeName}` : safeName;
     const parentPath = file.parent?.path ? file.parent.path + "/" : "";
-    const newPath = await this.resolveConflict((0, import_obsidian.normalizePath)(`${parentPath}${newBasename}.md`));
+    const newPath = await this.resolveConflict((0, import_obsidian2.normalizePath)(`${parentPath}${newBasename}.md`));
     await this.app.vault.rename(file, newPath);
     return this.app.vault.getFileByPath(newPath) ?? file;
   }
@@ -2828,7 +2833,7 @@ ${body}`;
   async transplantNode(file, targetFolder, props, confirmedEdges) {
     await this.ensureFolder(targetFolder);
     const targetPath = await this.resolveConflict(
-      (0, import_obsidian.normalizePath)(targetFolder ? `${targetFolder}/${file.name}` : file.name)
+      (0, import_obsidian2.normalizePath)(targetFolder ? `${targetFolder}/${file.name}` : file.name)
     );
     await this.app.fileManager.renameFile(file, targetPath);
     const movedFile = this.app.vault.getFileByPath(targetPath);
@@ -2904,10 +2909,10 @@ ${body}`;
    * 명제 노드와 물리적으로 분리됨.
    */
   async createActionNode(node, parentFolder, propFileMap) {
-    const folder = parentFolder ? (0, import_obsidian.normalizePath)(`${parentFolder}/_actions`) : "_actions";
+    const folder = parentFolder ? (0, import_obsidian2.normalizePath)(`${parentFolder}/_actions`) : "_actions";
     await this.ensureFolder(folder);
     const safeTitle = sanitizeId(node.title) || node.id.slice(0, 50) || "action-untitled";
-    let filePath = (0, import_obsidian.normalizePath)(`${folder}/${safeTitle}.md`);
+    let filePath = (0, import_obsidian2.normalizePath)(`${folder}/${safeTitle}.md`);
     filePath = await this.resolveConflict(filePath);
     const motivEdges = (node.motivation_ids ?? []).map((id2) => propFileMap?.get(id2)).filter((f) => !!f).map((f) => ({
       target: `[[${f.basename}]]`,
@@ -2958,13 +2963,13 @@ ${node.content}`;
   }
   /** 폴더(및 하위 _actions/) 내 모든 ActionNode 로드 */
   async loadActionNodes(folderPath) {
-    const actionFolder = folderPath ? (0, import_obsidian.normalizePath)(`${folderPath}/_actions`) : "_actions";
+    const actionFolder = folderPath ? (0, import_obsidian2.normalizePath)(`${folderPath}/_actions`) : "_actions";
     const folder = this.app.vault.getFolderByPath(actionFolder);
     if (!folder)
       return [];
     const nodes = [];
     for (const child of folder.children) {
-      if (!(child instanceof import_obsidian.TFile) || child.extension !== "md")
+      if (!(child instanceof import_obsidian2.TFile) || child.extension !== "md")
         continue;
       const node = await this.fileToActionNode(child);
       if (node)
@@ -3046,7 +3051,7 @@ ${node.content}`;
    */
   async deleteNodeAndCleanEdges(node, folder) {
     const file = this.app.vault.getAbstractFileByPath(node.filePath);
-    if (file instanceof import_obsidian.TFile) {
+    if (file instanceof import_obsidian2.TFile) {
       await this.app.fileManager.trashFile(file);
     }
     const deletedWikilink = `[[${node.title}]]`;
@@ -35850,9 +35855,9 @@ var GraphView = class {
 };
 
 // src/components/vault-lint.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 var MAX_ORPHANS = 10;
-var OrphanQueueModal = class extends import_obsidian2.Modal {
+var OrphanQueueModal = class extends import_obsidian3.Modal {
   constructor(app, store, settings, folders, onResolved) {
     super(app);
     this.store = store;
@@ -35911,7 +35916,7 @@ var OrphanQueueModal = class extends import_obsidian2.Modal {
     });
     startBtn.addEventListener("click", () => {
       if (!selected) {
-        new import_obsidian2.Notice(this.isKo ? "[ThirdBrain] \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694." : "[ThirdBrain] Select a folder.");
+        new import_obsidian3.Notice(this.isKo ? "[ThirdBrain] \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694." : "[ThirdBrain] Select a folder.");
         return;
       }
       void this.renderLintResults(selected);
@@ -36039,7 +36044,7 @@ var OrphanQueueModal = class extends import_obsidian2.Modal {
           const targetFilePath = this.findFilePath(res.targetTitle);
           const targetFile = targetFilePath ? this.app.vault.getFileByPath(targetFilePath) : null;
           if (!orphanFile || !targetFile) {
-            new import_obsidian2.Notice(this.isKo ? "[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : "[ThirdBrain] File not found.");
+            new import_obsidian3.Notice(this.isKo ? "[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : "[ThirdBrain] File not found.");
             acceptBtn.disabled = false;
             return;
           }
@@ -36057,7 +36062,7 @@ var OrphanQueueModal = class extends import_obsidian2.Modal {
           doneMsg.addClass("is-visible");
           this.onResolved();
         } catch {
-          new import_obsidian2.Notice(this.isKo ? "[ThirdBrain] \uC5F0\uACB0 \uC800\uC7A5 \uC2E4\uD328" : "[ThirdBrain] Failed to save connection.");
+          new import_obsidian3.Notice(this.isKo ? "[ThirdBrain] \uC5F0\uACB0 \uC800\uC7A5 \uC2E4\uD328" : "[ThirdBrain] Failed to save connection.");
           acceptBtn.disabled = false;
         }
       })();
@@ -36099,7 +36104,7 @@ function sanitizeId2(s) {
 function shortText(s, max2 = 26) {
   return s.length > max2 ? s.slice(0, max2 - 1) + "\u2026" : s;
 }
-var ThirdBrainView = class extends import_obsidian3.ItemView {
+var ThirdBrainView = class extends import_obsidian4.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.pipelineModal = null;
@@ -36136,7 +36141,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     return getT(this.plugin.settings.lang)(key);
   }
   async onOpen() {
-    setRequestUrl(import_obsidian3.requestUrl);
+    setRequestUrl(import_obsidian4.requestUrl);
     this.store = new GraphStore(this.app, this.plugin.settings);
     const root2 = this.containerEl.children[1];
     root2.empty();
@@ -36179,7 +36184,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     const panel = parent.createEl("div", { cls: "tb-ingest" });
     const dropZone = panel.createEl("div", { cls: "tb-dropzone" });
     const faceEl = dropZone.createEl("div", { cls: "tb-dropzone-face" });
-    faceEl.appendChild((0, import_obsidian3.sanitizeHTMLToDom)(SOOTBALL_WAITING));
+    faceEl.appendChild((0, import_obsidian4.sanitizeHTMLToDom)(SOOTBALL_WAITING));
     const dropLabel = dropZone.createEl("div", { cls: "tb-dropzone-label", text: this.t("dropzone_label") });
     const fileInput = dropZone.createEl("input", {
       attr: { type: "file", accept: ".md,.txt,.pdf", multiple: true }
@@ -36192,7 +36197,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     let dragDepth = 0;
     const setFaceHungry = (hungry) => {
       faceEl.empty();
-      faceEl.appendChild((0, import_obsidian3.sanitizeHTMLToDom)(hungry ? SOOTBALL_HUNGRY : SOOTBALL_WAITING));
+      faceEl.appendChild((0, import_obsidian4.sanitizeHTMLToDom)(hungry ? SOOTBALL_HUNGRY : SOOTBALL_WAITING));
       dropLabel.textContent = hungry ? this.t("dropzone_hungry") : this.t("dropzone_label");
     };
     dropZone.addEventListener("dragenter", (e) => {
@@ -36336,10 +36341,10 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     const drg = dm?.draggable;
     if (drg) {
       const tfiles = [];
-      if (drg.type === "file" && drg.file instanceof import_obsidian3.TFile) {
+      if (drg.type === "file" && drg.file instanceof import_obsidian4.TFile) {
         tfiles.push(drg.file);
       } else if (Array.isArray(drg.files)) {
-        tfiles.push(...drg.files.filter((f) => f instanceof import_obsidian3.TFile));
+        tfiles.push(...drg.files.filter((f) => f instanceof import_obsidian4.TFile));
       }
       if (tfiles.length > 0) {
         void this.loadVaultFilesToTextarea(tfiles);
@@ -36354,7 +36359,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     const plainText = e.dataTransfer?.getData("text/plain")?.trim() ?? "";
     if (plainText) {
       const tf = this.app.vault.getFileByPath(plainText);
-      if (tf instanceof import_obsidian3.TFile) {
+      if (tf instanceof import_obsidian4.TFile) {
         void this.loadVaultFilesToTextarea([tf]);
       }
     }
@@ -36367,7 +36372,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
   async loadFilesToTextarea(files) {
     const filtered = files.filter((f) => /\.(md|txt|pdf)$/i.test(f.name));
     if (filtered.length === 0) {
-      new import_obsidian3.Notice(this.t("notice_file_type"));
+      new import_obsidian4.Notice(this.t("notice_file_type"));
       return;
     }
     const texts = [];
@@ -36383,14 +36388,14 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     this.updateCharCount();
     this.syncIngestBtnState();
     this.ingestSource = filtered.length === 1 ? { kind: "external", name: filtered[0].name } : { kind: "paste" };
-    new import_obsidian3.Notice(`[ThirdBrain] ${filtered.length} files loaded`);
+    new import_obsidian4.Notice(`[ThirdBrain] ${filtered.length} files loaded`);
   }
   // 내부(Obsidian vault) TFile → 볼트에서 읽기
   // TB 노드인 경우 핵심 속성을 헤더로 표시해 사용자가 인지할 수 있도록 함
   async loadVaultFilesToTextarea(files) {
     const filtered = files.filter((f) => /\.(md|txt|pdf)$/i.test(f.name));
     if (filtered.length === 0) {
-      new import_obsidian3.Notice(this.t("notice_file_type"));
+      new import_obsidian4.Notice(this.t("notice_file_type"));
       return;
     }
     const texts = [];
@@ -36424,15 +36429,15 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     this.ingestSource = filtered.length === 1 ? { kind: "vault", file: filtered[0] } : { kind: "paste" };
     if (filtered.length === 1) {
       const isTB = !!this.app.metadataCache.getFileCache(filtered[0])?.frontmatter?.tb_id;
-      new import_obsidian3.Notice(`[ThirdBrain] ${filtered[0].basename} \uB85C\uB4DC\uB428${isTB ? " \u2014 TB \uB178\uB4DC (\uC778\uC81C\uC2A4\uD2B8 \u2192 \uBE0C\uB9BF\uC9C0 \uC2E4\uD589)" : ""}`);
+      new import_obsidian4.Notice(`[ThirdBrain] ${filtered[0].basename} \uB85C\uB4DC\uB428${isTB ? " \u2014 TB \uB178\uB4DC (\uC778\uC81C\uC2A4\uD2B8 \u2192 \uBE0C\uB9BF\uC9C0 \uC2E4\uD589)" : ""}`);
     } else {
-      new import_obsidian3.Notice(`[ThirdBrain] ${filtered.length}\uAC1C \uB178\uD2B8 \uB85C\uB4DC\uB428`);
+      new import_obsidian4.Notice(`[ThirdBrain] ${filtered.length}\uAC1C \uB178\uD2B8 \uB85C\uB4DC\uB428`);
     }
   }
   buildProgressBar(parent) {
     this.progressEl = parent.createEl("div", { cls: "tb-progress" });
     const sootball = this.progressEl.createEl("span", { cls: "tb-progress-sootball" });
-    sootball.appendChild((0, import_obsidian3.sanitizeHTMLToDom)(SOOTBALL_LOGO));
+    sootball.appendChild((0, import_obsidian4.sanitizeHTMLToDom)(SOOTBALL_LOGO));
     this.progressBarEl = this.progressEl.createEl("span", { cls: "tb-progress-bar", text: progressBar(0) });
     this.progressMsgEl = this.progressEl.createEl("span", { cls: "tb-progress-msg", text: "" });
     this.stepLogEl = parent.createEl("div", { cls: "tb-step-log" });
@@ -36460,7 +36465,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
   async runIngest() {
     const text = this.ingestTextarea.value.trim();
     if (!text) {
-      new import_obsidian3.Notice(this.t("notice_no_text"));
+      new import_obsidian4.Notice(this.t("notice_no_text"));
       return;
     }
     const root2 = this.plugin.settings.rootFolder;
@@ -36483,7 +36488,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
       }, this.plugin.settings.lang, this.plugin.settings.rootFolder).open();
     });
     if (selectedFolder === null) {
-      new import_obsidian3.Notice(this.t("notice_no_folder"));
+      new import_obsidian4.Notice(this.t("notice_no_folder"));
       return;
     }
     const tbMatch = this.ingestTextarea.value.match(/^\[TB 노드:(.+?)\]/);
@@ -36514,36 +36519,44 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
     this.resultsEl.empty();
     this.pipelineModal?.close();
     this.pipelineModal = null;
+    if (import_obsidian4.Platform.isMobile) {
+      new import_obsidian4.Notice(this.t("notice_mobile_keep_screen"), 6e3);
+    }
     const allRawLinks = [];
     const allBlockIdSpans = [];
-    if (text.length > CHUNK_SIZE) {
-      const chunks = splitIntoChunks(text, CHUNK_SIZE);
-      for (let i = 0; i < chunks.length; i++) {
-        this.setIngestBusy(true);
-        this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t("progress_chunk")}`);
-        const isLast = i === chunks.length - 1;
-        const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+    try {
+      if (text.length > CHUNK_SIZE) {
+        const chunks = splitIntoChunks(text, CHUNK_SIZE);
+        for (let i = 0; i < chunks.length; i++) {
+          this.setIngestBusy(true);
+          this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t("progress_chunk")}`);
+          const isLast = i === chunks.length - 1;
+          const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+          if (res) {
+            allRawLinks.push(...res.rawLinks);
+            allBlockIdSpans.push(...res.blockIdSpans);
+          }
+        }
+      } else {
+        const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
         if (res) {
           allRawLinks.push(...res.rawLinks);
           allBlockIdSpans.push(...res.blockIdSpans);
         }
       }
-    } else {
-      const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
-      if (res) {
-        allRawLinks.push(...res.rawLinks);
-        allBlockIdSpans.push(...res.blockIdSpans);
+      if (rawFile) {
+        if (allBlockIdSpans.length > 0) {
+          await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {
+          });
+        }
+        if (allRawLinks.length > 0) {
+          await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {
+          });
+        }
       }
-    }
-    if (rawFile) {
-      if (allBlockIdSpans.length > 0) {
-        await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {
-        });
-      }
-      if (allRawLinks.length > 0) {
-        await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {
-        });
-      }
+    } catch {
+      this.hideProgress();
+      this.setIngestBusy(false);
     }
   }
   // ── 메인 파이프라인 (Auto vs Architect 모드) ──────
@@ -36605,7 +36618,7 @@ var ThirdBrainView = class extends import_obsidian3.ItemView {
         );
       } catch (propErr) {
         const diagMsg = propErr instanceof Error ? propErr.message : String(propErr);
-        new import_obsidian3.Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + " " : ""}\uBA85\uC81C \uCD94\uCD9C \uC2E4\uD328
+        new import_obsidian4.Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + " " : ""}\uBA85\uC81C \uCD94\uCD9C \uC2E4\uD328
 ${diagMsg}`, 15e3);
         this.resultsEl.createEl("div", {
           cls: "tb-error-msg",
@@ -36634,7 +36647,7 @@ ${diagMsg}`
           const result = await this.saveNodes(contexts, logic, targetFolder, rawSourcePath, rawFile);
           const { contextFileMap, propFileMap, rawLinks, blockIdSpans } = result;
           this.hideProgress();
-          new import_obsidian3.Notice(`${this.t("notice_graph_save_done_full")} (${logic.propositions.length}${this.t("notice_prop_suffix")}${logic.edges.length}${this.t("notice_edge_suffix")})`);
+          new import_obsidian4.Notice(`${this.t("notice_graph_save_done_full")} (${logic.propositions.length}${this.t("notice_prop_suffix")}${logic.edges.length}${this.t("notice_edge_suffix")})`);
           if (isLastChunk) {
             const savedNodes = await this.store.loadNodesInFolder(targetFolder);
             const conflicts = detectConflicts(savedNodes);
@@ -36669,7 +36682,7 @@ ${diagMsg}`
           return { rawLinks, blockIdSpans };
         } catch (err) {
           this.hideProgress();
-          new import_obsidian3.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian4.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);
         }
       } else {
         this.renderSaveSection(
@@ -36704,7 +36717,7 @@ ${diagMsg}`
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_3") });
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_4") });
       }
-      new import_obsidian3.Notice(`\u26A0\uFE0F ${msg}`);
+      new import_obsidian4.Notice(`\u26A0\uFE0F ${msg}`);
     }
   }
   // ── 1차 결과: 문맥 레이어 ────────────────────────────
@@ -36911,7 +36924,7 @@ ${diagMsg}`
         const { files, folder: dest, actualPath } = await onSave(folder);
         this.fileCountEl.textContent = this.vaultCountText();
         saveBtn.textContent = `${this.t("btn_save_done").replace("]", "")} (${files.length}) ]`;
-        new import_obsidian3.Notice(`[ThirdBrain] ${files.length}${this.t("notice_graph_save_done_suffix")} ${dest}`);
+        new import_obsidian4.Notice(`[ThirdBrain] ${files.length}${this.t("notice_graph_save_done_suffix")} ${dest}`);
         if (files.length > 0) {
           const destLabel = dest === this.t("fallback_folder_root") ? this.t("label_vault_root") : `${dest}/`;
           resultArea.createEl("div", { cls: "tb-save-result-label", text: `\u2713 ${destLabel}${this.t("label_saved_in_suffix")}` });
@@ -36931,7 +36944,7 @@ ${diagMsg}`
         saveBtn.textContent = this.t("btn_save_graph");
         saveBtn.disabled = false;
         resultArea.createEl("div", { cls: "tb-save-result-error", text: `${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}` });
-        new import_obsidian3.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+        new import_obsidian4.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     };
     saveBtn.addEventListener("click", () => {
@@ -37079,7 +37092,7 @@ ${diagMsg}`
       }
       this.renderActionResults(savedActions, propById);
     } catch (e) {
-      new import_obsidian3.Notice(`[ThirdBrain] \uC561\uC158 \uCD94\uCD9C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uC561\uC158 \uCD94\uCD9C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   renderActionResults(actions, propById) {
@@ -37153,7 +37166,7 @@ ${diagMsg}`
         this.plugin.settings
       );
       if (connections.length === 0) {
-        new import_obsidian3.Notice(this.t("notice_no_connection"));
+        new import_obsidian4.Notice(this.t("notice_no_connection"));
         return;
       }
       const existingTitleToFile = /* @__PURE__ */ new Map();
@@ -37182,16 +37195,16 @@ ${diagMsg}`
       }
       if (saved.size > 0) {
         this.renderCrossConnectionLog(connections, saved);
-        new import_obsidian3.Notice(`[ThirdBrain] \u2468 Auto: ${saved.size}\uAC1C \uC5F0\uACB0 \uC790\uB3D9 \uC800\uC7A5`);
+        new import_obsidian4.Notice(`[ThirdBrain] \u2468 Auto: ${saved.size}\uAC1C \uC5F0\uACB0 \uC790\uB3D9 \uC800\uC7A5`);
       }
       const showChips = saved.size === 0;
       if (showChips) {
-        new import_obsidian3.Notice(`[ThirdBrain] \u2468 ${connections.length}\uAC1C \uC5F0\uACB0 \uD6C4\uBCF4 \u2014 \uD328\uB110\uC744 \uC2A4\uD06C\uB864\uD574 \uD655\uC778\uD558\uC138\uC694`);
+        new import_obsidian4.Notice(`[ThirdBrain] \u2468 ${connections.length}\uAC1C \uC5F0\uACB0 \uD6C4\uBCF4 \u2014 \uD328\uB110\uC744 \uC2A4\uD06C\uB864\uD574 \uD655\uC778\uD558\uC138\uC694`);
         const preSelectFirst = saved.size === 0;
         this.renderCrossConnectionChips(connections, newTitleToFile, existingTitleToFile, saved, preSelectFirst);
       }
     } catch (err) {
-      new import_obsidian3.Notice(`[ThirdBrain] \u2468 \uC5F0\uACB0 \uD0D0\uC0C9 \uC2E4\uD328: ${err instanceof Error ? err.message : String(err)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \u2468 \uC5F0\uACB0 \uD0D0\uC0C9 \uC2E4\uD328: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   async saveCrossEdge(conn, newFile, existFile) {
@@ -37278,7 +37291,7 @@ ${diagMsg}`
     saveBtn.addEventListener("click", () => void (async () => {
       const selected = states.filter((s) => s.selected);
       if (selected.length === 0) {
-        new import_obsidian3.Notice(this.t("notice_no_selection"));
+        new import_obsidian4.Notice(this.t("notice_no_selection"));
         return;
       }
       locked = true;
@@ -37293,7 +37306,7 @@ ${diagMsg}`
             continue;
           await this.saveCrossEdge(conn, newFile, existFile);
         }
-        new import_obsidian3.Notice(`${this.t("conn_saved_notice")}${selected.length}${this.t("conn_saved_notice_suffix")}`);
+        new import_obsidian4.Notice(`${this.t("conn_saved_notice")}${selected.length}${this.t("conn_saved_notice_suffix")}`);
         bar.remove();
         labelEl.textContent = `\u2713 \u2468 ${selected.length}${this.t("conn_saved_label_suffix")}`;
       } catch (err) {
@@ -37301,7 +37314,7 @@ ${diagMsg}`
         chipRow.removeClass("is-locked");
         saveBtn.disabled = false;
         saveBtn.textContent = this.t("btn_save_connection");
-        new import_obsidian3.Notice(`${this.t("save_error_notice_prefix")}${err instanceof Error ? err.message : String(err)}`);
+        new import_obsidian4.Notice(`${this.t("save_error_notice_prefix")}${err instanceof Error ? err.message : String(err)}`);
       }
     })());
   }
@@ -37398,9 +37411,9 @@ ${diagMsg}`
     const path = targetFolder ? `${targetFolder}/${fileName}` : fileName;
     try {
       await this.app.vault.create(path, content);
-      new import_obsidian3.Notice(`${this.t("notice_analysis_saved_prefix")}${fileName}`);
+      new import_obsidian4.Notice(`${this.t("notice_analysis_saved_prefix")}${fileName}`);
     } catch (e) {
-      new import_obsidian3.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       throw e;
     }
   }
@@ -37413,7 +37426,7 @@ ${diagMsg}`
     try {
       const folder = folderPath || "";
       void this.openNativeGraph([folder]);
-      new import_obsidian3.Notice(`\u{1F4CA} \uADF8\uB798\uD504 \uBDF0 \uC5F4\uAE30: ${folderPath || "\uB8E8\uD2B8"}`);
+      new import_obsidian4.Notice(`\u{1F4CA} \uADF8\uB798\uD504 \uBDF0 \uC5F4\uAE30: ${folderPath || "\uB8E8\uD2B8"}`);
     } catch {
     }
   }
@@ -37424,7 +37437,7 @@ ${diagMsg}`
     this.setProgress(5, `${this.t("analysis_progress_label")} (${mode === "rich" ? this.t("analysis_depth_rich") : this.t("analysis_depth_summary")})`);
     const folder = this.app.vault.getFolderByPath(folderPath);
     if (!folder) {
-      new import_obsidian3.Notice("[ThirdBrain] \uD3F4\uB354\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian4.Notice("[ThirdBrain] \uD3F4\uB354\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       this.setAIBusy(false);
       this.hideProgress();
       return;
@@ -37432,7 +37445,7 @@ ${diagMsg}`
     const readFilesFromFolder = async (files, nodeType) => {
       const result = [];
       for (const child of files) {
-        if (!(child instanceof import_obsidian3.TFile) || child.extension !== "md")
+        if (!(child instanceof import_obsidian4.TFile) || child.extension !== "md")
           continue;
         const raw = await this.app.vault.cachedRead(child);
         const cache = this.app.metadataCache.getFileCache(child);
@@ -37463,7 +37476,7 @@ ${diagMsg}`
       }
     }
     if (nodes.length === 0) {
-      new import_obsidian3.Notice("[ThirdBrain] \uD3F4\uB354\uC5D0 \uB9C8\uD06C\uB2E4\uC6B4 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian4.Notice("[ThirdBrain] \uD3F4\uB354\uC5D0 \uB9C8\uD06C\uB2E4\uC6B4 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
       this.setAIBusy(false);
       this.hideProgress();
       return;
@@ -37476,7 +37489,7 @@ ${diagMsg}`
     } catch (e) {
       this.hideProgress();
       this.setAIBusy(false);
-      new import_obsidian3.Notice(`[ThirdBrain] \uBD84\uC11D \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uBD84\uC11D \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // ── 8-2: 폴더 분석 결과 렌더링 ─────────────────────────
@@ -37572,14 +37585,14 @@ ${theme.description}
       }
       const file = await this.app.vault.create(filepath, content);
       saveBtn.textContent = this.t("btn_save_done");
-      new import_obsidian3.Notice(`${this.t("notice_analysis_saved_prefix")}${filename}`);
+      new import_obsidian4.Notice(`${this.t("notice_analysis_saved_prefix")}${filename}`);
       window.setTimeout(() => {
         void this.app.workspace.getLeaf().openFile(file);
       }, 300);
     } catch (e) {
       saveBtn.disabled = false;
       saveBtn.textContent = originalText;
-      new import_obsidian3.Notice(`${this.t("notice_analysis_save_fail")}${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`${this.t("notice_analysis_save_fail")}${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // ── UI 유틸 ──────────────────────────────────────────
@@ -37617,7 +37630,7 @@ ${theme.description}
       } catch (e) {
         saveBtn.textContent = this.t("btn_save_fail");
         saveBtn.disabled = false;
-        new import_obsidian3.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+        new import_obsidian4.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     })());
   }
@@ -37820,13 +37833,13 @@ ${theme.description}
       }
     }
     if (applied) {
-      new import_obsidian3.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uC5F4\uB9BC (${folders.length}\uAC1C \uD3F4\uB354)`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uC5F4\uB9BC (${folders.length}\uAC1C \uD3F4\uB354)`);
     } else {
       try {
         await navigator.clipboard.writeText(query);
       } catch {
       }
-      new import_obsidian3.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uAC80\uC0C9\uCC3D\uC5D0 \uBD99\uC5EC\uB123\uAE30:
+      new import_obsidian4.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uAC80\uC0C9\uCC3D\uC5D0 \uBD99\uC5EC\uB123\uAE30:
 ${query}`);
     }
   }
@@ -37858,13 +37871,13 @@ ${query}`);
     } catch (e) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian3.Notice(`[ThirdBrain] \uD30C\uC77C \uBCF5\uC0AC \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uD30C\uC77C \uBCF5\uC0AC \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
     if (!movedFile) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian3.Notice("[ThirdBrain] \uC774\uB3D9\uB41C \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian4.Notice("[ThirdBrain] \uC774\uB3D9\uB41C \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     this.setProgress(3, "\uB178\uB4DC \uB85C\uB4DC \uC911...");
@@ -37889,14 +37902,14 @@ ${query}`);
     if (!movedNode) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian3.Notice("[ThirdBrain] \uB178\uB4DC \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian4.Notice("[ThirdBrain] \uB178\uB4DC \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     const targetNodes = (await this.store.loadNodesInFolder(targetFolder)).filter((n) => n.filePath !== movedFile.path);
     if (targetNodes.length === 0) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian3.Notice(`\u2705 \uC774\uC2DD \uC644\uB8CC: ${movedFile.basename} \u2192 ${targetFolder || "\uB8E8\uD2B8"} (\uC5F0\uACB0 \uD6C4\uBCF4 \uC5C6\uC74C)`);
+      new import_obsidian4.Notice(`\u2705 \uC774\uC2DD \uC644\uB8CC: ${movedFile.basename} \u2192 ${targetFolder || "\uB8E8\uD2B8"} (\uC5F0\uACB0 \uD6C4\uBCF4 \uC5C6\uC74C)`);
       this.ingestTextarea.value = "";
       this.updateCharCount();
       return;
@@ -37936,7 +37949,7 @@ ${query}`);
     } catch (e) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian3.Notice(`[ThirdBrain] \uBE0C\uB9BF\uC9C0 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uBE0C\uB9BF\uC9C0 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // ── Phase 5: 폴더 브리지 실행 ──────────────────────────
@@ -38007,7 +38020,7 @@ ${query}`);
       this.hideProgress();
       this.setBridgeBusy(false);
       const msg = e instanceof Error ? e.message : String(e);
-      new import_obsidian3.Notice(`[ThirdBrain] ${this.t("save_error_prefix")}${msg}`);
+      new import_obsidian4.Notice(`[ThirdBrain] ${this.t("save_error_prefix")}${msg}`);
       this.resultsEl.createEl("div", { cls: "tb-error-msg", text: `${this.t("error_title")}: ${msg}` });
     }
   }
@@ -38024,7 +38037,7 @@ ${query}`);
     ).open();
   }
 };
-var PipelineInfoModal = class extends import_obsidian3.Modal {
+var PipelineInfoModal = class extends import_obsidian4.Modal {
   constructor(app, lang) {
     super(app);
     this.t = getT(lang);
@@ -38046,7 +38059,7 @@ var PRESET_QUERIES = [
   { key: "modal_query_preset_hierarchy", relations: ["exemplifies", "applies_to"] },
   { key: "modal_query_preset_structural", relations: ["analogous_to", "isomorphic_to"] }
 ];
-var GraphCanvasModal = class extends import_obsidian3.Modal {
+var GraphCanvasModal = class extends import_obsidian4.Modal {
   constructor(app, nodes, activeRelations, lang) {
     super(app);
     this.nodes = nodes;
@@ -38076,7 +38089,7 @@ var GraphCanvasModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
   }
 };
-var GraphViewModal = class extends import_obsidian3.Modal {
+var GraphViewModal = class extends import_obsidian4.Modal {
   constructor(app, folders, onNative, onCanvas, store, settings) {
     super(app);
     this.folders = folders;
@@ -38174,7 +38187,7 @@ var GraphViewModal = class extends import_obsidian3.Modal {
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selected.length === 0) {
-        new import_obsidian3.Notice(this.t("notice_select_folder"));
+        new import_obsidian4.Notice(this.t("notice_select_folder"));
         return;
       }
       this.close();
@@ -38248,7 +38261,7 @@ var GraphViewModal = class extends import_obsidian3.Modal {
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selected.length === 0) {
-        new import_obsidian3.Notice(this.t("notice_select_folder"));
+        new import_obsidian4.Notice(this.t("notice_select_folder"));
         return;
       }
       void this.onCanvas(selected, new Set(this.activeRelations));
@@ -38259,7 +38272,7 @@ var GraphViewModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
   }
 };
-var BridgeModal = class extends import_obsidian3.Modal {
+var BridgeModal = class extends import_obsidian4.Modal {
   constructor(app, folders, onRun, lang) {
     super(app);
     this.folders = folders;
@@ -38329,7 +38342,7 @@ var BridgeModal = class extends import_obsidian3.Modal {
       const a2 = colAData.getSelected();
       const b = colBData.getSelected();
       if (a2.length === 0 || b.length === 0) {
-        new import_obsidian3.Notice(this.t("notice_select_two_folders"));
+        new import_obsidian4.Notice(this.t("notice_select_two_folders"));
         return;
       }
       this.close();
@@ -38340,7 +38353,7 @@ var BridgeModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
   }
 };
-var BridgeResultModal = class extends import_obsidian3.Modal {
+var BridgeResultModal = class extends import_obsidian4.Modal {
   constructor(app, result, fileMapA, fileMapB, folderAName, folderBName, store, lang, openGraph) {
     super(app);
     this.result = result;
@@ -38405,7 +38418,7 @@ var BridgeResultModal = class extends import_obsidian3.Modal {
       saveBtn.addEventListener("click", () => void (async () => {
         const toSave = states.filter((s) => s.selected).map((s) => s.edge);
         if (toSave.length === 0) {
-          new import_obsidian3.Notice(this._t("notice_no_selection"));
+          new import_obsidian4.Notice(this._t("notice_no_selection"));
           return;
         }
         bridgeLocked = true;
@@ -38413,7 +38426,7 @@ var BridgeResultModal = class extends import_obsidian3.Modal {
         saveBtn.textContent = this._t("btn_saving");
         try {
           await this.store.saveBridgeEdges(toSave, this.fileMapA, this.fileMapB);
-          new import_obsidian3.Notice(`${this._t("notice_bridge_saved_prefix")}${toSave.length}${this._t("notice_bridge_saved_suffix")}`);
+          new import_obsidian4.Notice(`${this._t("notice_bridge_saved_prefix")}${toSave.length}${this._t("notice_bridge_saved_suffix")}`);
           chipRow?.addClass("is-locked");
           saveBtn.textContent = this.lang === "ko" ? `${toSave.length}\uAC1C \uC800\uC7A5 \uC644\uB8CC` : `${toSave.length} saved`;
           this.openGraph([this.folderAName, this.folderBName]);
@@ -38421,7 +38434,7 @@ var BridgeResultModal = class extends import_obsidian3.Modal {
           bridgeLocked = false;
           saveBtn.disabled = false;
           saveBtn.textContent = this._t("btn_save_connection");
-          new import_obsidian3.Notice(`${this._t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+          new import_obsidian4.Notice(`${this._t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
         }
       })());
     }
@@ -38430,7 +38443,7 @@ var BridgeResultModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
   }
 };
-var ContentTypeModal = class extends import_obsidian3.Modal {
+var ContentTypeModal = class extends import_obsidian4.Modal {
   constructor(app, onSelect, lang) {
     super(app);
     this.onSelect = onSelect;
@@ -38494,7 +38507,7 @@ var ContentTypeModal = class extends import_obsidian3.Modal {
     this.resolve(null);
   }
 };
-var SaveFolderModal = class extends import_obsidian3.Modal {
+var SaveFolderModal = class extends import_obsidian4.Modal {
   constructor(app, folders, currentFolder, onChoose, lang, rootFolder = "") {
     super(app);
     this.folders = folders;
@@ -38614,7 +38627,7 @@ var SaveFolderModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
   }
 };
-var AnalysisTabbedModal = class extends import_obsidian3.Modal {
+var AnalysisTabbedModal = class extends import_obsidian4.Modal {
   constructor(app, folders, store, onRun, lang, settings, initialJob = null, onJobUpdate = () => {
   }, isAnythingBusy = () => false) {
     super(app);
@@ -38761,13 +38774,13 @@ var AnalysisTabbedModal = class extends import_obsidian3.Modal {
     analyzeStartBtn.disabled = this.isAnythingBusy();
     analyzeStartBtn.addEventListener("click", () => {
       if (this.isAnythingBusy()) {
-        new import_obsidian3.Notice(this.t("notice_ai_busy"));
+        new import_obsidian4.Notice(this.t("notice_ai_busy"));
         return;
       }
       const folder = analysisCbs.filter((c2) => c2.cb.checked)[0]?.folder ?? "";
       const mode = modeSel.value;
       if (!folder) {
-        new import_obsidian3.Notice(this.t("notice_select_folder_analysis"));
+        new import_obsidian4.Notice(this.t("notice_select_folder_analysis"));
         return;
       }
       const intent = customInput.value.trim() || selectedIntent;
@@ -38962,7 +38975,7 @@ var AnalysisTabbedModal = class extends import_obsidian3.Modal {
           addNodeToTensor(tensor, { ...srcNode, edges: [...srcNode.edges, newEdge] });
         } catch (err) {
           confirmBtn.disabled = false;
-          new import_obsidian3.Notice(`${this.t("notice_analysis_save_fail")}${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian4.Notice(`${this.t("notice_analysis_save_fail")}${err instanceof Error ? err.message : String(err)}`);
         }
       })());
     }
@@ -39048,7 +39061,7 @@ var AnalysisTabbedModal = class extends import_obsidian3.Modal {
                 if (!this.app.vault.getFolderByPath(f))
                   await this.app.vault.createFolder(f);
                 await this.app.vault.create(`${f}/${filename}`, currentText);
-                new import_obsidian3.Notice(filename);
+                new import_obsidian4.Notice(filename);
               })(targetFolder),
               this.lang,
               this.settings?.rootFolder ?? ""
@@ -39071,11 +39084,11 @@ var AnalysisTabbedModal = class extends import_obsidian3.Modal {
     analyzeBtn.addEventListener("click", () => {
       const selectedFolders = exprCbs.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selectedFolders.length === 0) {
-        new import_obsidian3.Notice(this.t("notice_select_folder_analysis"));
+        new import_obsidian4.Notice(this.t("notice_select_folder_analysis"));
         return;
       }
       if (!selectedMode) {
-        new import_obsidian3.Notice(this.t("expression_mode_not_selected"));
+        new import_obsidian4.Notice(this.t("expression_mode_not_selected"));
         return;
       }
       if (this.transcriptJob?.running)
@@ -39113,7 +39126,7 @@ var AnalysisTabbedModal = class extends import_obsidian3.Modal {
             setRunningUI(false);
             showResult(resultText);
           } else {
-            new import_obsidian3.Notice(this.t("expression_analyze_btn") + " \u2713");
+            new import_obsidian4.Notice(this.t("expression_analyze_btn") + " \u2713");
           }
         } catch (err) {
           const msg = `${this.t("path_error_prefix")}${err instanceof Error ? err.message : String(err)}`;
@@ -39124,7 +39137,7 @@ var AnalysisTabbedModal = class extends import_obsidian3.Modal {
             resultEl.empty();
             resultEl.createEl("div", { cls: "tb-path-empty", text: msg });
           } else {
-            new import_obsidian3.Notice(msg, 8e3);
+            new import_obsidian4.Notice(msg, 8e3);
           }
         }
       })();
@@ -39144,7 +39157,7 @@ function getAnalysisIntents(lang) {
     { label: t("intent_decision_label"), prompt: t("intent_decision_prompt"), mode: "rich" }
   ];
 }
-var AnalysisResultModal = class extends import_obsidian3.Modal {
+var AnalysisResultModal = class extends import_obsidian4.Modal {
   constructor(app, result, folderPath, mode, intent, onSave, lang) {
     super(app);
     this.result = result;
@@ -39260,7 +39273,7 @@ function makeDraggable(modalEl, handle) {
     activeDocument.addEventListener("mouseup", onUp);
   });
 }
-var SingleNodeBridgeModal = class extends import_obsidian3.Modal {
+var SingleNodeBridgeModal = class extends import_obsidian4.Modal {
   constructor(app, movedFile, sourceTitle, candidates, targetNodes, lang) {
     super(app);
     this.movedFile = movedFile;
@@ -39280,7 +39293,7 @@ var SingleNodeBridgeModal = class extends import_obsidian3.Modal {
     const titleToFile = /* @__PURE__ */ new Map();
     for (const n of this.targetNodes) {
       const f = this.app.vault.getAbstractFileByPath(n.filePath);
-      if (f instanceof import_obsidian3.TFile)
+      if (f instanceof import_obsidian4.TFile)
         titleToFile.set(n.title, f);
     }
     const saveSingleEdge = async (c2) => {
@@ -39343,7 +39356,7 @@ var SingleNodeBridgeModal = class extends import_obsidian3.Modal {
     saveBtn.addEventListener("click", () => void (async () => {
       const toSave = states.filter((s) => s.selected);
       if (toSave.length === 0) {
-        new import_obsidian3.Notice(t("notice_no_selection"));
+        new import_obsidian4.Notice(t("notice_no_selection"));
         return;
       }
       locked = true;
@@ -39353,14 +39366,14 @@ var SingleNodeBridgeModal = class extends import_obsidian3.Modal {
       try {
         for (const { c: c2 } of toSave)
           await saveSingleEdge(c2);
-        new import_obsidian3.Notice(`${t("notice_auto_saved_prefix")}${toSave.length}${t("conn_saved_notice_suffix")}`);
+        new import_obsidian4.Notice(`${t("notice_auto_saved_prefix")}${toSave.length}${t("conn_saved_notice_suffix")}`);
         this.close();
       } catch (e) {
         locked = false;
         chipRow.removeClass("is-locked");
         saveBtn.disabled = false;
         saveBtn.textContent = t("btn_save_connection");
-        new import_obsidian3.Notice(`${t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+        new import_obsidian4.Notice(`${t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     })());
   }
@@ -39368,7 +39381,7 @@ var SingleNodeBridgeModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
   }
 };
-var ConflictResolutionModal = class extends import_obsidian3.Modal {
+var ConflictResolutionModal = class extends import_obsidian4.Modal {
   constructor(app, conflict, store, settings, onResolved) {
     super(app);
     this.conflict = conflict;
@@ -39483,17 +39496,17 @@ var ConflictResolutionModal = class extends import_obsidian3.Modal {
   }
   async applyReclassify(relation, reason) {
     const nodeAFile = this.app.vault.getAbstractFileByPath(this.conflict.nodeA.filePath);
-    if (!(nodeAFile instanceof import_obsidian3.TFile)) {
-      new import_obsidian3.Notice("[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+    if (!(nodeAFile instanceof import_obsidian4.TFile)) {
+      new import_obsidian4.Notice("[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     try {
       await this.store.replaceEdge(nodeAFile, `[[${this.conflict.nodeB.title}]]`, relation, reason);
-      new import_obsidian3.Notice(`[ThirdBrain] \uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uAD50\uCCB4\uD588\uC2B5\uB2C8\uB2E4.`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uAD50\uCCB4\uD588\uC2B5\uB2C8\uB2E4.`);
       this.close();
       this.onResolved?.(`\uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uC7AC\uBD84\uB958`);
     } catch (e) {
-      new import_obsidian3.Notice(`[ThirdBrain] \uC5E3\uC9C0 \uAD50\uCCB4 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uC5E3\uC9C0 \uAD50\uCCB4 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   async applyAddParent(parentTitle) {
@@ -39523,33 +39536,33 @@ var ConflictResolutionModal = class extends import_obsidian3.Modal {
         confidence: 1,
         axiom_basis: "\uC0AC\uC6A9\uC790 \uC9C0\uC815"
       });
-      if (nodeAFile instanceof import_obsidian3.TFile)
+      if (nodeAFile instanceof import_obsidian4.TFile)
         await edge(nodeAFile);
-      if (nodeBFile instanceof import_obsidian3.TFile)
+      if (nodeBFile instanceof import_obsidian4.TFile)
         await edge(nodeBFile);
-      new import_obsidian3.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 '${parentTitle}' \uC0DD\uC131 \uBC0F \uC5F0\uACB0 \uC644\uB8CC`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 '${parentTitle}' \uC0DD\uC131 \uBC0F \uC5F0\uACB0 \uC644\uB8CC`);
       this.close();
       this.onResolved?.(`\uC0C1\uC704 \uC804\uC81C '${parentTitle}' \uCD94\uAC00\uB428`);
     } catch (e) {
-      new import_obsidian3.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 \uC0DD\uC131 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 \uC0DD\uC131 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   async applyDelete(node) {
     const folder = node.filePath.split("/").slice(0, -1).join("/");
     try {
       await this.store.deleteNodeAndCleanEdges(node, folder);
-      new import_obsidian3.Notice(`[ThirdBrain] '${node.title}' \uC0AD\uC81C \uC644\uB8CC`);
+      new import_obsidian4.Notice(`[ThirdBrain] '${node.title}' \uC0AD\uC81C \uC644\uB8CC`);
       this.close();
       this.onResolved?.(`'${node.title}' \uD3D0\uAE30\uB428`);
     } catch (e) {
-      new import_obsidian3.Notice(`[ThirdBrain] \uC0AD\uC81C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian4.Notice(`[ThirdBrain] \uC0AD\uC81C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var ManualConflictModal = class extends import_obsidian3.Modal {
+var ManualConflictModal = class extends import_obsidian4.Modal {
   constructor(app, store, settings, onResolved) {
     super(app);
     this.store = store;
@@ -39608,8 +39621,8 @@ var ManualConflictModal = class extends import_obsidian3.Modal {
 };
 
 // src/settings.ts
-var import_obsidian4 = require("obsidian");
-var ThirdBrainSettingTab = class extends import_obsidian4.PluginSettingTab {
+var import_obsidian5 = require("obsidian");
+var ThirdBrainSettingTab = class extends import_obsidian5.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -39620,9 +39633,9 @@ var ThirdBrainSettingTab = class extends import_obsidian4.PluginSettingTab {
     const t = getT(this.plugin.settings.lang);
     const header = containerEl.createDiv({ cls: "tb-settings-header" });
     const logoEl = header.createEl("div", { cls: "tb-settings-logo" });
-    logoEl.appendChild((0, import_obsidian4.sanitizeHTMLToDom)(SOOTBALL_LOGO));
+    logoEl.appendChild((0, import_obsidian5.sanitizeHTMLToDom)(SOOTBALL_LOGO));
     header.createEl("div", { cls: "tb-settings-title", text: "ThirdBrain" });
-    new import_obsidian4.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
+    new import_obsidian5.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
       (dropdown) => dropdown.addOption("ko", "\uD55C\uAD6D\uC5B4").addOption("en", "English").setValue(this.plugin.settings.lang ?? "en").onChange(async (value) => {
         this.plugin.settings.lang = value;
         await this.plugin.saveSettings();
@@ -39630,39 +39643,44 @@ var ThirdBrainSettingTab = class extends import_obsidian4.PluginSettingTab {
         void this.plugin.refreshView();
       })
     );
-    new import_obsidian4.Setting(containerEl).setName(t("settings_root_folder_name")).setDesc(t("settings_root_folder_desc")).addText(
+    new import_obsidian5.Setting(containerEl).setName(t("settings_root_folder_name")).setDesc(t("settings_root_folder_desc")).addText(
       (text) => text.setPlaceholder("ThirdBrainRoot").setValue(this.plugin.settings.rootFolder).onChange(async (value) => {
         this.plugin.settings.rootFolder = value || "ThirdBrainRoot";
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian4.Setting(containerEl).setName(t("settings_cli_name")).setDesc(t("settings_cli_desc")).addText(
-      (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.cliBin).onChange(async (value) => {
-        this.plugin.settings.cliBin = value || "claude";
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian4.Setting(containerEl).setName(t("settings_max_edge_name")).setDesc(t("settings_max_edge_desc")).addSlider(
+    if (!import_obsidian5.Platform.isMobile) {
+      new import_obsidian5.Setting(containerEl).setName(t("settings_cli_name")).setDesc(t("settings_cli_desc")).addText(
+        (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.cliBin).onChange(async (value) => {
+          this.plugin.settings.cliBin = value || "claude";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    new import_obsidian5.Setting(containerEl).setName(t("settings_max_edge_name")).setDesc(t("settings_max_edge_desc")).addSlider(
       (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.maxEdgeCandidates).onChange(async (value) => {
         this.plugin.settings.maxEdgeCandidates = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian4.Setting(containerEl).setName(t("settings_bridge_top_k_name")).setDesc(t("settings_bridge_top_k_desc")).addSlider(
+    new import_obsidian5.Setting(containerEl).setName(t("settings_bridge_top_k_name")).setDesc(t("settings_bridge_top_k_desc")).addSlider(
       (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.bridgeTopKPerNode ?? 3).onChange(async (value) => {
         this.plugin.settings.bridgeTopKPerNode = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian4.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown(
-      (dropdown) => dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)").addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(this.plugin.settings.aiProvider).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown((dropdown) => {
+      if (!import_obsidian5.Platform.isMobile) {
+        dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)");
+      }
+      dropdown.addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(import_obsidian5.Platform.isMobile && this.plugin.settings.aiProvider === "claude-cli" ? "gemini" : this.plugin.settings.aiProvider).onChange(async (value) => {
         this.plugin.settings.aiProvider = value;
         await this.plugin.saveSettings();
         this.display();
-      })
-    );
+      });
+    });
     if (this.plugin.settings.aiProvider === "claude-api") {
-      new import_obsidian4.Setting(containerEl).setName(t("settings_claude_api_key_name")).setDesc(t("settings_claude_api_key_desc")).addText(
+      new import_obsidian5.Setting(containerEl).setName(t("settings_claude_api_key_name")).setDesc(t("settings_claude_api_key_desc")).addText(
         (text) => text.setPlaceholder("sk-ant-...").setValue(this.plugin.settings.claudeApiKey || "").onChange(async (value) => {
           this.plugin.settings.claudeApiKey = value || "";
           await this.plugin.saveSettings();
@@ -39670,7 +39688,7 @@ var ThirdBrainSettingTab = class extends import_obsidian4.PluginSettingTab {
       );
     }
     if (this.plugin.settings.aiProvider === "gemini") {
-      new import_obsidian4.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
+      new import_obsidian5.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
         (text) => text.setPlaceholder("AIza...").setValue(this.plugin.settings.geminiApiKey || "").onChange(async (value) => {
           this.plugin.settings.geminiApiKey = value || "";
           await this.plugin.saveSettings();
@@ -39678,7 +39696,7 @@ var ThirdBrainSettingTab = class extends import_obsidian4.PluginSettingTab {
       );
     }
     if (this.plugin.settings.aiProvider === "openai") {
-      new import_obsidian4.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
+      new import_obsidian5.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
         (text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey || "").onChange(async (value) => {
           this.plugin.settings.openaiApiKey = value || "";
           await this.plugin.saveSettings();
@@ -39689,8 +39707,8 @@ var ThirdBrainSettingTab = class extends import_obsidian4.PluginSettingTab {
 };
 
 // src/onboarding.ts
-var import_obsidian5 = require("obsidian");
-var OnboardingModal = class extends import_obsidian5.Modal {
+var import_obsidian6 = require("obsidian");
+var OnboardingModal = class extends import_obsidian6.Modal {
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
@@ -39735,7 +39753,9 @@ var OnboardingModal = class extends import_obsidian5.Modal {
     const cards = contentEl.createDiv({ cls: "tb-ob-cards" });
     this.renderProviderCard(cards, "gemini", "\u2726", "Gemini", t("ob_gemini_desc"));
     this.renderProviderCard(cards, "claude-api", "\u25C6", "Claude API", t("ob_claude_api_desc"));
-    this.renderProviderCard(cards, "claude-cli", "\u2318", "Claude Code", t("ob_claude_cli_desc"));
+    if (!import_obsidian6.Platform.isMobile) {
+      this.renderProviderCard(cards, "claude-cli", "\u2318", "Claude Code", t("ob_claude_cli_desc"));
+    }
     this.step2El = contentEl.createDiv({ cls: "tb-ob-step2" });
     this.step2El.hide();
     const footer = contentEl.createDiv({ cls: "tb-ob-footer" });
@@ -39846,10 +39866,10 @@ async function isClaudeCLIAvailable(cliBin) {
 }
 
 // src/main.ts
-var ThirdBrainPlugin = class extends import_obsidian6.Plugin {
+var ThirdBrainPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     await this.loadSettings();
-    (0, import_obsidian6.addIcon)("sootball", SOOTBALL_ICON);
+    (0, import_obsidian7.addIcon)("sootball", SOOTBALL_ICON);
     this.registerView(
       VIEW_TYPE,
       (leaf) => new ThirdBrainView(leaf, this)

@@ -3945,3 +3945,30 @@
 	width: 100%;
 	height: 100%;
 }
+
+/* ── 모바일 UX (is-mobile: Obsidian이 모바일 시 body에 추가하는 클래스) ── */
+.is-mobile .tb-btn-primary {
+	min-height: 44px;
+	padding: 13px 16px;
+}
+.is-mobile .tb-btn-secondary {
+	min-height: 44px;
+	padding: 12px 14px;
+}
+.is-mobile .tb-ingest-textarea {
+	min-height: 120px;
+	max-height: 200px;
+	font-size: 14px;
+}
+/* 모달 내부 스크롤: 긴 결과가 잘리지 않도록 */
+.is-mobile .modal-content {
+	max-height: 80vh;
+	overflow-y: auto;
+}
+.is-mobile .tb-pipeline-modal .modal-content {
+	max-height: 75vh;
+}
+.is-mobile .tb-popup-folder-list {
+	max-height: 40vh;
+	overflow-y: auto;
+}
