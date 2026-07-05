@@ -4,7 +4,13 @@
 
 </div>
 
+<div align="center">
+
+<img src="assets/sootball.svg" width="96" height="96" alt="ThirdBrain mascot"/>
+
 # ThirdBrain
+
+</div>
 
 **Turn your notes into a contradiction-free knowledge graph.**
 
