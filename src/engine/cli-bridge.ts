@@ -1,3 +1,4 @@
+import { Platform } from 'obsidian';
 import type { AIProvider } from '../types';
 
 // ── Electron compat: local structural types — no @types/node needed ──────────
@@ -5,7 +6,8 @@ import type { AIProvider } from '../types';
 // @typescript-eslint/no-unsafe-* warnings in environments without @types/node.
 
 // process 전역을 구조적 타입으로 캐스팅 — @types/node 없는 환경에서 no-unsafe-member-access 방지
-const _proc = process as { platform: string; env: Record<string, string | undefined> };
+const _proc = (window as Window & { process?: { platform: string; env: Record<string, string | undefined> } }).process
+    ?? { platform: 'unknown', env: {} };
 
 type LocalRequire = (module: string) => unknown;
 
@@ -172,6 +174,7 @@ function resolveCliBin(cliBin: string): string {
 // claude CLI를 비동기 subprocess로 호출하는 핵심 브릿지
 // Anthropic Cloud API 직접 호출 금지 — 이 함수를 통해서만 LLM에 접근한다
 export async function callClaude(prompt: string, cliBin = 'claude'): Promise<unknown> {
+	if (Platform.isMobile) throw new Error('Claude CLI는 모바일에서 지원되지 않습니다. 설정에서 API 기반 제공자를 선택하세요.');
 	const bin = resolveCliBin(cliBin);
 	// .exe 절대 경로는 직접 실행 (cmd.exe 8191자 한계 없음), 아니면 shell:true
 	const useShell = _proc.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
@@ -483,6 +486,7 @@ export async function callClaudeWithStdin(
 	userContent: string,
 	cliBin = 'claude'
 ): Promise<unknown> {
+	if (Platform.isMobile) throw new Error('Claude CLI는 모바일에서 지원되지 않습니다. 설정에서 API 기반 제공자를 선택하세요.');
 	const bin = resolveCliBin(cliBin);
 	const useShell = _proc.platform === 'win32' && !bin.toLowerCase().endsWith('.exe');
 

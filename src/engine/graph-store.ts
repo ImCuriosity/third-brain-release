@@ -1,6 +1,7 @@
 import { App, TFile, normalizePath } from 'obsidian';
 import { toRelation } from '../types';
 import { detectConflicts } from './contradiction-engine';
+import { computeNodeSalience } from './topology-engine';
 import type {
 	TBNode,
 	TBEdge,
@@ -71,6 +72,59 @@ export class GraphStore {
 	async scanConflicts(): Promise<ConflictReport[]> {
 		const nodes = await this.loadNodesInFolder(this.settings.rootFolder || '/');
 		return detectConflicts(nodes);
+	}
+
+	// 배지용 — vault 전체 고립 명제 수 빠르게 집계
+	async countOrphanPropositions(): Promise<number> {
+		const allNodes = await this.loadNodesInFolder(this.settings.rootFolder || '/');
+		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'summary', 'expression'];
+		return allNodes.filter(n =>
+			!NON_PROP_TYPES.includes(n.type) &&
+			!n.folder.split('/').includes('raw') &&
+			n.edges.filter(e => e.confirmed).length === 0
+		).length;
+	}
+
+	// 특정 폴더 내 고립 명제 스캔 — salience 내림차순, 연결 후보도 같은 폴더에서
+	async scanOrphanPropositions(folderPath: string): Promise<{ orphans: TBNode[]; candidates: TBNode[] }> {
+		const allNodes = await this.loadNodesInFolder(folderPath);
+		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'summary', 'expression'];
+		const propositions = allNodes.filter(n =>
+			!NON_PROP_TYPES.includes(n.type) &&
+			!n.folder.split('/').includes('raw')
+		);
+		const orphans = propositions.filter(n => n.edges.filter(e => e.confirmed).length === 0);
+		const candidates = propositions.filter(n => n.edges.filter(e => e.confirmed).length > 0);
+
+		const scored = orphans.map(n => ({ node: n, score: computeNodeSalience(n, allNodes).composite }));
+		scored.sort((a, b) => b.score - a.score);
+
+		return { orphans: scored.map(s => s.node), candidates };
+	}
+
+	// 고립 노드 린팅: 엣지 양방향 저장 (확정 상태)
+	async addLintEdge(
+		orphanFile: TFile,
+		targetFile: TFile,
+		orphanTitle: string,
+		targetTitle: string,
+		relation: TBEdgeRelation,
+		reason: string,
+		confidence: number
+	): Promise<void> {
+		const edgeAtoB: TBEdge = { target: `[[${targetTitle}]]`, label: relation, confirmed: true, reason, confidence, axiom_basis: '' };
+		const edgeBtoA: TBEdge = { target: `[[${orphanTitle}]]`, label: relation, confirmed: true, reason, confidence, axiom_basis: '' };
+
+		await this.app.fileManager.processFrontMatter(orphanFile, (fm: TBFrontMatter) => {
+			const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
+			if (!edges.find(e => e.target === edgeAtoB.target)) edges.push(edgeAtoB);
+			fm.tb_edges = edges;
+		});
+		await this.app.fileManager.processFrontMatter(targetFile, (fm: TBFrontMatter) => {
+			const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
+			if (!edges.find(e => e.target === edgeBtoA.target)) edges.push(edgeBtoA);
+			fm.tb_edges = edges;
+		});
 	}
 
 	private async collectNodes(folderPath: string, out: TBNode[]): Promise<void> {
@@ -753,6 +807,28 @@ export class GraphStore {
 					delete fm.tb_conflict;
 				}
 			});
+		}
+	}
+
+	/**
+	 * conflicts_with 엣지를 양방향으로 제거하고 tb_conflict 플래그를 삭제한다.
+	 */
+	async removeConflictEdge(nodeAFile: TFile, nodeBWikilink: string): Promise<void> {
+		const removeSide = async (file: TFile, targetWikilink: string) => {
+			await this.app.fileManager.processFrontMatter(file, (fm: TBFrontMatter) => {
+				const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
+				fm.tb_edges = edges.filter(e => !(e.target === targetWikilink && e.label === 'conflicts_with'));
+				if (!fm.tb_edges.some((e: TBEdge) => e.label === 'conflicts_with')) {
+					delete fm.tb_conflict;
+				}
+			});
+		};
+
+		await removeSide(nodeAFile, nodeBWikilink);
+		const targetName = nodeBWikilink.replace(/^\[\[|\]\]$/g, '');
+		const nodeBFile = this.app.metadataCache.getFirstLinkpathDest(targetName, '');
+		if (nodeBFile instanceof TFile) {
+			await removeSide(nodeBFile, `[[${nodeAFile.basename}]]`);
 		}
 	}
 

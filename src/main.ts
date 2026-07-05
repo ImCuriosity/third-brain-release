@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
+import { Platform, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
 import { ThirdBrainSettings, DEFAULT_SETTINGS } from './types';
 import { ThirdBrainView, VIEW_TYPE } from './view';
 import { ThirdBrainSettingTab } from './settings';
@@ -43,7 +43,16 @@ export default class ThirdBrainPlugin extends Plugin {
 
 		// 온보딩: 최초 실행이고 claude CLI도 없는 경우에만 표시
 		if (!this.settings.onboardingComplete) {
-			const cliOk = await isClaudeCLIAvailable(this.settings.cliBin);
+			// 이미 API 키가 설정된 경우 온보딩 스킵 (모바일 재진입 방지)
+			const hasApiKey = !!(this.settings.geminiApiKey || this.settings.claudeApiKey || this.settings.openaiApiKey);
+			const isApiProvider = this.settings.aiProvider !== 'claude-cli';
+			if (hasApiKey && isApiProvider) {
+				this.settings.onboardingComplete = true;
+				await this.saveSettings();
+				return;
+			}
+			// 모바일은 CLI 없음 — CLI 체크 스킵
+			const cliOk = Platform.isMobile ? false : await isClaudeCLIAvailable(this.settings.cliBin);
 			if (cliOk) {
 				this.settings.onboardingComplete = true;
 				await this.saveSettings();

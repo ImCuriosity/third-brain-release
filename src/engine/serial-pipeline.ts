@@ -9,7 +9,7 @@
 //  뷰어: summarizeSubgraph()   — 폴더 핵심 서브그래프 요약 (풍부한 분석)
 // ============================================================
 
-import { callClaude, callClaudeWithModel } from './cli-bridge';
+import { callClaudeWithModel } from './cli-bridge';
 import { jsonLangInstr, type Lang } from '../i18n';
 import { toRelation } from '../types';
 import type {
@@ -1327,9 +1327,25 @@ export async function rankEdgeRelations(
 	evidence: string,
 	settings: ThirdBrainSettings
 ): Promise<EdgeRank[]> {
-	const prompt =
-`Analyze the relationship between two propositions. Although they may conflict, a more precise relation may exist.
-${jsonLangInstr(settings.lang)}
+	const ko = settings.lang !== 'en';
+	const prompt = ko
+		? `두 명제 사이의 관계를 분석하세요. 겉으로 충돌처럼 보여도 더 정확한 관계가 있을 수 있습니다.
+모두 한국어로 작성. JSON만 반환(코드블록 없이).
+
+명제 A: "${nodeA.title}"${nodeA.content ? `\n내용: ${nodeA.content.slice(0, 300)}` : ''}
+명제 B: "${nodeB.title}"${nodeB.content ? `\n내용: ${nodeB.content.slice(0, 300)}` : ''}
+기존 충돌 근거: "${evidence}"
+
+아래 9가지 관계 중 신뢰도 높은 순으로 최대 4개를 반환하세요.
+(conflicts_with 제외 — 이미 해당 관계로 분류됨)
+
+관계:
+causes | precedes | precondition_of | supports | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
+
+JSON만 반환:
+{"relations":[{"relation":"supports","confidence":0.85,"reason":"A가 B의 근거를 제공함"}]}`
+		: `Analyze the relationship between two propositions. Although they may conflict, a more precise relation may exist.
+All output in English. Return JSON only (no code blocks).
 
 Proposition A: "${nodeA.title}"${nodeA.content ? `\nContent: ${nodeA.content.slice(0, 300)}` : ''}
 Proposition B: "${nodeB.title}"${nodeB.content ? `\nContent: ${nodeB.content.slice(0, 300)}` : ''}
@@ -1462,5 +1478,78 @@ Return ONLY compact JSON (no markdown, no explanation):
 		};
 	} catch {
 		return { relations: ['causes', 'supports'] as TBEdgeRelation[] };
+	}
+}
+
+// ── 고립 노드 연결 후보 탐색 ──────────────────────────────
+
+export interface OrphanConnectionResult {
+	targetId: string;
+	targetTitle: string;
+	relation: TBEdgeRelation;
+	confidence: number;
+	reason: string;
+}
+
+export async function findOrphanConnections(
+	orphan: TBNode,
+	candidates: TBNode[],
+	settings: ThirdBrainSettings
+): Promise<OrphanConnectionResult[]> {
+	if (candidates.length === 0) return [];
+
+	// salience 기준 상위 8개로 압축
+	const sample = candidates.slice(0, 8);
+
+	const candidateList = sample
+		.map((n, i) => `[${i}] "${n.title}"${n.content ? `: ${n.content.slice(0, 120)}` : ''}`)
+		.join('\n');
+
+	const prompt =
+`You are analyzing an isolated knowledge node with no connections to the rest of the graph.
+${jsonLangInstr(settings.lang)}
+
+Isolated node: "${orphan.title}"${orphan.content ? `\nContent: ${orphan.content.slice(0, 300)}` : ''}
+
+Candidate nodes in the graph:
+${candidateList}
+
+Find the best logical connection(s) between the isolated node and one or more candidates.
+Only suggest connections with confidence >= 0.65. If none qualify, return an empty array.
+Relations: causes | precedes | precondition_of | supports | conflicts_with | contrasts_with | exemplifies | applies_to | analogous_to | isomorphic_to
+
+Return JSON only (no code blocks):
+{"connections":[{"index":0,"relation":"supports","confidence":0.82,"reason":"..."}]}`;
+
+	try {
+		const raw = await callClaudeWithModel(
+			prompt,
+			settings.cliBin,
+			'fast',
+			settings.aiProvider,
+			settings.claudeApiKey,
+			settings.geminiApiKey,
+			settings.openaiApiKey
+		);
+		const parsed = parseJson<{ connections?: Array<{ index: number; relation: string; confidence: number; reason: string }> }>(raw, { connections: [] });
+		return (parsed.connections ?? [])
+			.filter(c => typeof c.index === 'number' && c.index >= 0 && c.index < sample.length)
+			.map(c => {
+				try {
+					return {
+						targetId: sample[c.index].id,
+						targetTitle: sample[c.index].title,
+						relation: toRelation(c.relation),
+						confidence: c.confidence ?? 0,
+						reason: c.reason ?? '',
+					};
+				} catch {
+					return null;
+				}
+			})
+			.filter((r): r is OrphanConnectionResult => r !== null)
+			.filter(r => r.confidence >= 0.65);
+	} catch {
+		return [];
 	}
 }

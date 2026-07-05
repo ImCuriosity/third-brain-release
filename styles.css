@@ -329,10 +329,11 @@
 	animation: tb-shimmer 1.2s ease infinite;
 }
 .tb-btn-primary:disabled {
-	background: #d4d4d4;
+	background: #c4b5fd;
 	animation: none;
-	color: #999999;
+	color: #5b21b6;
 	cursor: not-allowed;
+	opacity: 0.75;
 }
 
 .tb-btn-arrow {
@@ -463,6 +464,112 @@
 }
 .tb-conflict-badge:hover {
 	background: rgba(255, 69, 0, 0.08);
+}
+
+.tb-orphan-badge {
+	display: block;
+	width: 100%;
+	margin: 4px 0 0;
+	padding: 6px 12px;
+	background: transparent;
+	border: 1px solid var(--tb-info, #0088ff);
+	color: var(--tb-info, #0088ff);
+	font-size: 12px;
+	font-family: var(--font-monospace);
+	cursor: pointer;
+	text-align: left;
+}
+.tb-orphan-badge:hover {
+	background: rgba(0, 136, 255, 0.08);
+}
+
+/* ── 고립 노드 린팅 모달 ────────────────────────────────── */
+.tb-orphan-card {
+	background: var(--tb-surface, #111111);
+	border: 1px solid #2a2a2a;
+	margin-bottom: 14px;
+	padding: 0;
+}
+.tb-orphan-card-header {
+	padding: 10px 14px;
+	border-bottom: 1px solid #1e1e1e;
+}
+.tb-orphan-card-title {
+	font-family: var(--font-monospace);
+	font-size: 13px;
+	color: var(--tb-accent);
+	margin-bottom: 3px;
+}
+.tb-orphan-card-preview {
+	font-size: 11px;
+	color: var(--tb-muted);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.tb-orphan-suggest-area {
+	padding: 8px 14px 12px;
+}
+.tb-orphan-loading {
+	font-size: 11px;
+	color: var(--tb-muted);
+	padding: 4px 0;
+}
+.tb-orphan-no-result {
+	font-size: 11px;
+	color: var(--tb-muted);
+	padding: 4px 0;
+}
+.tb-orphan-suggest-row {
+	padding: 8px 10px;
+	margin-top: 6px;
+	border: 1px solid #2a2a2a;
+	background: #161616;
+}
+.tb-orphan-suggest-top {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 5px;
+}
+.tb-orphan-suggest-target {
+	font-size: 12px;
+	color: #e0e0e0;
+	font-family: var(--font-monospace);
+	flex-shrink: 0;
+}
+.tb-orphan-suggest-relation {
+	font-size: 10px;
+	color: var(--tb-accent);
+	border: 1px solid var(--tb-accent);
+	padding: 1px 6px;
+	flex-shrink: 0;
+}
+.tb-orphan-suggest-conf {
+	font-size: 11px;
+	color: #888;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+.tb-orphan-accept-btn {
+	flex-shrink: 0;
+	border-color: var(--tb-accent);
+	color: var(--tb-accent);
+}
+.tb-orphan-done-msg {
+	display: none;
+	font-size: 11px;
+	color: var(--tb-accent);
+	flex-shrink: 0;
+}
+.tb-orphan-done-msg.is-visible {
+	display: inline;
+}
+.tb-orphan-suggest-reason {
+	font-size: 11px;
+	color: #999;
+	line-height: 1.5;
+	padding-left: 1px;
 }
 
 /* ── 범용 소형 버튼 (결과 카드 안에서 사용) ──────────────── */
@@ -3108,6 +3215,7 @@
 /* ── ContentTypeModal 뒤로 버튼 ── */
 .tb-content-type-back-btn {
 	margin-top: 8px;
+	margin-bottom: 16px;
 	font-size: 11px;
 	color: var(--tb-muted);
 }
@@ -3651,6 +3759,26 @@
 
 .tb-conflict-parent-area {
 	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.tb-conflict-parent-textarea {
+	width: 100%;
+	min-height: 80px;
+	font-size: 0.82rem;
+	padding: 6px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 2px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	resize: vertical;
+	font-family: var(--font-monospace);
+	box-sizing: border-box;
+}
+
+.tb-conflict-parent-title-row {
+	display: flex;
 	gap: 6px;
 	align-items: center;
 }
@@ -3660,9 +3788,15 @@
 	font-size: 0.82rem;
 	padding: 4px 8px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
+	border-radius: 2px;
 	background: var(--background-primary);
 	color: var(--text-normal);
+}
+
+.tb-btn-sm {
+	font-size: 0.75rem;
+	padding: 3px 8px;
+	white-space: nowrap;
 }
 
 .tb-conflict-delete-area {
@@ -3837,4 +3971,77 @@
 	inset: 0;
 	width: 100%;
 	height: 100%;
+}
+
+/* ── 모바일 UX (is-mobile: Obsidian이 모바일 시 body에 추가하는 클래스) ── */
+.is-mobile .tb-btn-primary {
+	min-height: 44px;
+	padding: 13px 16px;
+	/* 모바일에서 그라데이션+애니메이션 대신 단색 — 렌더링 안정성 */
+	background: #7c3aed;
+	animation: none;
+}
+.is-mobile .tb-btn-primary:disabled {
+	background: #c4b5fd;
+	animation: none;
+}
+.is-mobile .tb-btn-secondary {
+	min-height: 44px;
+	padding: 12px 14px;
+}
+.is-mobile .tb-ingest-textarea {
+	min-height: 120px;
+	max-height: 200px;
+	font-size: 14px;
+}
+/* 모달 내부 스크롤: 긴 결과가 잘리지 않도록 */
+.is-mobile .modal-content {
+	max-height: 80vh;
+	overflow-y: auto;
+}
+.is-mobile .tb-pipeline-modal .modal-content {
+	max-height: 75vh;
+}
+.is-mobile .tb-popup-folder-list {
+	max-height: 40vh;
+	overflow-y: auto;
+}
+/* ── 온보딩 모바일 간격 ── */
+.is-mobile .tb-onboarding {
+	padding: 8px 8px;
+}
+.is-mobile .tb-ob-cards {
+	gap: 12px;
+	margin-bottom: 24px;
+}
+.is-mobile .tb-ob-card {
+	max-width: none;
+	padding: 20px 14px 18px;
+}
+.is-mobile .tb-ob-card-icon {
+	font-size: 26px;
+}
+.is-mobile .tb-ob-card-name {
+	font-size: 14px;
+}
+.is-mobile .tb-ob-card-desc {
+	font-size: 11.5px;
+}
+.is-mobile .tb-ob-input {
+	font-size: 15px;
+	padding: 10px 12px;
+	min-height: 44px;
+}
+.is-mobile .tb-ob-footer {
+	margin-top: 16px;
+	gap: 16px;
+}
+.is-mobile .tb-ob-confirm {
+	min-height: 44px;
+	padding: 12px 28px;
+	font-size: 15px;
+}
+.is-mobile .tb-ob-skip {
+	font-size: 13px;
+	padding: 8px 0;
 }

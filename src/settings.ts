@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, sanitizeHTMLToDom } from 'obsidian';
+import { App, Platform, PluginSettingTab, Setting, sanitizeHTMLToDom } from 'obsidian';
 import type ThirdBrainPlugin from './main';
 import { SOOTBALL_LOGO } from './sootball';
 import { getT } from './i18n';
@@ -48,17 +48,19 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 				})
 			);
 
-		new Setting(containerEl)
-			.setName(t('settings_cli_name'))
-			.setDesc(t('settings_cli_desc'))
-			.addText(text => text
-				.setPlaceholder('claude')
-				.setValue(this.plugin.settings.cliBin)
-				.onChange(async (value) => {
-					this.plugin.settings.cliBin = value || 'claude';
-					await this.plugin.saveSettings();
-				})
-			);
+		if (!Platform.isMobile) {
+			new Setting(containerEl)
+				.setName(t('settings_cli_name'))
+				.setDesc(t('settings_cli_desc'))
+				.addText(text => text
+					.setPlaceholder('claude')
+					.setValue(this.plugin.settings.cliBin)
+					.onChange(async (value) => {
+						this.plugin.settings.cliBin = value || 'claude';
+						await this.plugin.saveSettings();
+					})
+				);
+		}
 
 		new Setting(containerEl)
 			.setName(t('settings_max_edge_name'))
@@ -87,18 +89,21 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName(t('settings_ai_provider_name'))
 			.setDesc(t('settings_ai_provider_desc'))
-			.addDropdown(dropdown => dropdown
-				.addOption('claude-cli', this.plugin.settings.lang === 'en' ? 'Claude CLI (local, default)' : 'Claude CLI (로컬, 기본값)')
-				.addOption('claude-api', this.plugin.settings.lang === 'en' ? 'Claude API (API key required)' : 'Claude API (API 키 필요)')
-				.addOption('gemini', this.plugin.settings.lang === 'en' ? 'Gemini (API key required)' : 'Gemini (API 키 필요)')
-				.addOption('openai', this.plugin.settings.lang === 'en' ? 'OpenAI GPT (API key required)' : 'OpenAI GPT (API 키 필요)')
-				.setValue(this.plugin.settings.aiProvider)
-				.onChange(async (value) => {
-					this.plugin.settings.aiProvider = value as AIProvider;
-					await this.plugin.saveSettings();
-					this.display();
-				})
-			);
+			.addDropdown(dropdown => {
+				if (!Platform.isMobile) {
+					dropdown.addOption('claude-cli', this.plugin.settings.lang === 'en' ? 'Claude CLI (local, default)' : 'Claude CLI (로컬, 기본값)');
+				}
+				dropdown
+					.addOption('claude-api', this.plugin.settings.lang === 'en' ? 'Claude API (API key required)' : 'Claude API (API 키 필요)')
+					.addOption('gemini', this.plugin.settings.lang === 'en' ? 'Gemini (API key required)' : 'Gemini (API 키 필요)')
+					.addOption('openai', this.plugin.settings.lang === 'en' ? 'OpenAI GPT (API key required)' : 'OpenAI GPT (API 키 필요)')
+					.setValue(Platform.isMobile && this.plugin.settings.aiProvider === 'claude-cli' ? 'gemini' : this.plugin.settings.aiProvider)
+					.onChange(async (value) => {
+						this.plugin.settings.aiProvider = value as AIProvider;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			});
 
 		if (this.plugin.settings.aiProvider === 'claude-api') {
 			new Setting(containerEl)

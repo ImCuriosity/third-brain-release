@@ -1,4 +1,4 @@
-import { App, ItemView, Modal, Notice, TFile, WorkspaceLeaf, requestUrl, sanitizeHTMLToDom } from 'obsidian';
+import { App, ItemView, Modal, Notice, Platform, TFile, WorkspaceLeaf, normalizePath, requestUrl, sanitizeHTMLToDom } from 'obsidian';
 import type ThirdBrainPlugin from './main';
 import { getT } from './i18n';
 import type { TKey, Lang } from './i18n';
@@ -16,15 +16,17 @@ import {
 	findCrossConnections,
 } from './engine/serial-pipeline';
 import type { FolderDigestNode, CrossConnection } from './engine/serial-pipeline';
-import { getSessionStats, setRequestUrl } from './engine/cli-bridge';
+import { callClaudeWithModel, getSessionStats, setRequestUrl } from './engine/cli-bridge';
 import { GraphStore } from './engine/graph-store';
 import type { TBFrontMatter } from './engine/graph-store';
 import { buildTensor, findPath, findTransitivePaths, addNodeToTensor } from './engine/adjacency-tensor';
 import { detectConflicts } from './engine/contradiction-engine';
 import { extractPdfText } from './engine/pdf-extractor';
+import { transcribeAudioFile } from './engine/audio-transcriber';
 import { extractActions, linkActionsToPropositions, rankEdgeRelations, parseGraphQuery, analyzeTranscriptNodes, type TranscriptAnalysisMode } from './engine/serial-pipeline';
 import type { EdgeRank, GraphQuerySpec } from './engine/serial-pipeline';
 import { GraphView, EDGE_COLOR } from './components/graph-view';
+import { OrphanQueueModal } from './components/vault-lint';
 import {
 	toRelation,
 } from './types';
@@ -102,6 +104,10 @@ export class ThirdBrainView extends ItemView {
 	private pipelineModal: PipelineInfoModal | null = null;
 	private resultsEl!: HTMLElement;
 	private conflictBadgeEl!: HTMLElement;
+	private orphanBadgeEl!: HTMLElement;
+	private dropZoneEl!: HTMLElement;
+	private fileBtnEl!: HTMLButtonElement;
+	private fileInputEl!: HTMLInputElement;
 
 	// 전사본 분석 백그라운드 작업 상태 (모달 닫혀도 유지)
 	private transcriptJob: { running: boolean; mode?: TranscriptAnalysisMode; result?: string; error?: string } | null = null;
@@ -144,6 +150,7 @@ export class ThirdBrainView extends ItemView {
 		this.buildProgressBar(inputPane);
 		this.syncIngestBtnState(); // 초기 빈 상태에서 버튼 비활성
 		void this.refreshConflictBadge();
+		void this.refreshOrphanBadge();
 
 		this.resultsEl = this.ingestContainer.createEl('div', { cls: 'tb-results' });
 	}
@@ -185,14 +192,17 @@ export class ThirdBrainView extends ItemView {
 
 		// 드롭존
 		const dropZone = panel.createEl('div', { cls: 'tb-dropzone' });
+		this.dropZoneEl = dropZone;
 		const faceEl = dropZone.createEl('div', { cls: 'tb-dropzone-face' });
 		faceEl.appendChild(sanitizeHTMLToDom(SOOTBALL_WAITING));
 		const dropLabel = dropZone.createEl('div', { cls: 'tb-dropzone-label', text: this.t('dropzone_label') });
 		const fileInput = dropZone.createEl('input', {
-			attr: { type: 'file', accept: '.md,.txt,.pdf', multiple: true },
+			attr: { type: 'file', accept: '.md,.txt,.pdf,.mp3', multiple: true },
 		});
+		this.fileInputEl = fileInput;
 		fileInput.hide();
 		const fileBtn = dropZone.createEl('button', { cls: 'tb-file-btn', text: this.t('file_btn') });
+		this.fileBtnEl = fileBtn;
 		fileBtn.addEventListener('click', () => fileInput.click());
 		fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
 		dropZone.createEl('div', { cls: 'tb-dropzone-raw-hint', text: this.t('dropzone_raw_hint') });
@@ -303,6 +313,17 @@ export class ThirdBrainView extends ItemView {
 				() => { void this.refreshConflictBadge(); }
 			).open();
 		});
+
+		// 고립 노드 배지 (고립 명제가 있을 때만 표시)
+		this.orphanBadgeEl = parent.createEl('button', { cls: 'tb-orphan-badge' });
+		this.orphanBadgeEl.hide();
+		this.orphanBadgeEl.addEventListener('click', () => {
+			new OrphanQueueModal(
+				this.app, this.store, this.plugin.settings,
+				this.getFolderPaths(),
+				() => { void this.refreshOrphanBadge(); }
+			).open();
+		});
 	}
 
 	private async refreshConflictBadge(): Promise<void> {
@@ -321,7 +342,24 @@ export class ThirdBrainView extends ItemView {
 		}
 	}
 
+	private async refreshOrphanBadge(): Promise<void> {
+		try {
+			const count = await this.store.countOrphanPropositions();
+			if (count > 0) {
+				this.orphanBadgeEl.textContent = this.plugin.settings.lang === 'ko'
+					? `◈ 미연결 명제 ${count}건`
+					: `◈ ${count} unlinked node${count > 1 ? 's' : ''}`;
+				this.orphanBadgeEl.show();
+			} else {
+				this.orphanBadgeEl.hide();
+			}
+		} catch {
+			this.orphanBadgeEl.hide();
+		}
+	}
+
 	private handleFileDrop(e: DragEvent) {
+		if (this.dropZoneEl.hasClass('tb-dropzone-locked')) return;
 		// Case 1: Obsidian 파일 탐색기에서 내부 드래그 — 먼저 확인해야 함
 		// (Obsidian이 dataTransfer.files도 채우기 때문에 순서를 바꾸면 OS 파일로 오인됨)
 		type ObsidianDragManager = { dragManager?: { draggable?: { type?: string; file?: TFile; files?: unknown[] } } };
@@ -364,6 +402,12 @@ export class ThirdBrainView extends ItemView {
 
 	// 외부(OS) 파일 → 텍스트 읽기
 	private async loadFilesToTextarea(files: File[]) {
+		const mp3Files = files.filter(f => /\.mp3$/i.test(f.name));
+		if (mp3Files.length > 0) {
+			if (files.length > 1) new Notice(this.t('stt_notice_mp3_only'));
+			await this.handleAudioFile(mp3Files[0]);
+			return;
+		}
 		const filtered = files.filter(f => /\.(md|txt|pdf)$/i.test(f.name));
 		if (filtered.length === 0) {
 			new Notice(this.t('notice_file_type'));
@@ -386,6 +430,73 @@ export class ThirdBrainView extends ItemView {
 			? { kind: 'external', name: filtered[0].name }
 			: { kind: 'paste' };
 		new Notice(`[ThirdBrain] ${filtered.length} files loaded`);
+	}
+
+	private setSTTInputLock(locked: boolean) {
+		if (locked) {
+			this.ingestTextarea.setAttribute('disabled', '');
+			this.fileBtnEl.setAttribute('disabled', '');
+			this.fileInputEl.setAttribute('disabled', '');
+			this.dropZoneEl.addClass('tb-dropzone-locked');
+		} else {
+			this.ingestTextarea.removeAttribute('disabled');
+			this.fileBtnEl.removeAttribute('disabled');
+			this.fileInputEl.removeAttribute('disabled');
+			this.dropZoneEl.removeClass('tb-dropzone-locked');
+		}
+	}
+
+	private async handleAudioFile(file: File) {
+		const settings = this.plugin.settings;
+		if (settings.aiProvider !== 'openai') {
+			new RequireOpenAIModal(this.app, this.plugin.manifest.id).open();
+			return;
+		}
+		if (!settings.openaiApiKey?.trim()) {
+			new Notice(this.t('stt_notice_need_key'));
+			return;
+		}
+		if (file.size > 25 * 1024 * 1024) {
+			new Notice(this.t('stt_notice_too_large'));
+			return;
+		}
+		this.setAIBusy(true);
+		this.setIngestBusy(true);
+		this.setSTTInputLock(true);
+		try {
+			const buf = await file.arrayBuffer();
+			const result = await transcribeAudioFile(buf, file.name, settings, (step) => {
+				const key = step === 'whisper' ? 'stt_progress_whisper'
+					: step === 'speakers' ? 'stt_progress_speakers'
+					: 'stt_progress_title';
+				new Notice(this.t(key));
+			});
+
+			const dateStr = new Date().toISOString().slice(0, 10);
+			const safeTitle = result.title.replace(/[\\/:*?"<>|]/g, '').trim();
+			const fileName = `${safeTitle}_${dateStr}.md`;
+			const folderPath = normalizePath(`${settings.rootFolder}/raw/stt_raw`);
+			const filePath = normalizePath(`${folderPath}/${fileName}`);
+
+			try {
+				await this.app.vault.createFolder(folderPath);
+			} catch { /* already exists */ }
+			const sttFile = await this.app.vault.create(filePath, result.transcript);
+
+			this.ingestTextarea.value = result.transcript;
+			this.updateCharCount();
+			this.syncIngestBtnState();
+			// vault TFile로 넘겨야 파이프라인이 기존 stt_raw 파일에 위키링크를 달 수 있음
+			this.ingestSource = { kind: 'vault', file: sttFile };
+
+			new Notice(`${this.t('stt_saved')}: ${fileName}`);
+		} catch (err) {
+			new Notice(`[ThirdBrain] STT 오류: ${String(err)}`);
+		} finally {
+			this.setAIBusy(false);
+			this.setIngestBusy(false);
+			this.setSTTInputLock(false);
+		}
 	}
 
 	// 내부(Obsidian vault) TFile → 볼트에서 읽기
@@ -549,32 +660,41 @@ export class ThirdBrainView extends ItemView {
 		this.pipelineModal?.close();
 		this.pipelineModal = null;
 
+		if (Platform.isMobile) {
+			new Notice(this.t('notice_mobile_keep_screen'), 6000);
+		}
+
 		type RawLink = { file: TFile; sourceSpan?: { text: string; offset: number } };
 		const allRawLinks: RawLink[] = [];
 		const allBlockIdSpans: Array<{ blockId: string; spanText: string }> = [];
 
-		if (text.length > CHUNK_SIZE) {
-			const chunks = splitIntoChunks(text, CHUNK_SIZE);
-			for (let i = 0; i < chunks.length; i++) {
-				this.setIngestBusy(true);
-				this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
-				const isLast = i === chunks.length - 1;
-				const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+		try {
+			if (text.length > CHUNK_SIZE) {
+				const chunks = splitIntoChunks(text, CHUNK_SIZE);
+				for (let i = 0; i < chunks.length; i++) {
+					this.setIngestBusy(true);
+					this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
+					const isLast = i === chunks.length - 1;
+					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+					if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
+				}
+			} else {
+				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
 				if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 			}
-		} else {
-			const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
-			if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
-		}
 
-		// 모든 청크의 rawLinks를 한 번에 원본 파일에 기록 (청크별 덮어쓰기 방지)
-		if (rawFile) {
-			if (allBlockIdSpans.length > 0) {
-				await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {});
+			// 모든 청크의 rawLinks를 한 번에 원본 파일에 기록 (청크별 덮어쓰기 방지)
+			if (rawFile) {
+				if (allBlockIdSpans.length > 0) {
+					await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {});
+				}
+				if (allRawLinks.length > 0) {
+					await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
+				}
 			}
-			if (allRawLinks.length > 0) {
-				await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
-			}
+		} catch {
+			this.hideProgress();
+			this.setIngestBusy(false);
 		}
 	}
 
@@ -702,6 +822,7 @@ export class ThirdBrainView extends ItemView {
 							this.renderConflictNotice(conflicts);
 						}
 						void this.refreshConflictBadge();
+						void this.refreshOrphanBadge();
 					}
 
 					// Phase 8: 액션 레이어 추출 (회의·일정 선택 시에만)
@@ -3869,23 +3990,51 @@ class ConflictResolutionModal extends Modal {
 		contentEl.createEl('hr');
 
 		// ── 옵션 2: 상위 노트 추가 ───────────────────────────────
-		const opt2Label = this.settings.lang === 'en'
-			? 'Option 2 — Add parent premise (precondition_of)'
-			: '옵션 2 — 상위 개념 노트 추가 (precondition_of)';
-		const parentPlaceholder = this.settings.lang === 'en' ? 'Enter parent concept title...' : '상위 개념 제목 입력...';
-		const parentBtnLabel = this.settings.lang === 'en' ? 'Create & link note' : '노트 생성 후 연결';
+		const ko = this.settings.lang !== 'en';
+		const opt2Label = ko ? '옵션 2 — 상위 개념 노트 추가 (precondition_of)' : 'Option 2 — Add parent premise (precondition_of)';
 		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt2Label });
 		const parentArea = contentEl.createEl('div', { cls: 'tb-conflict-parent-area' });
-		const parentInput = parentArea.createEl('input', {
+
+		const contentTextarea = parentArea.createEl('textarea', {
+			cls: 'tb-conflict-parent-textarea',
+			placeholder: ko ? '상위 개념의 내용을 입력하세요...' : 'Describe the parent concept...',
+		});
+
+		const titleRow = parentArea.createEl('div', { cls: 'tb-conflict-parent-title-row' });
+		const titleInput = titleRow.createEl('input', {
 			type: 'text',
 			cls: 'tb-conflict-parent-input',
-			placeholder: parentPlaceholder,
+			placeholder: ko ? '제목 (AI가 자동 추론하거나 직접 입력)' : 'Title (AI-inferred or manual)',
 		});
+		const inferBtn = titleRow.createEl('button', { cls: 'tb-btn tb-btn-sm', text: ko ? 'AI 제목 추론' : 'Infer title' });
+		inferBtn.addEventListener('click', () => {
+			const body = contentTextarea.value.trim();
+			if (!body) { new Notice(ko ? '내용을 먼저 입력해주세요.' : 'Enter content first.'); return; }
+			inferBtn.disabled = true;
+			inferBtn.textContent = ko ? '추론 중...' : 'Inferring...';
+			const prompt = ko
+				? `다음 내용을 보고 짧은 제목(한국어 20자 이내, 파일명 특수문자 제외)을 만드세요.\n내용: ${body.slice(0, 800)}\n반드시 JSON만 반환: {"title":"제목"}`
+				: `Create a short title (under 25 chars, filename-safe) for:\n${body.slice(0, 800)}\nReturn only JSON: {"title":"title"}`;
+			callClaudeWithModel(prompt, 'claude', 'standard',
+				this.settings.aiProvider, this.settings.claudeApiKey, this.settings.geminiApiKey, this.settings.openaiApiKey
+			).then((raw) => {
+				const parsed = (typeof raw === 'string' ? JSON.parse(raw) : raw) as { title?: string };
+				titleInput.value = (parsed.title ?? '').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 30);
+			}).catch(() => {
+				new Notice(ko ? 'AI 제목 추론 실패. 직접 입력해주세요.' : 'Title inference failed. Enter manually.');
+			}).finally(() => {
+				inferBtn.disabled = false;
+				inferBtn.textContent = ko ? 'AI 제목 추론' : 'Infer title';
+			});
+		});
+
+		const parentBtnLabel = ko ? '노트 생성 후 연결' : 'Create & link note';
 		const parentBtn = parentArea.createEl('button', { cls: 'tb-btn', text: parentBtnLabel });
 		parentBtn.addEventListener('click', () => {
-			const title = parentInput.value.trim();
-			if (!title) return;
-			void this.applyAddParent(title);
+			const title = titleInput.value.trim();
+			const body = contentTextarea.value.trim();
+			if (!title) { new Notice(ko ? '제목을 입력하거나 AI로 추론해주세요.' : 'Enter or infer a title first.'); return; }
+			void this.applyAddParent(title, body);
 		});
 
 		contentEl.createEl('hr');
@@ -3925,20 +4074,20 @@ class ConflictResolutionModal extends Modal {
 		}
 	}
 
-	private async applyAddParent(parentTitle: string): Promise<void> {
+	private async applyAddParent(parentTitle: string, parentContent: string): Promise<void> {
 		const folder = this.conflict.nodeA.filePath.split('/').slice(0, -1).join('/');
 		try {
-			// 상위 노트 생성
+			const body = parentContent.trim() || `${this.conflict.nodeA.title}와 ${this.conflict.nodeB.title}를 포괄하는 상위 전제`;
 			const parentNode: Omit<TBNode, 'filePath'> = {
 				id: `prop-${Date.now().toString(36)}`,
 				title: parentTitle,
 				type: 'claim',
-				content: `${this.conflict.nodeA.title}와 ${this.conflict.nodeB.title}를 포괄하는 상위 전제`,
+				content: body,
 				tags: [],
 				folder,
 				edges: [],
 				is_core_concept: true,
-				source_span: { text: parentTitle, offset: 0 },
+				source_span: { text: body.slice(0, 80), offset: 0 },
 				created: new Date().toISOString(),
 			};
 			const parentFile = await this.store.createNode(parentNode);
@@ -3951,7 +4100,11 @@ class ConflictResolutionModal extends Modal {
 				target: parentWikilink, label: 'precondition_of', confirmed: true,
 				reason: '모순 해소를 위한 상위 전제', confidence: 1.0, axiom_basis: '사용자 지정',
 			});
-			if (nodeAFile instanceof TFile) await edge(nodeAFile);
+			if (nodeAFile instanceof TFile) {
+				await edge(nodeAFile);
+				// 기존 conflicts_with 엣지 양방향 제거
+				await this.store.removeConflictEdge(nodeAFile, `[[${this.conflict.nodeB.title}]]`);
+			}
 			if (nodeBFile instanceof TFile) await edge(nodeBFile);
 
 			new Notice(`[ThirdBrain] 상위 노트 '${parentTitle}' 생성 및 연결 완료`);
@@ -4043,5 +4196,24 @@ class ManualConflictModal extends Modal {
 		}
 	}
 
+	onClose() { this.contentEl.empty(); }
+}
+
+class RequireOpenAIModal extends Modal {
+	constructor(app: App, private pluginId: string) { super(app); }
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl('h3', { text: 'OpenAI 설정 필요' });
+		contentEl.createEl('p', { text: 'MP3 전사 기능은 OpenAI(Whisper)가 필요합니다. 설정에서 AI 공급자를 OpenAI로 변경하고 API 키를 입력해 주세요.' });
+		const btn = contentEl.createEl('button', { cls: 'tb-btn', text: '설정 열기' });
+		btn.addEventListener('click', () => {
+			this.close();
+			const setting = (this.app as unknown as { setting?: { open: () => void; openTabById: (id: string) => void } }).setting;
+			if (setting) {
+				setting.open();
+				setTimeout(() => setting.openTabById(this.pluginId), 60);
+			}
+		});
+	}
 	onClose() { this.contentEl.empty(); }
 }
