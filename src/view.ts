@@ -4211,7 +4211,7 @@ class RequireOpenAIModal extends Modal {
 			const setting = (this.app as unknown as { setting?: { open: () => void; openTabById: (id: string) => void } }).setting;
 			if (setting) {
 				setting.open();
-				setTimeout(() => setting.openTabById(this.pluginId), 60);
+				window.setTimeout(() => setting.openTabById(this.pluginId), 60);
 			}
 		});
 	}

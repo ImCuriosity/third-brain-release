@@ -1,7 +1,7 @@
 {
 	"id": "thirdbrain",
 	"name": "ThirdBrain",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"minAppVersion": "1.7.2",
 	"description": "Extract propositions from any text, connect them with typed logical edges, auto-link to your existing graph, and resolve contradictions — all locally with your choice of AI.",
 	"author": "ImCuriosity",

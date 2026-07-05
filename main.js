@@ -40008,7 +40008,7 @@ var RequireOpenAIModal = class extends import_obsidian5.Modal {
       const setting = this.app.setting;
       if (setting) {
         setting.open();
-        setTimeout(() => setting.openTabById(this.pluginId), 60);
+        window.setTimeout(() => setting.openTabById(this.pluginId), 60);
       }
     });
   }
