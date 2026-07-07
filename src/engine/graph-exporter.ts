@@ -62,8 +62,9 @@ export class GraphExporter {
 
 	private async collectEdges(store: GraphStore, nodes: TBNode[]): Promise<EdgeSummary[]> {
 		const edges: EdgeSummary[] = [];
-		// 위키링크 [[제목]] 형식으로 노드를 인덱싱
-		const nodesByWikilink = new Map(nodes.map(n => [`[[${n.title}]]`, n]));
+		// Obsidian은 wikilink를 파일명(basename = id)으로 resolve → title이 아닌 id로 인덱싱해야
+		// 같은 title의 두 노드(커넥터 기능 / 커넥터 기능-2)가 있을 때 Map이 덮어쓰이는 self-loop 버그 방지
+		const nodesByWikilink = new Map(nodes.map(n => [`[[${n.id}]]`, n]));
 
 		for (const node of nodes) {
 			if (!node.edges) continue;
@@ -133,6 +134,29 @@ export class GraphExporter {
 			md += `- ${relation}: ${count}\n`;
 		}
 
+		// 토픽 멤버십 (tb_topic — 논리 엣지가 아닌 소속 필드) [Phase 2]
+		md += `\n## Topics (membership)\n`;
+		const byTopic = new Map<string, TBNode[]>();
+		const noTopic: TBNode[] = [];
+		for (const n of nodes) {
+			if (n.type === 'context') continue; // 토픽 노드 자신은 제외
+			if (n.topic) {
+				if (!byTopic.has(n.topic)) byTopic.set(n.topic, []);
+				byTopic.get(n.topic)!.push(n);
+			} else {
+				noTopic.push(n);
+			}
+		}
+		const topicTitle = (id: string): string => nodes.find(t => t.id === id)?.title ?? id;
+		for (const [topicId, members] of byTopic) {
+			md += `\n### ${topicTitle(topicId)} (${members.length})\n`;
+			for (const m of members) md += `- ${m.title}\n`;
+		}
+		if (noTopic.length > 0) {
+			md += `\n### (미배정/고립) (${noTopic.length})\n`;
+			for (const m of noTopic) md += `- ${m.title}\n`;
+		}
+
 		// 노드 목록
 		md += `\n## Nodes\n\n`;
 		for (const node of nodes) {
@@ -146,14 +170,21 @@ export class GraphExporter {
 		}
 
 		// 엣지 목록 (관계도)
+		// 제목이 중복되는 노드가 있으면 (충돌 해결로 -2 접미사가 붙은 경우) 라벨에 id를 병기해
+		// 서로 다른 노드가 self-loop처럼 표시되는 것을 방지한다.
+		const titleCounts = new Map<string, number>();
+		for (const n of nodes) titleCounts.set(n.title, (titleCounts.get(n.title) ?? 0) + 1);
+		const labelOf = (id: string): string => {
+			const node = nodes.find(n => n.id === id);
+			if (!node) return id;
+			// 같은 제목 노드가 둘 이상이면 id를 병기해 구분
+			return (titleCounts.get(node.title) ?? 0) > 1 ? `${node.title} (${node.id})` : node.title;
+		};
+
 		md += `\n## Edges\n\n`;
 		for (const edge of edges) {
-			const sourceNode = nodes.find(n => n.id === edge.source);
-			const targetNode = nodes.find(n => n.id === edge.target);
-			const sourceTitle = sourceNode?.title ?? edge.source;
-			const targetTitle = targetNode?.title ?? edge.target;
 			const conf = `${(edge.confidence * 100).toFixed(0)}%`;
-			md += `- **${sourceTitle}** \`${edge.relation}\` **${targetTitle}** (confidence: ${conf})\n`;
+			md += `- **${labelOf(edge.source)}** \`${edge.relation}\` **${labelOf(edge.target)}** (confidence: ${conf})\n`;
 		}
 
 		return md;
@@ -232,13 +263,13 @@ Selected folders contain no nodes.
 	static downloadFile(content: string, filename: string): void {
 		const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
 		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
+		const link = activeDocument.createElement('a');
 		link.setAttribute('href', url);
 		link.setAttribute('download', filename);
 		link.className = 'tb-hidden-download-link';
-		document.body.appendChild(link);
+		activeDocument.body.appendChild(link);
 		link.click();
-		document.body.removeChild(link);
+		activeDocument.body.removeChild(link);
 		URL.revokeObjectURL(url);
 	}
 }

@@ -108,6 +108,7 @@ export interface TBNode {
 	block_id?: string;        // ^tb-XXXXXX — raw 파일 블록 앵커
 	heading_path?: string;    // h1 > h2 > h3 형태 헤딩 경로
 	raw_path?: string;        // raw 원본 파일 경로 (확장자 제외)
+	topic?: string;           // [Phase 2] 소속 토픽 노드 제목 (membership — tb_edges 논리 엣지 아님)
 }
 
 // ── 파이프라인 레이어 타입 (v0 포팅) ─────────────────────
@@ -392,6 +393,17 @@ export interface ActionLink {
 }
 
 export type MeetingType = 'brainstorm' | 'execution' | 'review';
+
+export type ContentType =
+	| 'document'   // 정보/문서/기사
+	| 'lecture'    // 강의 (단일 화자)
+	| 'meeting'    // 회의 (다자 대화, 의사결정)
+	| 'dialogue';  // 대화 (영어회화/통화/인터뷰)
+
+export type DialogueSubtype =
+	| 'english_conversation'
+	| 'phone_call'
+	| 'interview';
 
 export interface ActionNode {
 	id: string;

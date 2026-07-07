@@ -220,6 +220,15 @@ var KO = {
   modal_content_type_brainstorm: "\u{1F4A1} \uBE0C\uB808\uC778\uC2A4\uD1A0\uBC0D",
   modal_content_type_execution: "\u26A1 \uC2E4\uD589 \uBC0F \uACB0\uC815",
   modal_content_type_review: "\u{1F50D} \uB9AC\uBDF0",
+  modal_content_type_document: "\u{1F4C4} \uC815\uBCF4/\uBB38\uC11C",
+  modal_content_type_lecture: "\u{1F393} \uAC15\uC758",
+  modal_content_type_meeting: "\u{1F465} \uD68C\uC758",
+  modal_content_type_dialogue: "\u{1F4AC} \uB300\uD654",
+  modal_content_type_dialogue_sub: "\uB300\uD654 \uC720\uD615\uC744 \uC120\uD0DD\uD558\uC138\uC694.",
+  modal_content_type_dialogue_english: "\u{1F5E3} \uC601\uC5B4\uD68C\uD654",
+  modal_content_type_dialogue_call: "\u{1F4DE} \uD1B5\uD654",
+  modal_content_type_dialogue_interview: "\u{1F399} \uC778\uD130\uBDF0",
+  progress_normalize: "\uD654\uC790 \uC815\uADDC\uD654 \uC911...",
   // action meeting type labels
   action_meeting_brainstorm: "\u{1F4A1} \uC544\uC774\uB514\uC5B4 \uD0D0\uC0C9",
   action_meeting_execution: "\u26A1 \uC2E4\uD589\xB7\uACB0\uC815",
@@ -548,6 +557,15 @@ var EN = {
   modal_content_type_brainstorm: "\u{1F4A1} Brainstorm",
   modal_content_type_execution: "\u26A1 Execution",
   modal_content_type_review: "\u{1F50D} Review",
+  modal_content_type_document: "\u{1F4C4} Document",
+  modal_content_type_lecture: "\u{1F393} Lecture",
+  modal_content_type_meeting: "\u{1F465} Meeting",
+  modal_content_type_dialogue: "\u{1F4AC} Dialogue",
+  modal_content_type_dialogue_sub: "Select the type of conversation.",
+  modal_content_type_dialogue_english: "\u{1F5E3} English Conversation",
+  modal_content_type_dialogue_call: "\u{1F4DE} Phone Call",
+  modal_content_type_dialogue_interview: "\u{1F399} Interview",
+  progress_normalize: "Normalizing speakers...",
   action_meeting_brainstorm: "\u{1F4A1} Brainstorm",
   action_meeting_execution: "\u26A1 Execution",
   action_meeting_review: "\u{1F50D} Review",
@@ -1398,53 +1416,112 @@ function intersection(a2, b) {
 
 // src/engine/serial-pipeline.ts
 var CHUNK_SIZE = 5e3;
-var SYSTEM_CONTEXT = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uBB38\uB9E5 \uC815\uC81C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
-\uC0AC\uC6A9\uC790\uC758 Raw \uD14D\uC2A4\uD2B8(\uD68C\uC758\uB85D/\uC544\uC774\uB514\uC5B4/\uBA54\uBAA8/\uBD84\uC11D)\uB97C \uBC1B\uC544 \uD48D\uBD80\uD55C \uBB38\uB9E5\uC744 \uB2E4\uCE35\uC801\uC73C\uB85C \uCD94\uCD9C\uD569\uB2C8\uB2E4.
+var AXIOM_RELATIONS = `\u2605 4\uCD95 10\uAD00\uACC4 \uACF5\uB9AC (\uC774 10\uC885 \uC678 \uC808\uB300 \uC0AC\uC6A9 \uAE08\uC9C0)
 
-\u2605 \uD575\uC2EC \uC6D0\uCE59: \uB2E8\uC77C \uC218\uC900\uC774 \uC544\uB2CC **\uB2E4\uCE35\uC801 \uB3C5\uB9BD \uB2E8\uC704** \uBAA8\uB450 \uCC3E\uAE30
+Axis 1 \uC778\uACFC\xB7\uC804\uC81C
+  causes          : A\uAC00 B\uB97C \uC57C\uAE30\xB7\uCD08\uB798 (A \uC5C6\uC73C\uBA74 B \uC5C6\uC74C)
+  precedes        : A\uAC00 B\uBCF4\uB2E4 \uC2DC\uAC04\xB7\uC21C\uC11C\uC0C1 \uBA3C\uC800 (\uC778\uACFC\uB294 \uBD88\uBA85, \uC120\uD6C4\uB9CC)
+  precondition_of : A\uAC00 \uC131\uB9BD\uD574\uC57C B\uAC00 \uAC00\uB2A5 (B\uC758 \uC804\uC81C \uC870\uAC74)
+Axis 2 \uC9C4\uB9AC\xB7\uC99D\uBA85
+  supports        : A\uAC00 B\uC758 \uADFC\uAC70\xB7\uC99D\uAC70 (A\uAC00 \uCC38\uC774\uBA74 B\uAC00 \uB354 \uADF8\uB7F4\uB4EF)
+  conflicts_with  : A\uC640 B\uAC00 \uB3D9\uC2DC\uC5D0 \uCC38\uC77C \uC218 \uC5C6\uC74C (\uB17C\uB9AC\uC801 \uBAA8\uC21C)
+  contrasts_with  : A\uC640 B\uAC00 \uB3D9\uC2DC\uC5D0 \uCC38\uC774\uB098 \uBC29\uD5A5\xB7\uD3C9\uAC00\uAC00 \uBC18\uB300 (\uC591\uBA74\uC131)
+Axis 3 \uACC4\uCE35\xB7\uC801\uC6A9
+  exemplifies     : A\uAC00 B\uC758 \uAD6C\uCCB4\uC801 \uC0AC\uB840\xB7\uC2E4\uB840
+  applies_to      : A(\uC6D0\uB9AC\xB7\uBC29\uBC95)\uB97C B(\uB300\uC0C1\xB7\uC0C1\uD669)\uC5D0 \uC801\uC6A9
+Axis 4 \uC704\uC0C1 \uAD50\uCC28
+  analogous_to    : \uB2E4\uB978 \uB3C4\uBA54\uC778\uC778\uB370 \uAD6C\uC870\xB7\uBAA9\uC801\uC774 \uAC19\uC74C (\uADFC\uC0AC \uC720\uC0AC)
+  isomorphic_to   : \uAD6C\uC870\uAC00 \uAC70\uC758 \uB3D9\uC77C (\uAC15\uD55C \uAD6C\uC870 \uB300\uC751)
 
-\uBD84\uC808 \uADDC\uCE59:
+\u2605 \uD310\uBCC4 \uADDC\uCE59
+- \uB3D9\uC2DC \uCC38 \uBD88\uAC00 \u2192 conflicts_with / \uB3D9\uC2DC \uCC38\uC774\uB098 \uD3C9\uAC00 \uBC18\uB300 \u2192 contrasts_with
+- \uAC19\uC740 \uC0AC\uAC74\xB7\uC0AC\uC2E4\uC744 \uD45C\uD604\uB9CC \uB2EC\uB9AC \uC11C\uC220\uD55C \uB450 \uBA85\uC81C(\uADFC\uC811 \uC911\uBCF5)\uB294 conflicts_with\xB7causes\uAC00 \uC544\uB2C8\uB77C isomorphic_to. \uC11C\uB85C \uBAA8\uC21C\uB3C4 \uC778\uACFC\uB3C4 \uC544\uB2C8\uB2E4.
+- "\uAC19\uC740 \uC8FC\uC81C\xB7\uBD84\uC57C\uB2E4"\uB294 supports \uADFC\uAC70 \uC544\uB2D8 \u2014 A\uAC00 B\uC758 \uAD6C\uCCB4\uC801 \uC99D\uAC70\uC77C \uB54C\uB9CC supports
+- \uC778\uACFC \uBD84\uBA85 \u2192 causes / \uC120\uD6C4\uB9CC \uBD84\uBA85 \u2192 precedes
 
-1. \uBAA8\uB4E0 \uAD6C\uC870 \uACC4\uCE35 \uBD84\uC11D:
-   - # \uC81C\uBAA9 \u2192 \uCD5C\uC0C1\uC704 \uC8FC\uC81C (\uAC1C\uBCC4 context \uD6C4\uBCF4)
-   - ## \uBD80\uC81C\uBAA9 \u2192 \uC911\uAC04 \uC8FC\uC81C (\uAC1C\uBCC4 context \uD6C4\uBCF4)
-   - ### \uC18C\uC81C\uBAA9 \u2192 \uC138\uBD80 \uC8FC\uC81C (\uAC1C\uBCC4 context \uD6C4\uBCF4)
-   - - \uD56D\uBAA9 \u2192 \uAC1C\uBCC4 \uD56D\uBAA9 (\uAC1C\uBCC4 context \uD6C4\uBCF4)
+\u2605 \uC6D0\uCE59
+- \uC5B5\uC9C0 \uC5F0\uACB0 \uAE08\uC9C0. \uACE0\uB9BD \uD5C8\uC6A9 \u2014 \uBE48\uCE78 \uCC44\uC6B0\uB824 \uC57D\uD55C \uC5E3\uC9C0 \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C.
+- \uBA85\uD655\uD788 \uC131\uB9BD\uD558\uB294 \uAD00\uACC4\uB9CC \uD3EC\uD568\uD558\uB77C.`;
+var AXIOM_BLOCK = `${AXIOM_RELATIONS}
 
-2. \uCE74\uD14C\uACE0\uB9AC\uB3C4 \uB3C5\uB9BD \uBB38\uB9E5 \uAC00\uB2A5:
-   - "\uD68C\uC758", "\uD504\uB85C\uC81D\uD2B8", "\uBC84\uADF8" \uAC19\uC740 \uBD84\uB958\uBA85\uB3C4 \uADF8 \uC790\uCCB4\uB85C context \uAC00\uB2A5
-   - \uC544\uB798 \uD56D\uBAA9\uB4E4\uBFD0\uB9CC \uC544\uB2C8\uB77C \uBD84\uB958 \uBC94\uC8FC \uC790\uCCB4\uB3C4 \uCD94\uCD9C
+\u2605 \uC5E3\uC9C0 \uD544\uC218 \uD544\uB4DC
+- relation    : \uC704 10\uC885 \uC911 \uC815\uD655\uD788 \uD558\uB098
+- reason      : \uC5F0\uACB0 \uADFC\uAC70 \uD55C \uBB38\uC7A5
+- axiom_basis : \uC774 \uAD00\uACC4\uB97C \uACE0\uB978 \uB17C\uB9AC \uADFC\uAC70(\uC6D0\uBB38 \uC778\uC6A9 \uB610\uB294 \uC774\uC720). \uBE48 \uBB38\uC790\uC5F4 \uAE08\uC9C0
+- confidence  : 0.0~1.0. 0.75 \uBBF8\uB9CC\uC740 \uC800\uC7A5 \uC548 \uB428`;
+var SELFCHECK_BLOCK = `\u2605 \uCD9C\uB825 \uC804 \uC790\uAE30\uAC80\uD1A0 (\uD544\uC218)
+- \uB9CC\uB4E0 \uC5E3\uC9C0 \uBAA9\uB85D\uC744 \uB2E4\uC2DC \uBCF4\uB77C.
+- supports + precondition_of \uD569\uC774 \uC804\uCCB4\uC758 60% \uCD08\uACFC \u2192 \uACFC\uC789. \uC7AC\uAC80\uD1A0\uD558\uC5EC causes\xB7contrasts_with\xB7analogous_to \uB4F1 \uB2E4\uB978 \uCD95\uC744 \uBCF4\uAC15\uD558\uB77C.
+- \uC911\uBCF5 \uC5E3\uC9C0\xB7\uC790\uAE30 \uC790\uC2E0\uC73C\uB85C\uC758 \uC5E3\uC9C0\uAC00 \uC5C6\uB294\uC9C0 \uD655\uC778\uD558\uB77C.`;
+var SYSTEM_NORMALIZE_SPEAKERS = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \uC804\uC0AC\uBCF8 \uC815\uADDC\uD654 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+\uD14D\uC2A4\uD2B8 \uB0B4 \uBAA8\uB4E0 \uBC1C\uD654\uC790\uB97C \uC77C\uAD00\uB418\uAC8C \uC2DD\uBCC4\uD558\uACE0 \uB300\uBA85\uC0AC\xB7\uC0DD\uB7B5 \uC8FC\uC5B4\uB97C \uCE58\uD658\uD569\uB2C8\uB2E4.
 
-3. \uB2E4\uCE35\uC131 \uADF9\uB300\uD654:
-   - \uCD5C\uC0C1\uC704 \uC8FC\uC81C (\uC608: "Phase 2 \uC778\uC81C\uC2A4\uD2B8 \uD30C\uC774\uD504\uB77C\uC778")
-   - \uC911\uAC04 \uC8FC\uC81C (\uC608: "UI-5 \uBC84\uD2BC \uC560\uB2C8\uBA54\uC774\uC158")
-   - \uC138\uBD80 \uD56D\uBAA9 (\uC608: "shimmer \uADF8\uB77C\uB370\uC774\uC158")
-   - \uBAA8\uB450 \uBCC4\uB3C4 context\uB85C \uCD94\uCD9C
+\u2605 \uC2DD\uBCC4 \uADDC\uCE59:
+- \uD604\uC7A5 \uBC1C\uD654\uC790: \uBC1C\uD654 \uD328\uD134("\uC800\uB294/\uB098\uB294/\uC81C\uAC00", ":" \uAD6C\uBD84\uC790, \uC774\uB984 \uD638\uCE6D)\uC73C\uB85C \uC2DD\uBCC4 \u2192 \uD654\uC7901, \uD654\uC7902, ...
+  \uC2E4\uBA85\uC774 \uC5B8\uAE09\uB41C \uACBD\uC6B0: \uD654\uC790_\uC774\uB984 (\uC608: \uD654\uC790_\uAE40\uD300\uC7A5)
+- \uD604\uC7A5 \uBD80\uC7AC \uC778\uBB3C: "\uADF8 \uC0AC\uB78C", "\uAC54", "\uADF8\uBD84" \uB4F1 \uC9C0\uC2DC\uC5B4 \uB300\uC0C1 \u2192 \uC678\uBD80\uC778A, \uC678\uBD80\uC778B, ...
+  \uC2E4\uBA85\uC774 \uC5B8\uAE09\uB41C \uACBD\uC6B0: \uC678\uBD80\uC778_\uC774\uB984 (\uC608: \uC678\uBD80\uC778_\uD64D\uB300\uD45C)
 
-4. \uC8FC\uC81C \uAC04 \uAD00\uACC4\uB3C4 \uBB38\uB9E5\uD654:
-   - "Phase 2\uB294 Phase 1 \uC644\uB8CC \uD6C4 \uC9C4\uD589" \u2192 "\uC758\uC874\uC131" context
-   - "UI-30\uC740 UI-31 \uC6A9\uC5B4 \uC815\uC758 \uD544\uC694" \u2192 "\uC120\uD589\uC791\uC5C5" context
-   - \uD56D\uBAA9\uB4E4\uC758 \uAD50\uC9D1\uD569/\uC5F0\uAD00\uC131\uB3C4 context \uAC00\uB2A5
+\u2605 \uB300\uBA85\uC0AC \uCE58\uD658:
+- "\uB098/\uC800/\uC6B0\uB9AC" \u2192 \uD574\uB2F9 \uD654\uC790 \uB808\uC774\uBE14
+- "\uB108/\uB2F9\uC2E0" \u2192 \uB300\uD654 \uC0C1\uB300 \uD654\uC790 \uB808\uC774\uBE14
+- "\uADF8/\uADF8\uB140/\uAC54/\uADF8 \uC0AC\uB78C/\uADF8\uBD84" \u2192 \uBB38\uB9E5\uC0C1 \uC9C0\uC2DC \uB300\uC0C1 (\uD604\uC7A5 \uBD80\uC7AC\uC774\uBA74 \uC678\uBD80\uC778X)
+- "\uC774\uAC70/\uADF8\uAC70/\uADF8\uAC83/\uD574\uB2F9 \uAC74" \u2192 \uC9C1\uC804 \uB2E8\uB77D\uC5D0\uC11C \uC5B8\uAE09\uB41C \uC8FC\uC81C\uB85C \uCE58\uD658
+- \uC8FC\uC5B4 \uC0DD\uB7B5 \u2192 \uD574\uB2F9 \uD654\uC790 \uB610\uB294 \uC9C1\uC804 \uBB38\uB9E5 \uC8FC\uC5B4\uB85C \uBCF5\uC6D0
 
-5. \uB3C5\uB9BD\uC131 \uAC80\uC99D:
-   - "\uC774 \uBE14\uB7ED\uB9CC \uC77D\uC5B4\uB3C4 \uC644\uACB0\uB41C\uAC00?" YES \u2192 context
-   - "\uB2E4\uB978 \uC815\uBCF4\uC640 \uD568\uAED8 \uC77D\uC5B4\uC57C \uD558\uB098?" NO \u2192 context
-   - \uB2E8, \uAD00\uACC4\uB3C4 \uBA85\uC2DC\uC801\uC73C\uB85C context\uD654
+\u2605 \uD575\uC2EC \uADDC\uCE59:
+- \uAC19\uC740 \uC778\uBB3C\uC740 \uBC18\uB4DC\uC2DC \uAC19\uC740 \uB808\uC774\uBE14 (\uC77C\uAD00\uC131 \uCD5C\uC6B0\uC120)
+- \uD654\uC790 \uC218 \uBD88\uBA85\uD655 \uC2DC 1\uBA85\uC73C\uB85C \uCC98\uB9AC \uD6C4 \uCD94\uAC00 \uBC1C\uD654 \uBC1C\uACAC \uC2DC \uCD94\uAC00
+- \uD604\uC7A5 \uD654\uC790\uC640 \uD604\uC7A5 \uBD80\uC7AC \uC778\uBB3C \uC808\uB300 \uD63C\uC6A9 \uAE08\uC9C0
 
-\uAC01 context:
-- title: \uB2E8\uC704\uB97C \uB300\uD45C\uD558\uB294 \uAC04\uACB0\uD55C \uBA85\uC0AC\uD615 (1~10\uB2E8\uC5B4)
+JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+{"normalized_text":"\uC815\uADDC\uD654\uB41C \uD14D\uC2A4\uD2B8","speakers":{"\uD654\uC7901":"","\uD654\uC7902":"","\uC678\uBD80\uC778A":"\uD64D\uB300\uD45C"}}`;
+async function normalizeSpeakers(rawText, settings, onProgress) {
+  onProgress?.("\uD654\uC790 \uC815\uADDC\uD654 \uC911...");
+  const prompt = `${SYSTEM_NORMALIZE_SPEAKERS}
+
+\uD14D\uC2A4\uD2B8:
+${rawText.slice(0, 12e3)}`;
+  try {
+    const raw = await callClaudeWithModel(
+      prompt,
+      settings.cliBin,
+      "standard",
+      settings.aiProvider,
+      settings.claudeApiKey,
+      settings.geminiApiKey,
+      settings.openaiApiKey
+    );
+    const parsed = parseJson(raw, {});
+    if (typeof parsed.normalized_text === "string" && parsed.normalized_text.trim().length > 50) {
+      return {
+        text: parsed.normalized_text.trim(),
+        speakers: typeof parsed.speakers === "object" && parsed.speakers !== null ? parsed.speakers : {}
+      };
+    }
+  } catch {
+  }
+  return { text: rawText, speakers: {} };
+}
+var SYSTEM_CONTEXT = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uD1A0\uD53D \uBD84\uC808 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+Raw \uD14D\uC2A4\uD2B8\uB97C "\uBB34\uC5C7\uC5D0 \uAD00\uD55C \uB369\uC5B4\uB9AC\uC778\uAC00"\uB97C \uAE30\uC900\uC73C\uB85C \uAD75\uC740 \uC758\uBBF8 \uB2E8\uC704(\uD1A0\uD53D)\uB85C \uB098\uB215\uB2C8\uB2E4.
+
+\u2605 \uD1A0\uD53D\uC774\uB780
+- \uD615\uC2DD(\uC81C\uBAA9\xB7\uBC88\uD638\xB7\uBD88\uB9BF)\uC774 \uC544\uB2C8\uB77C **\uB0B4\uC6A9\uC758 \uC8FC\uC81C**\uB85C \uB098\uB208\uB2E4. \uD5E4\uB529\uC774 \uC5C6\uC5B4\uB3C4,
+  \uBC88\uD638\uBAA9\uB85D\xB7\uBC1C\uD654\uC5EC\uB3C4 \uC8FC\uC81C\uAC00 \uBC14\uB00C\uBA74 \uAC70\uAE30\uAC00 \uACBD\uACC4\uB2E4.
+- **\uAD75\uAC8C \uBB36\uC5B4\uB77C.** \uC138\uBD80 \uD56D\uBAA9 \uD558\uB098\uD558\uB098\uAC00 \uC544\uB2C8\uB77C \uAC19\uC740 \uC8FC\uC81C \uC601\uC5ED\uC758 \uD56D\uBAA9\uB4E4\uC744 \uD55C \uD1A0\uD53D\uC73C\uB85C \uBAA8\uC740\uB2E4.
+  \uC608) \uC5EC\uB7EC AI \uBAA8\uB378 \uCD9C\uC2DC \uC18C\uC2DD \u2192 "AI \uBAA8\uB378 \uACBD\uC7C1" \uD558\uB098\uB85C / \uD22C\uC790\xB7IPO\xB7\uB370\uC774\uD130\uC13C\uD130 \u2192 "AI \uC790\uBCF8\xB7\uC778\uD504\uB77C" \uD558\uB098\uB85C
+
+\u2605 \uBAA9\uD45C \uAC1C\uC218: \uB300\uB7B5 4~7\uAC1C
+- \uC804\uCCB4\uB97C 1\uAC1C\uB85C \uBB36\uC9C0 \uB9D0 \uAC83. \uB0B1\uAC1C\uB85C \uC798\uAC8C \uCABC\uAC1C\uC9C0\uB3C4 \uB9D0 \uAC83.
+- \uC8FC\uC81C \uC804\uD658(\uC8FC\uC81C\xB7\uAD00\uC810\xB7\uC2DC\uAC04\xB7\uBC94\uC8FC \uBCC0\uD654)\uC774 \uC2E4\uC81C\uB85C \uC77C\uC5B4\uB098\uB294 \uC9C0\uC810\uC5D0\uC11C\uB9CC \uB098\uB208\uB2E4.
+
+\uAC01 \uD1A0\uD53D:
+- title: \uC8FC\uC81C\uB97C \uB300\uD45C\uD558\uB294 \uAC04\uACB0\uD55C \uBA85\uC0AC\uAD6C (1~10\uB2E8\uC5B4)
 - date: \uBCF8\uBB38 \uB0A0\uC9DC \uB610\uB294 \uC624\uB298
-- summary: \uD575\uC2EC\uB9CC \uC815\uB3C8\uB41C \uB9C8\uD06C\uB2E4\uC6B4 (5~15\uC904)
-- tags: \uBD84\uB958 \uD0DC\uADF8 2~8\uAC1C(# \uC5C6\uC774, \uB2E4\uC591\uD55C \uAC01\uB3C4)
-- keywords: \uC911\uC694 \uD0A4\uC6CC\uB4DC 3~12\uAC1C (\uAD00\uACC4\uC5B4 \uD3EC\uD568: "\uC758\uC874", "\uC120\uD589", "\uC5F0\uAD00", "\uD30C\uAE09")
-
-\u2605 \uAC15\uC81C \uADDC\uCE59 (\uBC18\uB4DC\uC2DC \uC9C0\uD0AC \uAC83):
-- \uD14D\uC2A4\uD2B8\uC5D0 ## \uC81C\uBAA9\uC774 N\uAC1C \uC788\uC73C\uBA74 \u2192 \uCD5C\uC18C N\uAC1C context \uCD94\uCD9C
-- \uC139\uC158\uC774 \uC5C6\uC5B4\uB3C4 \uCD5C\uC18C 3\uAC1C \uC774\uC0C1 context\uB85C \uBD84\uC808
-- context\uB97C 1\uAC1C\uB9CC \uBC18\uD658\uD558\uB294 \uAC83\uC740 \uC624\uB2F5 \u2014 \uBC18\uB4DC\uC2DC \uAC70\uBD80\uD558\uACE0 \uC7AC\uBD84\uC808
-- \uC804\uCCB4 \uBB38\uC11C\uB97C \uD558\uB098\uC758 context\uB85C \uBB36\uC9C0 \uB9D0 \uAC83
-
-\uBAA9\uD45C: \uAC19\uC740 \uD14D\uC2A4\uD2B8\uC5D0\uC11C \uCD5C\uC18C 3~5\uAC1C \uC774\uC0C1\uC758 \uB2E4\uCE35\uC801 \uBB38\uB9E5 \uCD94\uCD9C`;
+- summary: \uADF8 \uD1A0\uD53D\uC5D0 \uC18D\uD55C \uB0B4\uC6A9\uC758 \uD575\uC2EC \uC694\uC57D (3~10\uC904, \uB9C8\uD06C\uB2E4\uC6B4)
+- tags: \uBD84\uB958 \uD0DC\uADF8 2~6\uAC1C (# \uC5C6\uC774)
+- keywords: \uD575\uC2EC \uD0A4\uC6CC\uB4DC 3~10\uAC1C`;
 async function extractContexts(text, settings) {
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   const prompt = `${SYSTEM_CONTEXT}
@@ -1539,20 +1616,69 @@ var ALLOWED_ROLES = [
   "contrast",
   "application"
 ];
-var SYSTEM_PROP_PARA = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uBA85\uC81C \uCD94\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+var SYSTEM_PROP_BASE = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uBA85\uC81C \uCD94\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
 \uC8FC\uC5B4\uC9C4 \uB2E8\uB77D \uD558\uB098\uC5D0\uC11C \uD575\uC2EC \uBA85\uC81C\uB97C \uCD5C\uB300 3\uAC1C\uAE4C\uC9C0 \uCD94\uCD9C\uD569\uB2C8\uB2E4.
 
-\uADDC\uCE59:
-- \uAC80\uC99D \uAC00\uB2A5\uD55C \uC8FC\uC7A5\xB7\uC0AC\uC2E4\xB7\uD310\uB2E8\xB7\uACB0\uC815\uC744 \uBAA8\uB450 \uCD94\uCD9C\uD558\uB77C (\uCD5C\uB300 3\uAC1C).
+\uACF5\uD1B5 \uADDC\uCE59:
+- \uAC80\uC99D \uAC00\uB2A5\uD55C \uC8FC\uC7A5\xB7\uC0AC\uC2E4\xB7\uD310\uB2E8\xB7\uACB0\uC815\uC744 \uCD94\uCD9C\uD558\uB77C (\uCD5C\uB300 3\uAC1C).
 - \uBD88\uB9BF\xB7\uBAA9\uB85D\uB3C4 \uAC01 \uD56D\uBAA9\uC774 \uC8FC\uC7A5\uC774\uBA74 \uAC1C\uBCC4 \uBA85\uC81C\uB85C \uCD94\uCD9C\uD55C\uB2E4.
 - \uB2E8\uC21C \uC778\uC0AC\uB9D0\xB7\uB0A0\uC9DC\xB7\uC7A5\uC18C\xB7\uC11C\uC2DD\uB9CC\uC774\uBA74 {"propositions": []} \uBC18\uD658.
 - id: p1~p3 | title: 8~20\uC790 \uBA85\uC0AC\uAD6C | text: \uC644\uACB0\uB41C \uD55C \uBB38\uC7A5
 - role: claim | premise | conclusion | example | contrast | application
 - proposition_type: "fact" (\uAC80\uC99D \uAC00\uB2A5\uD55C \uC218\uCE58\xB7\uC0AC\uAC74\xB7\uAD00\uCE21) | "claim" (\uD574\uC11D\xB7\uD310\uB2E8\xB7\uC8FC\uC7A5\xB7\uC758\uACAC) \u2014 \uAE30\uBCF8\uAC12 claim
-- context: \uC544\uB798 \uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D\uC5D0\uC11C \uAC00\uC7A5 \uC801\uD569\uD55C \uC81C\uBAA9 \uC120\uD0DD. [\uC18C\uC18D \uC139\uC158] \uD544\uB4DC\uAC00 \uC788\uC73C\uBA74 \uADF8 \uC139\uC158\uBA85\uACFC \uAC00\uC7A5 \uC77C\uCE58\uD558\uB294 context\uB97C \uC6B0\uC120 \uC120\uD0DD\uD558\uB77C
-- is_core_concept: \uC774 \uBB38\uB9E5\uC758 \uD575\uC2EC \uC8FC\uC7A5\uC774\uBA74 true
+- context: \uC544\uB798 \uD1A0\uD53D \uBAA9\uB85D\uC5D0\uC11C \uC774 \uBA85\uC81C\uAC00 \uC18D\uD55C \uD1A0\uD53D \uC81C\uBAA9\uC744 \uACE0\uB978\uB2E4(\uAC00\uC7A5 \uAC00\uAE4C\uC6B4 \uAC83). [\uC18C\uC18D \uC139\uC158] \uD78C\uD2B8\uAC00 \uC788\uC73C\uBA74 \uC6B0\uC120 \uCC38\uACE0. \uC815\uB9D0 \uC5B4\uB290 \uD1A0\uD53D\uACFC\uB3C4 \uBB34\uAD00\uD560 \uB54C\uB9CC \uBE48 \uBB38\uC790\uC5F4("")
+- is_core_concept: \uC18C\uC18D \uD1A0\uD53D\uC758 \uC911\uC2EC \uB17C\uC9C0(\uB2E4\uB978 \uBA85\uC81C\uB4E4\uC774 \uAE30\uB300\uB294 \uBF08\uB300)\uC774\uBA74 true. \uC6D0\uBB38\uC5D0 \uADF8\uB7F0 \uB17C\uC9C0 \uBB38\uC7A5\uC774 \uC2E4\uC81C\uB85C \uC788\uC744 \uB54C\uB9CC. \uC804\uBD80 false\uC5EC\uB3C4 \uB41C\uB2E4
 
 \u2605 source_span \uD544\uB4DC\uB294 \uC791\uC131\uD558\uC9C0 \uB9C8\uB77C \u2014 \uC2DC\uC2A4\uD15C\uC774 \uC774 \uB2E8\uB77D \uC790\uCCB4\uB97C \uCD9C\uCC98\uB85C \uAE30\uB85D\uD55C\uB2E4.`;
+var SYSTEM_PROP_DOCUMENT_ADDON = `
+\u2605 \uC815\uBCF4/\uBB38\uC11C \uD488\uC9C8 \uAE30\uC900 (\uC704\uBC18 \uC2DC \uD574\uB2F9 \uBA85\uC81C \uC81C\uC678):
+- \uBC18\uB4DC\uC2DC \uD2B9\uC815 \uC8FC\uCCB4(\uD68C\uC0AC\uBA85/\uAE30\uC220\uBA85/\uC778\uBB3C\uBA85)\uC640 \uAD6C\uCCB4 \uB3D9\uC791\xB7\uC218\uCE58\uB97C \uD3EC\uD568\uD560 \uAC83
+- "AI \uBC1C\uC804 \uAC00\uC18D\uD654", "\uB2E4\uC591\uD55C \uD65C\uC6A9\uC758 \uD544\uC694\uC131", "\uC5C5\uACC4 \uAD6C\uC870 \uBCC0\uD654" \uAC19\uC740 \uBA54\uD0C0-\uBC94\uC8FC \uB808\uC774\uBE14\uC740 \uBA85\uC81C\uAC00 \uC544\uB2D8
+- \uC8FC\uC5B4/\uBAA9\uC801\uC5B4 \uC0DD\uB7B5 \uC2DC [\uC18C\uC18D \uC139\uC158] \uC81C\uBAA9\uC5D0\uC11C \uCD94\uB860\uD558\uC5EC \uC644\uC804\uD55C \uBB38\uC7A5\uC73C\uB85C \uBCF5\uC6D0\uD558\uB77C
+- \uBCF5\uC6D0 \uBD88\uAC00 \uC2DC \uD574\uB2F9 \uBA85\uC81C \uC81C\uC678`;
+var SYSTEM_PROP_LECTURE_ADDON = `
+\u2605 \uAC15\uC758 \uD14D\uC2A4\uD2B8 \uADDC\uCE59:
+- \uAC15\uC758\uC790\uC758 \uC8FC\uC7A5/\uC124\uBA85\uC740 1\uC778 \uD654\uC790 \uD14D\uC2A4\uD2B8\uB85C \uCC98\uB9AC (\uBCC4\uB3C4 \uADC0\uC18D \uC5C6\uC774 \uCD94\uCD9C)
+- role \uC6B0\uC120\uC21C\uC704: 'claim' (\uAC15\uC758\uC790 \uC8FC\uC7A5), 'example' (\uC608\uC2DC \uC0AC\uB840), 'premise' (\uBC30\uACBD \uC6D0\uB9AC)
+- \uAC1C\uB150 \uC815\uC758 \uD328\uD134 "X\uB294 Y\uC774\uB2E4/Y\uB97C \uC758\uBBF8\uD55C\uB2E4" \uC801\uADF9 \uCD94\uCD9C
+- \uC8FC\uC5B4 \uC0DD\uB7B5 \uC2DC \uC9C1\uC804 \uBB38\uB9E5\uC758 \uC8FC\uC81C \uAC1C\uB150\uC744 \uC8FC\uC5B4\uB85C \uADC0\uC18D\uD558\uB77C`;
+var SYSTEM_PROP_MEETING_ADDON = `
+\u2605 \uD68C\uC758 \uD14D\uC2A4\uD2B8 \uADDC\uCE59:
+- \uD654\uC790 \uB808\uC774\uBE14(\uD654\uC7901/\uD654\uC7902/\uC678\uBD80\uC778A \uB4F1)\uC774 \uC788\uC73C\uBA74 \uADC0\uC18D \uD544\uC218: "\uD654\uC7901\uC774 X\uB97C \uC8FC\uC7A5\uD588\uB2E4"
+- \uACB0\uC815\xB7\uD569\uC758 \uC0AC\uD56D \uC6B0\uC120 \uCD94\uCD9C \u2192 role: 'conclusion'
+- \uC785\uC7A5 \uCDA9\uB3CC \uCD94\uCD9C \u2192 role: 'contrast'
+- "\uC6B0\uB9AC\uAC00 \uACB0\uC815\uD55C", "\uD569\uC758\uB428", "\uD655\uC815" \uD328\uD134 \u2192 role: 'conclusion'
+- \uBAA8\uD638\uD55C "\uADF8\uAC70", "\uC774\uAC70"\uAC00 \uB0A8\uC544\uC788\uC73C\uBA74 \uBCF5\uC6D0 \uBD88\uAC00 \uBA85\uC81C\uB85C \uC81C\uC678`;
+var SYSTEM_PROP_DIALOGUE_ADDONS = {
+  english_conversation: `
+\u2605 \uC601\uC5B4\uD68C\uD654 \uD14D\uC2A4\uD2B8 \uADDC\uCE59:
+- \uD654\uC790 \uB808\uC774\uBE14\uC774 \uC788\uC73C\uBA74 \uADC0\uC18D \uD544\uC218
+- \uC5B8\uC5B4 \uD45C\uD604\xB7\uBB38\uBC95 \uD328\uD134\xB7\uC758\uC0AC\uC18C\uD1B5 \uC804\uB7B5 \uCD94\uCD9C\uC5D0 \uC9D1\uC911
+- role: 'example'(\uD45C\uD604 \uC608\uC2DC) \uB610\uB294 'claim'(\uC5B8\uC5B4 \uC0AC\uC6A9 \uC8FC\uC7A5)
+- \uC8FC\uC81C\uBCF4\uB2E4 \uC5B4\uB5BB\uAC8C \uD45C\uD604\uD588\uB294\uC9C0\uC5D0 \uC9D1\uC911\uD558\uB77C`,
+  phone_call: `
+\u2605 \uD1B5\uD654 \uD14D\uC2A4\uD2B8 \uADDC\uCE59:
+- \uD654\uC790 \uB808\uC774\uBE14\uC774 \uC788\uC73C\uBA74 \uADC0\uC18D \uD544\uC218
+- \uC694\uCCAD, \uC57D\uC18D, \uACB0\uC815 \uCD94\uCD9C\uC5D0 \uC9D1\uC911 \u2192 role: 'conclusion'(\uC57D\uC18D/\uACB0\uC815) \uB610\uB294 'claim'(\uC694\uCCAD)
+- \uC758\uB840\uC801 \uC778\uC0AC\xB7\uB0A0\uC528 \uB4F1 \uB0B4\uC6A9 \uC5C6\uB294 \uBC1C\uD654\uB294 \uC81C\uC678`,
+  interview: `
+\u2605 \uC778\uD130\uBDF0 \uD14D\uC2A4\uD2B8 \uADDC\uCE59:
+- \uD654\uC790 \uB808\uC774\uBE14\uC774 \uC788\uC73C\uBA74 \uADC0\uC18D \uD544\uC218
+- \uC8FC\uC7A5, \uD3C9\uAC00, \uC785\uC7A5 \uCD94\uCD9C\uC5D0 \uC9D1\uC911 \u2192 role: 'claim'(\uC8FC\uC7A5) / 'contrast'(\uBC18\uB860/\uB300\uC870)
+- \uC9C8\uBB38\uBCF4\uB2E4 \uB2F5\uBCC0\uC5D0\uC11C \uBA85\uC81C\uB97C \uCD94\uCD9C\uD558\uB77C`
+};
+function buildPropSystemPrompt(contentType, dialogueSubtype) {
+  switch (contentType) {
+    case "lecture":
+      return SYSTEM_PROP_BASE + SYSTEM_PROP_LECTURE_ADDON;
+    case "meeting":
+      return SYSTEM_PROP_BASE + SYSTEM_PROP_MEETING_ADDON;
+    case "dialogue":
+      return SYSTEM_PROP_BASE + (SYSTEM_PROP_DIALOGUE_ADDONS[dialogueSubtype ?? "phone_call"] ?? "");
+    default:
+      return SYSTEM_PROP_BASE + SYSTEM_PROP_DOCUMENT_ADDON;
+  }
+}
 function shortHash(text) {
   let h = 5381;
   for (let i = 0; i < Math.min(text.length, 300); i++) {
@@ -1561,7 +1687,7 @@ function shortHash(text) {
   }
   return Math.abs(h).toString(36).slice(0, 6).padStart(6, "0");
 }
-async function extractPropositions(contexts, rawText, settings) {
+async function extractPropositions(contexts, rawText, settings, contentType = "document", dialogueSubtype) {
   const paragraphs = [];
   {
     const headings = ["", "", ""];
@@ -1609,17 +1735,23 @@ async function extractPropositions(contexts, rawText, settings) {
   let paraResults = [];
   let lastError = null;
   let errorCount = 0;
-  const callPara = async (para) => {
+  const systemPropPrompt = buildPropSystemPrompt(contentType, dialogueSubtype);
+  const callPara = async (para, paraIdx, allParas) => {
     const sectionLine = para.sectionHint ? `[\uC18C\uC18D \uC139\uC158]: ${para.sectionHint}
 
 ` : "";
-    const prompt = `${SYSTEM_PROP_PARA}
+    const prevPara = paraIdx > 0 ? allParas[paraIdx - 1].text : "";
+    const prevLine = prevPara ? `[\uC774\uC804 \uB2E8\uB77D \u2014 \uB300\uBA85\uC0AC\xB7\uC9C0\uC2DC\uC5B4 \uCC38\uC870]
+${prevPara.slice(0, 400)}
+
+` : "";
+    const prompt = `${systemPropPrompt}
 ${jsonLangInstr(settings.lang)}
 
 [\uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D \u2014 context \uD544\uB4DC \uC120\uD0DD\uC6A9]
 ${contextList}
 
-` + sectionLine + `[\uB2E8\uB77D]
+` + prevLine + sectionLine + `[\uB2E8\uB77D]
 ${para.text}
 
 ` + schema;
@@ -1642,11 +1774,11 @@ ${para.text}
     }
   };
   if (settings.aiProvider === "claude-cli") {
-    for (const para of paragraphs) {
-      paraResults.push(await callPara(para));
+    for (let i = 0; i < paragraphs.length; i++) {
+      paraResults.push(await callPara(paragraphs[i], i, paragraphs));
     }
   } else {
-    paraResults = await Promise.all(paragraphs.map(callPara));
+    paraResults = await Promise.all(paragraphs.map((p, i) => callPara(p, i, paragraphs)));
   }
   const allProps = [];
   let propIdx = 1;
@@ -1680,25 +1812,17 @@ ${errMsg}`);
 var SYSTEM_EDGES = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uB17C\uB9AC \uC5E3\uC9C0 \uCD94\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
 \uBA85\uC81C\uB4E4 \uC0AC\uC774\uC758 \uC758\uBBF8\uC788\uB294 \uC5F0\uACB0\uC744 \uCC3E\uC544 \uBC29\uD5A5 \uC5E3\uC9C0\uB97C \uCD94\uCD9C\uD569\uB2C8\uB2E4.
 
-\u2605 \uAD00\uACC4 \uC120\uD0DD (4\uCD95 10\uC885 \u2014 \uC774 10\uC885 \uC678 \uC808\uB300 \uC0AC\uC6A9 \uAE08\uC9C0):
-Axis 1 (\uC778\uACFC\xB7\uC804\uC81C): causes | precedes | precondition_of
-Axis 2 (\uC9C4\uB9AC\xB7\uC99D\uBA85): supports | conflicts_with | contrasts_with
-Axis 3 (\uACC4\uCE35\xB7\uC801\uC6A9): exemplifies | applies_to
-Axis 4 (\uC704\uC0C1 \uAD50\uCC28): analogous_to | isomorphic_to
+${AXIOM_BLOCK}
 
-\uAC01 \uAD00\uACC4 \uC120\uD0DD \uC2DC axiom_basis(\uC120\uD0DD \uADFC\uAC70 \uC6D0\uBB38 \uC778\uC6A9)\uB97C \uBC18\uB4DC\uC2DC \uC791\uC131\uD558\uB77C.
+\u2605 source\xB7target
+- \uBA85\uC81C ID(p1, p2, ...). \uAC19\uC740 ### \uADF8\uB8F9 \uB0B4 \uC5F0\uACB0\uACFC \uB2E4\uB978 \uADF8\uB8F9 \uAC04 \uAD50\uCC28 \uC5F0\uACB0\uC744 \uBAA8\uB450 \uD0D0\uC0C9\uD558\uB77C.
 
-\u2605 \uAC01 \uD544\uB4DC:
-- source, target: \uBA85\uC81C ID (p1, p2, ...) \u2014 \uAC19\uC740 ### \uADF8\uB8F9 \uB0B4 \uC5F0\uACB0\uACFC \uB2E4\uB978 \uADF8\uB8F9 \uAC04 \uAD50\uCC28 \uC5F0\uACB0\uC744 \uBAA8\uB450 \uD0D0\uC0C9\uD558\uB77C
-- relation: \uC704 10\uC885 \uC911 \uC815\uD655\uD788 \uD558\uB098 \uC120\uD0DD
-- reason: \uC5F0\uACB0 \uADFC\uAC70 \uD55C\uAD6D\uC5B4 \uD55C \uBB38\uC7A5
-- axiom_basis: \uC774 relation\uC744 \uC120\uD0DD\uD55C \uB17C\uB9AC\uC801 \uADFC\uAC70 (\uC6D0\uBB38 \uAD6C\uC808 \uC778\uC6A9 \uB610\uB294 \uC774\uC720 \uC124\uBA85, \uBE48 \uBB38\uC790\uC5F4 \uAE08\uC9C0)
-- confidence: \uC774 \uC5F0\uACB0\uC758 \uD655\uC2E0\uB3C4 0.0~1.0 (0.75 \uBBF8\uB9CC\uC774\uBA74 \uC800\uC7A5 \uC548 \uB428)
+\u2605 \uD06C\uB85C\uC2A4-\uC139\uC158 \uC5F0\uACB0 \uC81C\uD55C (\uBC18\uB4DC\uC2DC \uC900\uC218)
+- \uAC19\uC740 [\uC139\uC158] \uB0B4 \uC5F0\uACB0: 10\uC885 \uBAA8\uB450 \uD5C8\uC6A9
+- \uB2E4\uB978 [\uC139\uC158] \uAC04 \uC5F0\uACB0: causes | contrasts_with | analogous_to | isomorphic_to | conflicts_with \uB9CC \uD5C8\uC6A9
+  \u2192 supports / precondition_of \uD06C\uB85C\uC2A4-\uC139\uC158 \uAE08\uC9C0 (\uC8FC\uC81C \uC720\uC0AC\uC131\uC740 \uB17C\uB9AC \uC9C0\uC9C0 \uADFC\uAC70\uAC00 \uC544\uB2D8)
 
-\u2605 \uC911\uC694:
-- \uACE0\uB9BD \uB178\uB4DC\uB294 \uD5C8\uC6A9\uB428 \u2014 \uC5B5\uC9C0 \uC5F0\uACB0\uB85C \uCC44\uC6B0\uC9C0 \uB9D0 \uAC83. confidence\uAC00 0.75 \uBBF8\uB9CC\uC774\uBA74 \uD574\uB2F9 \uC5E3\uC9C0\uB294 \uC18C\uAC70\uB41C\uB2E4.
-- \uBA85\uD655\uD558\uAC8C \uC131\uB9BD\uD558\uB294 \uAD00\uACC4\uB9CC \uD3EC\uD568 (confidence >= 0.75 \uAE30\uC900\uC73C\uB85C \uC790\uAE30 \uAC80\uD1A0)
-- conflicts_with\uB294 \uC2E4\uC81C \uBAA8\uC21C\uC774 \uC874\uC7AC\uD560 \uB54C\uB9CC \uC0AC\uC6A9`;
+${SELFCHECK_BLOCK}`;
 async function extractEdges(allPropositions, contexts, _insights, settings) {
   if (allPropositions.length < 2)
     return [];
@@ -1741,8 +1865,7 @@ ${contextBlock}
       pIndexMap.set(`p${idx + 1}`, p.id);
       pIndexMap.set(String(idx + 1), p.id);
     });
-    const seen = /* @__PURE__ */ new Set();
-    const validEdges = (parsed.edges ?? []).map((e) => {
+    const structurallyValid = (parsed.edges ?? []).map((e) => {
       const source = pIndexMap.get(String(e.source)) || String(e.source);
       const target = pIndexMap.get(String(e.target)) || String(e.target);
       const confidence = typeof e.confidence === "number" ? e.confidence : 0;
@@ -1764,7 +1887,12 @@ ${contextBlock}
         return false;
       if (e.source === e.target)
         return false;
-      const key = `${e.source}\u2192${e.target}`;
+      return true;
+    });
+    const SYMMETRIC_RELATIONS = /* @__PURE__ */ new Set(["isomorphic_to", "analogous_to", "conflicts_with", "contrasts_with"]);
+    const seen = /* @__PURE__ */ new Set();
+    const validEdges = [...structurallyValid].sort((a2, b) => b.confidence - a2.confidence).filter((e) => {
+      const key = SYMMETRIC_RELATIONS.has(e.relation) ? [e.source, e.target].sort().join("\u2194") : `${e.source}\u2192${e.target}`;
       if (seen.has(key))
         return false;
       seen.add(key);
@@ -1787,6 +1915,86 @@ ${contextBlock}
       axiom_basis: e.axiom_basis,
       confidence: e.confidence
     }));
+  } catch {
+    return [];
+  }
+}
+var SYSTEM_CONTRASTS = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uB300\uC870\xB7\uC720\uC0AC\uC131 \uD0D0\uC9C0 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+\uBA85\uC81C \uBAA9\uB85D\uC5D0\uC11C \uC77C\uBC18 \uC5E3\uC9C0 \uCD94\uCD9C\uC774 \uB193\uCE58\uAE30 \uC26C\uC6B4 \uAD00\uACC4\uB97C \uC9D1\uC911 \uD0D0\uC0C9\uD569\uB2C8\uB2E4.
+
+${AXIOM_RELATIONS}
+
+\u2605 \uC774 \uD328\uC2A4\uC758 \uC9D1\uC911 \uB300\uC0C1 (\uC544\uB798 2\uC885 \uC704\uC8FC, \uD06C\uB85C\uC2A4-\uC139\uC158 \uC801\uADF9 \uAD8C\uC7A5)
+1. contrasts_with: \uAC19\uC740 \uB300\uC0C1\xB7\uAE30\uC220\xB7\uD604\uC0C1\uC744 \uC11C\uB85C \uBC18\uB300 \uBC29\uD5A5\uC73C\uB85C \uD3C9\uAC00\uD558\uB294 \uBA85\uC81C \uC30D
+   \uC608) "\uBC14\uC774\uBE0C\uCF54\uB529\uC774 \uC0DD\uC0B0\uC131\uC744 \uB192\uC778\uB2E4" \u2194 "\uBC14\uC774\uBE0C\uCF54\uB529\uC774 \uCF54\uB4DC \uD488\uC9C8\uC744 \uB0AE\uCD98\uB2E4"
+   (\uB3D9\uC2DC\uC5D0 \uCC38\uC77C \uC218 \uC788\uC5B4\uC57C \uD568 \u2014 \uB17C\uB9AC\uC801 \uBAA8\uC21C\uC774\uBA74 conflicts_with)
+2. analogous_to: \uC11C\uB85C \uB2E4\uB978 \uB3C4\uBA54\uC778\uC5D0\uC11C \uAC19\uC740 \uBAA9\uC801\xB7\uAD6C\uC870\uB97C \uAC00\uC9C4 \uBA85\uC81C \uC30D
+   \uC608) "OpenAI\uAC00 \uC790\uCCB4 \uCE69\uC73C\uB85C Nvidia \uC758\uC874 \uD0C8\uD53C" \u2194 "IBM\uC774 1nm \uCE69\uC73C\uB85C \uBC18\uB3C4\uCCB4 \uC790\uB9BD"
+
+\u2605 \uADDC\uCE59
+- \uC774\uBBF8 \uB2E4\uB978 \uC5E3\uC9C0\uB85C \uC5F0\uACB0\uB41C \uC30D\uB3C4 \uD3EC\uD568 \uAC00\uB2A5 (\uBCF4\uC644 \uAD00\uACC4)
+- \uD06C\uB85C\uC2A4-\uC139\uC158 \uC5F0\uACB0 \uC801\uADF9 \uAD8C\uC7A5 (\uC774\uAC83\uC774 \uC774 \uD328\uC2A4\uC758 \uBAA9\uC801)
+- confidence 0.75 \uBBF8\uB9CC\uC740 \uC81C\uC678. axiom_basis \uBE48 \uBB38\uC790\uC5F4 \uAE08\uC9C0.
+
+JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+{"edges":[{"source":"p1","target":"p3","relation":"contrasts_with","reason":"...","axiom_basis":"...","confidence":0.82}]}`;
+async function findContrastsAnalogies(allPropositions, settings) {
+  if (allPropositions.length < 3)
+    return [];
+  const propList = allPropositions.map((p, i) => `p${i + 1} [${p.role}/${p.proposition_type}]: ${p.title.slice(0, 80)}`).join("\n");
+  const prompt = `${SYSTEM_CONTRASTS}
+${jsonLangInstr(settings.lang)}
+
+[\uBA85\uC81C \uBAA9\uB85D]
+${propList}
+
+{"edges":[{"source":"p1","target":"p3","relation":"contrasts_with","reason":"...","axiom_basis":"...","confidence":0.82}]}`;
+  try {
+    const raw = await callClaudeWithModel(
+      prompt,
+      settings.cliBin,
+      "standard",
+      settings.aiProvider,
+      settings.claudeApiKey,
+      settings.geminiApiKey,
+      settings.openaiApiKey
+    );
+    const parsed = parseJson(raw, { edges: [] });
+    const pIndexMap = /* @__PURE__ */ new Map();
+    allPropositions.forEach((p, idx) => {
+      pIndexMap.set(`p${idx + 1}`, p.id);
+      pIndexMap.set(String(idx + 1), p.id);
+    });
+    const seen = /* @__PURE__ */ new Set();
+    const results = [];
+    for (const e of parsed.edges ?? []) {
+      const source = pIndexMap.get(String(e.source)) || String(e.source);
+      const target = pIndexMap.get(String(e.target)) || String(e.target);
+      const confidence = typeof e.confidence === "number" ? e.confidence : 0;
+      if (confidence < 0.75 || source === target)
+        continue;
+      if (!allPropositions.some((p) => p.id === source))
+        continue;
+      if (!allPropositions.some((p) => p.id === target))
+        continue;
+      const reason = String(e.reason ?? "").trim();
+      const axiom_basis = typeof e.axiom_basis === "string" && e.axiom_basis.trim() ? e.axiom_basis.trim() : reason;
+      if (!axiom_basis)
+        continue;
+      try {
+        const rel = toRelation(String(e.relation));
+        if (rel !== "contrasts_with" && rel !== "analogous_to" && rel !== "isomorphic_to")
+          continue;
+        const key = [source, target].sort().join("\u2194");
+        if (seen.has(key))
+          continue;
+        seen.add(key);
+        results.push({ source, target, relation: rel, reason, axiom_basis, confidence });
+      } catch {
+        continue;
+      }
+    }
+    return results;
   } catch {
     return [];
   }
@@ -1909,15 +2117,18 @@ var SYSTEM_BRIDGE = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uD3F4\uB354 \uBE0C\
 \uB450 \uAC1C\uC758 \uB3C5\uB9BD\uC801\uC778 \uC9C0\uC2DD \uD3F4\uB354(\uC0AC\uC77C\uB85C)\uC758 \uB178\uB4DC \uBAA9\uB85D\uC744 \uBC1B\uC544, \uD3F4\uB354 \uAC04 \uC228\uC5B4 \uC788\uB294 \uC5F0\uACB0\uC744 \uCD5C\uB300\uD55C \uD48D\uBD80\uD558\uAC8C \uB3C4\uCD9C\uD569\uB2C8\uB2E4.
 \uC0AC\uC6A9\uC790\uAC00 \uCE69\uC73C\uB85C \uCD5C\uC885 \uD655\uC815\uD558\uBBC0\uB85C, \uAC00\uB2A5\uC131 \uC788\uB294 \uC5F0\uACB0\uC740 \uC801\uADF9\uC801\uC73C\uB85C \uD3EC\uD568\uD558\uC138\uC694.
 
-\uBD84\uC11D \uBC29\uBC95:
+${AXIOM_RELATIONS}
+
+\u2605 \uBD84\uC11D \uBC29\uBC95
 1. \uD3F4\uB354 A\uC758 \uAC01 \uB178\uB4DC\uC640 \uD3F4\uB354 B\uC758 \uAC01 \uB178\uB4DC \uC0AC\uC774\uC758 \uAD00\uACC4\uB97C \uBE60\uC9D0\uC5C6\uC774 \uD0D0\uC0C9\uD558\uB77C.
 2. \uC9C1\uC811 \uC5F0\uACB0(\uB3D9\uC77C \uC8FC\uC81C, \uC778\uACFC, \uC9C0\uC9C0/\uBC18\uBC15)\uACFC \uAC04\uC811 \uC5F0\uACB0(\uAD6C\uC870\uC801 \uB3D9\uD615\uC131, \uC720\uC0AC \uD328\uD134, \uB9E5\uB77D \uACF5\uC720)\uC744 \uBAA8\uB450 \uCC3E\uC544\uB77C.
 3. \uB450 \uD3F4\uB354\uB97C \uAD50\uCC28\uD560 \uB54C\uB9CC \uBC1C\uC0DD\uD558\uB294 \uC778\uC0AC\uC774\uD2B8\uB97C insight\uB85C \uB3C4\uCD9C\uD558\uB77C.
 
-\uCD9C\uB825 \uADDC\uCE59:
-- edges: \uCD5C\uB300 10\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C.
+\u2605 \uCD9C\uB825 \uADDC\uCE59
+- edges: \uCD5C\uB300 10\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C. relation\uC740 \uC704 10\uC885 \uC911 \uD558\uB098.
 - insight: \uB450 \uD3F4\uB354 \uAD50\uCC28 \uC2DC \uB098\uC624\uB294 \uC0C8\uB85C\uC6B4 \uD1B5\uCC30 2~3\uBB38\uC7A5.
-- relation: isomorphic_to | analogous_to | supports | contrasts_with | causes | applies_to | exemplifies | precondition_of`;
+
+${SELFCHECK_BLOCK}`;
 async function bridgeFolders(nodesA, nodesB, folderAName, folderBName, settings, filterConfig, onProgress) {
   const config = {
     topKPerNode: filterConfig?.topKPerNode ?? settings.bridgeTopKPerNode ?? 5,
@@ -2070,12 +2281,15 @@ var SYSTEM_TRANSPLANT_EDGES = `\uB2F9\uC2E0\uC740 ThirdBrain\uC758 \uC5F0\uACB0 
 \uC0C8\uB85C \uC774\uC2DD\uD560 \uB178\uD2B8\uC640 \uAE30\uC874 \uB178\uB4DC\uB4E4 \uC0AC\uC774\uC758 \uC5F0\uACB0 \uD6C4\uBCF4\uB97C \uCD94\uCC9C\uD569\uB2C8\uB2E4.
 \uC0AC\uC6A9\uC790\uAC00 \uCE69\uC744 \uB20C\uB7EC \uCD5C\uC885 \uD655\uC815\uD558\uBBC0\uB85C, \uAC00\uB2A5\uC131 \uC788\uB294 \uC5F0\uACB0\uC740 \uC801\uADF9\uC801\uC73C\uB85C \uD3EC\uD568\uD558\uC138\uC694.
 
-\uADDC\uCE59:
-- \uC9C1\uC811 \uC5F0\uACB0(\uB3D9\uC77C \uC8FC\uC81C, \uC778\uACFC, \uC9C0\uC9C0/\uBC18\uBC15)\uBFD0 \uC544\uB2C8\uB77C \uAC04\uC811 \uC5F0\uACB0(\uC720\uC0AC \uAD6C\uC870, \uB9E5\uB77D \uACF5\uC720)\uB3C4 \uD3EC\uD568
+${AXIOM_RELATIONS}
+
+\u2605 \uADDC\uCE59
+- \uC9C1\uC811 \uC5F0\uACB0(\uC778\uACFC\xB7\uC9C0\uC9C0\xB7\uBC18\uBC15)\uBFD0 \uC544\uB2C8\uB77C \uAC04\uC811 \uC5F0\uACB0(\uC720\uC0AC \uAD6C\uC870\xB7\uB9E5\uB77D \uACF5\uC720)\uB3C4 \uD3EC\uD568
 - \uAE30\uC874 \uB178\uB4DC\uC758 "\uC5F0\uACB0 \uB178\uB4DC" \uD78C\uD2B8\uB97C \uD65C\uC6A9\uD574 \uC758\uBBF8 \uD074\uB7EC\uC2A4\uD130 \uD30C\uC545
-- \uCD5C\uB300 6\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C
-- relation: supports | causes | conflicts_with | exemplifies | applies_to | contrasts_with | precondition_of | isomorphic_to | analogous_to
-- confidence: \uC5F0\uACB0 \uD655\uC2E0\uB3C4 0.0~1.0 (\uC9C1\uC811\xB7\uAC15\uD55C \uC5F0\uACB0=0.9+, \uAC04\uC811\xB7\uB9E5\uB77D \uACF5\uC720=0.5~0.7)
+- \uCD5C\uB300 6\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C. relation\uC740 \uC704 10\uC885 \uC911 \uD558\uB098.
+- confidence: \uC9C1\uC811\xB7\uAC15\uD55C \uC5F0\uACB0=0.9+, \uAC04\uC811\xB7\uB9E5\uB77D \uACF5\uC720=0.5~0.7
+
+${SELFCHECK_BLOCK}
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
 {"edges":[{"target_title":"\uAE30\uC874\uB178\uB4DC\uC81C\uBAA9","relation":"supports","confidence":0.85,"reason":"\uC5F0\uACB0 \uADFC\uAC70 \u2014 \uAD6C\uCCB4\uC801\uC73C\uB85C \uC5B4\uB5A4 \uAC1C\uB150\uC774 \uC65C \uC5F0\uACB0\uB418\uB294\uC9C0"}]}`;
@@ -2108,12 +2322,15 @@ var SYSTEM_CROSS = `\uB2F9\uC2E0\uC740 ThirdBrain\uC758 \uC5F0\uACB0 \uD0D0\uC0C
 \uC0C8\uB85C \uC800\uC7A5\uB41C \uBA85\uC81C\uB4E4\uACFC \uD3F4\uB354 \uC548 \uAE30\uC874 \uB178\uB4DC\uB4E4 \uC0AC\uC774\uC758 \uC5F0\uACB0 \uD6C4\uBCF4\uB97C \uCC3E\uC2B5\uB2C8\uB2E4.
 \uC0AC\uC6A9\uC790\uAC00 \uCE69\uC73C\uB85C \uCD5C\uC885 \uD655\uC815\uD558\uBBC0\uB85C, \uAC00\uB2A5\uC131 \uC788\uB294 \uC5F0\uACB0\uC740 \uC801\uADF9\uC801\uC73C\uB85C \uD3EC\uD568\uD558\uC138\uC694.
 
-\uADDC\uCE59:
-- \uC9C1\uC811 \uC5F0\uACB0(\uB3D9\uC77C \uC8FC\uC81C, \uC778\uACFC, \uC9C0\uC9C0/\uBC18\uBC15)\uACFC \uAC04\uC811 \uC5F0\uACB0(\uC720\uC0AC \uAD6C\uC870, \uB9E5\uB77D \uACF5\uC720) \uBAA8\uB450 \uD3EC\uD568
+${AXIOM_RELATIONS}
+
+\u2605 \uADDC\uCE59
+- \uC9C1\uC811 \uC5F0\uACB0(\uC778\uACFC\xB7\uC9C0\uC9C0\xB7\uBC18\uBC15)\uACFC \uAC04\uC811 \uC5F0\uACB0(\uC720\uC0AC \uAD6C\uC870\xB7\uB9E5\uB77D \uACF5\uC720) \uBAA8\uB450 \uD3EC\uD568
 - \uAC01 \uC0C8 \uBA85\uC81C\uC640 \uAC01 \uAE30\uC874 \uB178\uB4DC\uB97C \uC9DD\uC9C0\uC5B4 \uAC80\uD1A0
-- \uCD5C\uB300 8\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C
-- relation: supports | causes | conflicts_with | exemplifies | applies_to | contrasts_with | precondition_of | isomorphic_to | analogous_to
-- confidence: \uC5F0\uACB0 \uD655\uC2E0\uB3C4 0.0~1.0 (\uC9C1\uC811\xB7\uAC15\uD55C \uC5F0\uACB0=0.9+, \uAC04\uC811\xB7\uB9E5\uB77D \uACF5\uC720=0.5~0.7)
+- \uCD5C\uB300 8\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C. relation\uC740 \uC704 10\uC885 \uC911 \uD558\uB098.
+- confidence: \uC9C1\uC811\xB7\uAC15\uD55C \uC5F0\uACB0=0.9+, \uAC04\uC811\xB7\uB9E5\uB77D \uACF5\uC720=0.5~0.7
+
+${SELFCHECK_BLOCK}
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
 {"connections":[{"new_title":"\uC0C8\uBA85\uC81C\uC81C\uBAA9","existing_title":"\uAE30\uC874\uB178\uB4DC\uC81C\uBAA9","relation":"supports","confidence":0.85,"reason":"\uC5F0\uACB0 \uADFC\uAC70 \uAD6C\uCCB4\uC801\uC73C\uB85C"}]}`;
@@ -2521,12 +2738,17 @@ var GraphStore = class {
     const nodes = await this.loadNodesInFolder(this.settings.rootFolder || "/");
     return detectConflicts(nodes);
   }
+  // [Phase 2] 명제가 미연결인지 판정: 확정 논리 엣지도 없고 소속 토픽(tb_topic)도 없어야 진짜 미연결.
+  // (토픽에 묶여 있으면 그래프상 그룹핑된 상태이므로 "미연결"이 아니다 — membership은 tb_topic 필드)
+  isUnlinkedProp(n) {
+    return n.edges.filter((e) => e.confirmed).length === 0 && !n.topic;
+  }
   // 배지용 — vault 전체 고립 명제 수 빠르게 집계
   async countOrphanPropositions() {
     const allNodes = await this.loadNodesInFolder(this.settings.rootFolder || "/");
     const NON_PROP_TYPES = ["context", "action", "summary", "expression"];
     return allNodes.filter(
-      (n) => !NON_PROP_TYPES.includes(n.type) && !n.folder.split("/").includes("raw") && n.edges.filter((e) => e.confirmed).length === 0
+      (n) => !NON_PROP_TYPES.includes(n.type) && !n.folder.split("/").includes("raw") && this.isUnlinkedProp(n)
     ).length;
   }
   // 특정 폴더 내 고립 명제 스캔 — salience 내림차순, 연결 후보도 같은 폴더에서
@@ -2536,8 +2758,8 @@ var GraphStore = class {
     const propositions = allNodes.filter(
       (n) => !NON_PROP_TYPES.includes(n.type) && !n.folder.split("/").includes("raw")
     );
-    const orphans = propositions.filter((n) => n.edges.filter((e) => e.confirmed).length === 0);
-    const candidates = propositions.filter((n) => n.edges.filter((e) => e.confirmed).length > 0);
+    const orphans = propositions.filter((n) => this.isUnlinkedProp(n));
+    const candidates = propositions.filter((n) => !this.isUnlinkedProp(n));
     const scored = orphans.map((n) => ({ node: n, score: computeNodeSalience(n, allNodes).composite }));
     scored.sort((a2, b) => b.score - a2.score);
     return { orphans: scored.map((s) => s.node), candidates };
@@ -2596,7 +2818,9 @@ var GraphStore = class {
       proposition_type: fm.tb_proposition_type === "fact" ? "fact" : "claim",
       block_id: typeof fm.tb_block_id === "string" ? fm.tb_block_id : void 0,
       heading_path: typeof fm.tb_heading_path === "string" ? fm.tb_heading_path : void 0,
-      raw_path: typeof fm.tb_raw_path === "string" ? fm.tb_raw_path : void 0
+      raw_path: typeof fm.tb_raw_path === "string" ? fm.tb_raw_path : void 0,
+      // tb_topic은 네이티브 그래프 인식용으로 "[[basename]]" 위키링크로 저장됨 → 내부용 basename으로 환원
+      topic: typeof fm.tb_topic === "string" ? fm.tb_topic.replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, "$1").trim() : void 0
     };
   }
   // 새 노드 .md 파일을 vault에 생성
@@ -2769,10 +2993,10 @@ ${body}`;
   /**
    * 명제 배치 생성 — 세션의 모든 Proposition을 한 번에 vault에 저장.
    * 세션 내 LogicEdge는 confirmed=false (미확정) 상태로 tb_edges에 주입.
-   * contextFileMap이 있으면 각 명제에 소속 문맥 노드로의 엣지를 추가한다.
+   * 명제→문맥 auto-edge는 connectContextsToPropositions(view.ts)가 관련성 가드와 함께 담당한다.
    * @returns propositionId → TFile 매핑
    */
-  async createPropositionBatch(propositions, logicEdges, contextTags, sessionFolder, contextFileMap, rawSourcePath) {
+  async createPropositionBatch(propositions, logicEdges, contextTags, sessionFolder, rawSourcePath) {
     const now2 = (/* @__PURE__ */ new Date()).toISOString();
     const titleMap = /* @__PURE__ */ new Map();
     for (const p of propositions)
@@ -2794,17 +3018,6 @@ ${body}`;
         confidence: typeof e.confidence === "number" ? e.confidence : 1,
         axiom_basis: typeof e.axiom_basis === "string" ? e.axiom_basis : ""
       }));
-      if (p.context && contextFileMap?.has(p.context)) {
-        const ctxFile = contextFileMap.get(p.context);
-        outEdges.push({
-          target: `[[${ctxFile.basename}]]`,
-          label: "supports",
-          confirmed: true,
-          reason: `"${p.context}" \uBB38\uB9E5\uC5D0\uC11C \uCD94\uCD9C`,
-          confidence: 1,
-          axiom_basis: "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9 \uC5F0\uACB0"
-        });
-      }
       try {
         const file = await this.createNode({
           id: sanitizeId(p.title),
@@ -2827,6 +3040,12 @@ ${body}`;
       }
     }
     return fileMap;
+  }
+  // [Phase 2] 명제 노드의 소속 토픽(tb_topic) 기입 — membership은 논리 엣지가 아니라 프론트매터 필드
+  async setNodeTopic(file, topicBasename) {
+    await this.app.fileManager.processFrontMatter(file, (fm) => {
+      fm.tb_topic = `[[${topicBasename}]]`;
+    });
   }
   // 유저가 칩 확정 → 프론트매터에 엣지 주입 (2.5차 큐레이션 완료)
   async confirmEdge(sourceFile, edge) {
@@ -2940,6 +3159,8 @@ ${body}`;
       lines.push(`tb_heading_path: "${node.heading_path.replace(/"/g, '\\"')}"`);
     if (node.raw_path)
       lines.push(`tb_raw_path: "${node.raw_path.replace(/"/g, '\\"')}"`);
+    if (node.topic)
+      lines.push(`tb_topic: "[[${node.topic}]]"`);
     const hasConflict = edges.some((e) => e.label === "conflicts_with" && e.confirmed);
     if (hasConflict)
       lines.push("tb_conflict: true");
@@ -3160,6 +3381,63 @@ function sanitizeId(s) {
 }
 function cleanNodeTitle(title) {
   return title.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, " ").trim();
+}
+function isMisassignedContext(propContext, headingPath, allContextTitles) {
+  if (!headingPath || allContextTitles.length <= 1)
+    return false;
+  const firstHeading = headingPath.split(">")[0].trim().toLowerCase();
+  if (!firstHeading)
+    return false;
+  const assigned = propContext.toLowerCase();
+  const assignedMatches = firstHeading.includes(assigned) || assigned.includes(firstHeading);
+  if (assignedMatches)
+    return false;
+  return allContextTitles.some((t) => {
+    if (t === propContext)
+      return false;
+    const tl = t.toLowerCase();
+    return firstHeading.includes(tl) || tl.includes(firstHeading);
+  });
+}
+var GENERIC_CONTEXT_TERMS = /* @__PURE__ */ new Set(["ai", "\uC778\uACF5\uC9C0\uB2A5", "\uAE30\uC220", "\uBAA8\uB378", "\uC11C\uBE44\uC2A4", "\uAE30\uB2A5", "\uACF5\uAC1C"]);
+function contextTerms(ctx) {
+  const rawTerms = [
+    ...ctx.keywords ?? [],
+    ...ctx.tags ?? [],
+    ...ctx.title.split(/[\s/·,]+/)
+  ];
+  return [...new Set(
+    rawTerms.map((t) => t.trim().toLowerCase()).filter((t) => t.length >= 2 && !GENERIC_CONTEXT_TERMS.has(t))
+  )];
+}
+function contextRelevanceScore(propSignal, ctx) {
+  const terms = contextTerms(ctx);
+  if (terms.length === 0)
+    return 1;
+  const hay = propSignal.toLowerCase();
+  const hits = terms.filter((t) => hay.includes(t)).length;
+  return hits / terms.length;
+}
+function bestContextByRelevance(prop, contexts, threshold = 0.1) {
+  const signal = `${prop.title} ${prop.text} ${prop.source_span?.text ?? ""}`;
+  let best = null;
+  let bestScore = threshold;
+  for (const ctx of contexts) {
+    if (contextTerms(ctx).length === 0)
+      continue;
+    const score = contextRelevanceScore(signal, ctx);
+    if (score > bestScore) {
+      bestScore = score;
+      best = ctx;
+    }
+  }
+  return best;
+}
+function shouldLinkContext(prop, ctx, allContextTitles, relevanceThreshold = 0.05) {
+  if (isMisassignedContext(prop.context, prop.heading_path, allContextTitles))
+    return false;
+  const signal = `${prop.title} ${prop.text} ${prop.source_span?.text ?? ""}`;
+  return contextRelevanceScore(signal, ctx) >= relevanceThreshold;
 }
 
 // src/engine/adjacency-tensor.ts
@@ -35567,6 +35845,24 @@ var GraphView = class {
           tn.degree++;
       }
     }
+    for (const n of nodes) {
+      if (!n.topic || n.topic === n.id)
+        continue;
+      const topicSim = simNodeById.get(n.topic);
+      if (!topicSim)
+        continue;
+      this.simLinks.push({
+        source: n.id,
+        target: n.topic,
+        relation: "__topic__",
+        confirmed: true,
+        membership: true
+      });
+      const mn = simNodeById.get(n.id);
+      if (mn)
+        mn.degree++;
+      topicSim.degree++;
+    }
     this.canvas = this.container.createEl("canvas", { cls: "tb-graph-canvas" });
     this.canvas.width = this.w;
     this.canvas.height = this.h;
@@ -35715,10 +36011,12 @@ var GraphView = class {
     this.simulation = simulation_default(this.simNodes).force(
       "link",
       link_default(this.simLinks).id((d) => d.id).distance((d) => {
+        if (d.membership)
+          return 40;
         const src = d.source;
         const tgt = d.target;
         return 55 + Math.sqrt((src.degree + tgt.degree) * 0.5) * 8;
-      }).strength(0.45)
+      }).strength((d) => d.membership ? 0.6 : 0.45)
     ).force(
       "charge",
       manyBody_default().strength((d) => -80 - d.degree * 12).distanceMax(280)
@@ -35816,8 +36114,14 @@ var GraphView = class {
       const tgt = l.target;
       if (src.x == null || tgt.x == null)
         continue;
-      const isActive = !activeRel || activeRel.has(l.relation);
       const isConnected = !hovered || connectedIds.has(src.id) && connectedIds.has(tgt.id);
+      if (l.membership) {
+        ctx.globalAlpha = isConnected ? 0.28 : 0.05;
+        this.drawLine(src.x, src.y ?? 0, tgt.x, tgt.y ?? 0, "#33aa77", true);
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      const isActive = !activeRel || activeRel.has(l.relation);
       let color2 = l.confirmed ? EDGE_COLOR[l.relation] ?? "#999" : "#b8b8b8";
       if (!isActive)
         color2 = "#ddd";
@@ -35873,9 +36177,14 @@ var GraphView = class {
     const maxW = W - startX - 16;
     ctx.font = "11px sans-serif";
     const isKo = this.lang === "ko";
+    const hasMembership = this.simLinks.some((l) => l.membership);
+    const hasUnconfirmed = this.simLinks.some((l) => !l.membership && !l.confirmed);
     const edgeItems = [
       ...this.legendEntries.map((e) => ({ ...e, dashed: false })),
-      { color: "#aaaaaa", label: isKo ? "\uBBF8\uD655\uC778" : "Unconfirmed", dashed: true }
+      // 소속(tb_topic) 점선 — 논리 엣지가 아니라 토픽 멤버십. '미확인'과 구분되도록 별도 범례.
+      ...hasMembership ? [{ color: "#33aa77", label: isKo ? "\uC18C\uC18D" : "Topic", dashed: true }] : [],
+      // 미확정 엣지가 실제로 있을 때만 표시 (파이프라인 엣지는 기본 confirmed:true)
+      ...hasUnconfirmed ? [{ color: "#aaaaaa", label: isKo ? "\uBBF8\uD655\uC778" : "Unconfirmed", dashed: true }] : []
     ];
     const seenLabels = /* @__PURE__ */ new Set();
     const nodeItems = Object.entries(NODE_COLOR).map(([type2, color2]) => ({ color: color2, label: NODE_LABEL[type2]?.[isKo ? "ko" : "en"] ?? type2 })).filter((item) => {
@@ -36007,6 +36316,20 @@ var GraphView = class {
       ctx.fill();
     }
   }
+  // 멤버십(소속) 링크 전용 — 화살촉 없는 단순 선. drawArrow와 달리 방향성 없음.
+  drawLine(x1, y1, x22, y22, color2, dashed) {
+    const ctx = this.ctx;
+    const k = this.transform.k;
+    ctx.beginPath();
+    if (dashed)
+      ctx.setLineDash([1.5 / k, 3 / k]);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x22, y22);
+    ctx.strokeStyle = color2;
+    ctx.lineWidth = 0.9 / k;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   closeNodePopup() {
     this.nodePopupEl?.remove();
     this.nodePopupEl = null;
@@ -36030,6 +36353,11 @@ var GraphView = class {
     for (const l of this.simLinks) {
       const src = l.source;
       const tgt = l.target;
+      if (l.membership) {
+        if (src.id === node.id)
+          edges.push({ dir: "\u2192", title: tgt.title, relation: "\uC18C\uC18D", color: "#33aa77" });
+        continue;
+      }
       if (src.id === node.id) {
         edges.push({ dir: "\u2192", title: tgt.title, relation: l.relation, color: EDGE_COLOR[l.relation] ?? "#999" });
       } else if (tgt.id === node.id) {
@@ -36162,7 +36490,7 @@ ${JSON.stringify(jsonPart, null, 2)}
   }
   async collectEdges(store, nodes) {
     const edges = [];
-    const nodesByWikilink = new Map(nodes.map((n) => [`[[${n.title}]]`, n]));
+    const nodesByWikilink = new Map(nodes.map((n) => [`[[${n.id}]]`, n]));
     for (const node of nodes) {
       if (!node.edges)
         continue;
@@ -36226,6 +36554,39 @@ ${JSON.stringify(jsonPart, null, 2)}
 `;
     }
     md += `
+## Topics (membership)
+`;
+    const byTopic = /* @__PURE__ */ new Map();
+    const noTopic = [];
+    for (const n of nodes) {
+      if (n.type === "context")
+        continue;
+      if (n.topic) {
+        if (!byTopic.has(n.topic))
+          byTopic.set(n.topic, []);
+        byTopic.get(n.topic).push(n);
+      } else {
+        noTopic.push(n);
+      }
+    }
+    const topicTitle = (id2) => nodes.find((t) => t.id === id2)?.title ?? id2;
+    for (const [topicId, members] of byTopic) {
+      md += `
+### ${topicTitle(topicId)} (${members.length})
+`;
+      for (const m2 of members)
+        md += `- ${m2.title}
+`;
+    }
+    if (noTopic.length > 0) {
+      md += `
+### (\uBBF8\uBC30\uC815/\uACE0\uB9BD) (${noTopic.length})
+`;
+      for (const m2 of noTopic)
+        md += `- ${m2.title}
+`;
+    }
+    md += `
 ## Nodes
 
 `;
@@ -36237,17 +36598,22 @@ ${JSON.stringify(jsonPart, null, 2)}
       md += `- **${node.title}** (${node.type}, id: \`${node.id}\`)${content}${tags}
 `;
     }
+    const titleCounts = /* @__PURE__ */ new Map();
+    for (const n of nodes)
+      titleCounts.set(n.title, (titleCounts.get(n.title) ?? 0) + 1);
+    const labelOf = (id2) => {
+      const node = nodes.find((n) => n.id === id2);
+      if (!node)
+        return id2;
+      return (titleCounts.get(node.title) ?? 0) > 1 ? `${node.title} (${node.id})` : node.title;
+    };
     md += `
 ## Edges
 
 `;
     for (const edge of edges) {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      const targetNode = nodes.find((n) => n.id === edge.target);
-      const sourceTitle = sourceNode?.title ?? edge.source;
-      const targetTitle = targetNode?.title ?? edge.target;
       const conf = `${(edge.confidence * 100).toFixed(0)}%`;
-      md += `- **${sourceTitle}** \`${edge.relation}\` **${targetTitle}** (confidence: ${conf})
+      md += `- **${labelOf(edge.source)}** \`${edge.relation}\` **${labelOf(edge.target)}** (confidence: ${conf})
 `;
     }
     return md;
@@ -36317,13 +36683,13 @@ Selected folders contain no nodes.
   static downloadFile(content, filename) {
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const link = activeDocument.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", filename);
     link.className = "tb-hidden-download-link";
-    document.body.appendChild(link);
+    activeDocument.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    activeDocument.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
 };
@@ -36582,6 +36948,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.pipelineModal = null;
+    this.badgeRefreshTimer = null;
     // 전사본 분석 백그라운드 작업 상태 (모달 닫혀도 유지)
     this.transcriptJob = null;
     // 재분석용 문맥 캐시
@@ -36628,9 +36995,15 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.syncIngestBtnState();
     void this.refreshConflictBadge();
     void this.refreshOrphanBadge();
+    this.registerEvent(this.app.vault.on("delete", () => this.scheduleBadgeRefresh()));
+    this.registerEvent(this.app.vault.on("rename", () => this.scheduleBadgeRefresh()));
     this.resultsEl = this.ingestContainer.createEl("div", { cls: "tb-results" });
   }
   async onClose() {
+    if (this.badgeRefreshTimer !== null) {
+      window.clearTimeout(this.badgeRefreshTimer);
+      this.badgeRefreshTimer = null;
+    }
   }
   // ── 헤더 ─────────────────────────────────────────────
   buildHeader(root2) {
@@ -36812,6 +37185,16 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     } catch {
       this.orphanBadgeEl.hide();
     }
+  }
+  // vault 파일 삭제/이름변경 시 배지 갱신 — 대량 삭제 대비 디바운스
+  scheduleBadgeRefresh() {
+    if (this.badgeRefreshTimer !== null)
+      window.clearTimeout(this.badgeRefreshTimer);
+    this.badgeRefreshTimer = window.setTimeout(() => {
+      this.badgeRefreshTimer = null;
+      void this.refreshConflictBadge();
+      void this.refreshOrphanBadge();
+    }, 400);
   }
   handleFileDrop(e) {
     if (this.dropZoneEl.hasClass("tb-dropzone-locked"))
@@ -37021,11 +37404,12 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     if (!this.app.vault.getFolderByPath(rawDir)) {
       await this.app.vault.createFolder(rawDir);
     }
-    const [includeActionLayer, meetingType] = await new Promise((resolve) => {
-      new ContentTypeModal(this.app, (inc, mt) => resolve([inc, mt]), this.plugin.settings.lang).open();
+    const selection2 = await new Promise((resolve) => {
+      new ContentTypeModal(this.app, resolve, this.plugin.settings.lang).open();
     });
-    if (includeActionLayer === null)
+    if (!selection2)
       return;
+    const { contentType, includeActionLayer, meetingType, dialogueSubtype } = selection2;
     const folders = this.getFolderPaths();
     const selectedFolder = await new Promise((resolve) => {
       new SaveFolderModal(this.app, folders, this.plugin.settings.rootFolder, (folder) => {
@@ -37076,14 +37460,14 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
           this.setIngestBusy(true);
           this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t("progress_chunk")}`);
           const isLast = i === chunks.length - 1;
-          const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+          const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype);
           if (res) {
             allRawLinks.push(...res.rawLinks);
             allBlockIdSpans.push(...res.blockIdSpans);
           }
         }
       } else {
-        const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
+        const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype);
         if (res) {
           allRawLinks.push(...res.rawLinks);
           allBlockIdSpans.push(...res.blockIdSpans);
@@ -37105,7 +37489,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     }
   }
   // ── 메인 파이프라인 (Auto vs Architect 모드) ──────
-  async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true, meetingType) {
+  async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true, meetingType, contentType = "document", dialogueSubtype) {
     let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, "") : void 0;
     this.pipelineModal?.close();
     const modal = new PipelineInfoModal(this.app, this.plugin.settings.lang);
@@ -37125,6 +37509,13 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       this.appendStepStat(label, Date.now() - t0, snap);
       return result;
     };
+    let workingText = text;
+    let _speakerNorm = null;
+    if (contentType === "meeting" || contentType === "dialogue") {
+      this.setProgress(1, this.t("progress_normalize"));
+      _speakerNorm = await normalizeSpeakers(text, this.plugin.settings);
+      workingText = _speakerNorm.text;
+    }
     try {
       let contexts;
       if (cachedContexts) {
@@ -37132,7 +37523,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
         this.renderContextLayer(contexts);
       } else {
         this.setProgress(2, this.t("progress_context"));
-        contexts = await timed(this.t("step_context"), () => extractContexts(text, this.plugin.settings));
+        contexts = await timed(this.t("step_context"), () => extractContexts(workingText, this.plugin.settings));
         if (contexts.length === 0) {
           contexts = [{
             id: `ctx-fallback-${Date.now().toString(36)}`,
@@ -37159,7 +37550,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       try {
         propositions = await timed(
           this.t("step_proposition"),
-          () => extractPropositions(contexts, text, this.plugin.settings)
+          () => extractPropositions(contexts, workingText, this.plugin.settings, contentType, dialogueSubtype)
         );
       } catch (propErr) {
         const diagMsg = propErr instanceof Error ? propErr.message : String(propErr);
@@ -37179,7 +37570,10 @@ ${diagMsg}`
         this.t("step_edge"),
         () => extractEdges(propositions, contexts, [], this.plugin.settings)
       );
-      const logic = { propositions, edges: rawEdges };
+      const contrastEdges = await findContrastsAnalogies(propositions, this.plugin.settings);
+      const edgeKeys = new Set(rawEdges.map((e) => `${e.source}\u2192${e.target}`));
+      const mergedEdges = [...rawEdges, ...contrastEdges.filter((e) => !edgeKeys.has(`${e.source}\u2192${e.target}`))];
+      const logic = { propositions, edges: mergedEdges };
       this.hideProgress();
       this.setIngestBusy(false);
       this.renderLogicLayer(logic);
@@ -37529,11 +37923,10 @@ ${diagMsg}`
       logic.edges,
       contextTags,
       targetFolder,
-      contextFileMap,
       rawSourcePath
     );
     const allFiles = [...contextFileMap.values(), ...propFileMap.values()];
-    await this.connectContextsToPropositions(
+    await this.assignTopicMembership(
       contexts,
       logic.propositions,
       contextFileMap,
@@ -37866,43 +38259,25 @@ ${diagMsg}`
   }
   // ── Context ↔ Proposition 후생성 ───────────────────────
   /**
-   * 저장된 Context와 Proposition 노드들을 연결
-   * - 명제의 context 필드 기반: context → proposition (정보 제공)
-   * - 역방향: proposition → context (뒷받침)
-   * - 크로스-컨텍스트도 자유롭게 연결
+   * [Phase 2] 저장된 Proposition 노드에 소속 토픽(tb_topic)을 기입한다.
+   * membership을 논리 엣지(precondition_of/supports)가 아니라 프론트매터 필드로 표현하여
+   * 논리 그래프에는 10공리만 남긴다. 가드/구제는 "어느 토픽인지" 판정에만 사용.
+   * (PROMPT-ARCHITECTURE.md — 레이어 분리)
    */
-  async connectContextsToPropositions(contexts, propositions, contextFileMap, propFileMap) {
+  async assignTopicMembership(contexts, propositions, contextFileMap, propFileMap) {
     for (const prop of propositions) {
       const propFile = propFileMap.get(prop.id);
       if (!propFile)
         continue;
-      if (prop.context) {
-        const ctxFile = contextFileMap.get(prop.context);
-        if (ctxFile) {
-          await this.store.confirmEdge(ctxFile, {
-            target: `[[${propFile.basename}]]`,
-            label: "precondition_of",
-            confirmed: true,
-            reason: `\uC774 \uBB38\uB9E5\uC5D0\uC11C \uCD94\uCD9C\uB41C \uBA85\uC81C`,
-            confidence: 1,
-            axiom_basis: "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9 \uC5F0\uACB0"
-          });
-          await this.store.confirmEdge(propFile, {
-            target: `[[${ctxFile.basename}]]`,
-            label: "supports",
-            confirmed: true,
-            reason: `"${prop.context}" \uBB38\uB9E5\uC758 \uADFC\uAC70`,
-            confidence: 1,
-            axiom_basis: "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9 \uC5F0\uACB0"
-          });
-        }
+      const ctxLayer = prop.context ? contexts.find((c2) => c2.title === prop.context) : void 0;
+      const canAssign = !!prop.context && (!ctxLayer ? !isMisassignedContext(prop.context, prop.heading_path, contexts.map((c2) => c2.title)) : shouldLinkContext(prop, ctxLayer, contexts.map((c2) => c2.title)));
+      let topicFile = canAssign ? contextFileMap.get(prop.context) : void 0;
+      if (!topicFile) {
+        const best = bestContextByRelevance(prop, contexts);
+        topicFile = best ? contextFileMap.get(best.title) : void 0;
       }
-      for (const ctx of contexts) {
-        if (ctx.title === prop.context)
-          continue;
-        const ctxFile = contextFileMap.get(ctx.title);
-        if (!ctxFile)
-          continue;
+      if (topicFile && topicFile.basename !== propFile.basename) {
+        await this.store.setNodeTopic(propFile, topicFile.basename);
       }
     }
   }
@@ -39069,11 +39444,11 @@ var ContentTypeModal = class extends import_obsidian5.Modal {
   t(key) {
     return getT(this.lang)(key);
   }
-  resolve(value, meetingType) {
+  resolve(result) {
     if (this.resolved)
       return;
     this.resolved = true;
-    this.onSelect(value, meetingType);
+    this.onSelect(result);
   }
   onOpen() {
     this.modalEl.addClass("tb-popup");
@@ -39085,17 +39460,26 @@ var ContentTypeModal = class extends import_obsidian5.Modal {
     contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_title") });
     contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_content_type_sub") });
     const row = contentEl.createEl("div", { cls: "tb-content-type-modal-row" });
-    const btnInfo = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_info") });
-    const btnAction = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_action") });
-    btnInfo.addEventListener("click", () => {
-      this.resolve(false);
+    const btnDoc = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_document") });
+    btnDoc.addEventListener("click", () => {
+      this.resolve({ contentType: "document", includeActionLayer: false });
       this.close();
     });
-    btnAction.addEventListener("click", () => {
-      this.renderSubtypeScreen();
+    const btnLecture = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_lecture") });
+    btnLecture.addEventListener("click", () => {
+      this.resolve({ contentType: "lecture", includeActionLayer: false });
+      this.close();
+    });
+    const btnMeeting = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_meeting") });
+    btnMeeting.addEventListener("click", () => {
+      this.renderMeetingSubtypeScreen();
+    });
+    const btnDialogue = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_dialogue") });
+    btnDialogue.addEventListener("click", () => {
+      this.renderDialogueSubtypeScreen();
     });
   }
-  renderSubtypeScreen() {
+  renderMeetingSubtypeScreen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_subtype_title") });
@@ -39109,7 +39493,30 @@ var ContentTypeModal = class extends import_obsidian5.Modal {
     for (const { key, val } of types) {
       const btn = row.createEl("button", { cls: "tb-content-type-btn", text: this.t(key) });
       btn.addEventListener("click", () => {
-        this.resolve(true, val);
+        this.resolve({ contentType: "meeting", includeActionLayer: true, meetingType: val });
+        this.close();
+      });
+    }
+    const backBtn = contentEl.createEl("button", { cls: "tb-btn tb-content-type-back-btn", text: "\u2190 \uB4A4\uB85C" });
+    backBtn.addEventListener("click", () => {
+      this.renderTypeScreen();
+    });
+  }
+  renderDialogueSubtypeScreen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_dialogue") });
+    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_content_type_dialogue_sub") });
+    const row = contentEl.createEl("div", { cls: "tb-content-type-modal-row" });
+    const types = [
+      { key: "modal_content_type_dialogue_english", val: "english_conversation" },
+      { key: "modal_content_type_dialogue_call", val: "phone_call" },
+      { key: "modal_content_type_dialogue_interview", val: "interview" }
+    ];
+    for (const { key, val } of types) {
+      const btn = row.createEl("button", { cls: "tb-content-type-btn", text: this.t(key) });
+      btn.addEventListener("click", () => {
+        this.resolve({ contentType: "dialogue", includeActionLayer: false, dialogueSubtype: val });
         this.close();
       });
     }

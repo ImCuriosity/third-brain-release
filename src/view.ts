@@ -10,14 +10,16 @@ import {
 	extractContexts,
 	extractPropositions,
 	extractEdges,
+	findContrastsAnalogies,
+	normalizeSpeakers,
 	bridgeFolders,
 	summarizeFolder,
 	recommendTransplantEdges,
 	findCrossConnections,
 } from './engine/serial-pipeline';
-import type { FolderDigestNode, CrossConnection } from './engine/serial-pipeline';
+import type { FolderDigestNode, CrossConnection, SpeakerNormResult } from './engine/serial-pipeline';
 import { callClaudeWithModel, getSessionStats, setRequestUrl } from './engine/cli-bridge';
-import { GraphStore } from './engine/graph-store';
+import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance } from './engine/graph-store';
 import type { TBFrontMatter } from './engine/graph-store';
 import { buildTensor, findPath, findTransitivePaths, addNodeToTensor } from './engine/adjacency-tensor';
 import { detectConflicts } from './engine/contradiction-engine';
@@ -48,6 +50,8 @@ import type {
 	ActionNode,
 	ActionStatus,
 	MeetingType,
+	ContentType,
+	DialogueSubtype,
 	ThirdBrainSettings,
 } from './types';
 
@@ -106,6 +110,7 @@ export class ThirdBrainView extends ItemView {
 	private resultsEl!: HTMLElement;
 	private conflictBadgeEl!: HTMLElement;
 	private orphanBadgeEl!: HTMLElement;
+	private badgeRefreshTimer: number | null = null;
 	private dropZoneEl!: HTMLElement;
 	private fileBtnEl!: HTMLButtonElement;
 	private fileInputEl!: HTMLInputElement;
@@ -153,10 +158,16 @@ export class ThirdBrainView extends ItemView {
 		void this.refreshConflictBadge();
 		void this.refreshOrphanBadge();
 
+		// 노드 파일 삭제 시 배지 갱신 — 유저가 그래프를 지우면 미해소 모순/미연결 명제 카운트도 즉시 반영
+		this.registerEvent(this.app.vault.on('delete', () => this.scheduleBadgeRefresh()));
+		this.registerEvent(this.app.vault.on('rename', () => this.scheduleBadgeRefresh()));
+
 		this.resultsEl = this.ingestContainer.createEl('div', { cls: 'tb-results' });
 	}
 
-	async onClose() { /* no-op */ }
+	async onClose() {
+		if (this.badgeRefreshTimer !== null) { window.clearTimeout(this.badgeRefreshTimer); this.badgeRefreshTimer = null; }
+	}
 
 	// ── 헤더 ─────────────────────────────────────────────
 
@@ -357,6 +368,16 @@ export class ThirdBrainView extends ItemView {
 		} catch {
 			this.orphanBadgeEl.hide();
 		}
+	}
+
+	// vault 파일 삭제/이름변경 시 배지 갱신 — 대량 삭제 대비 디바운스
+	private scheduleBadgeRefresh(): void {
+		if (this.badgeRefreshTimer !== null) window.clearTimeout(this.badgeRefreshTimer);
+		this.badgeRefreshTimer = window.setTimeout(() => {
+			this.badgeRefreshTimer = null;
+			void this.refreshConflictBadge();
+			void this.refreshOrphanBadge();
+		}, 400);
 	}
 
 	private handleFileDrop(e: DragEvent) {
@@ -598,10 +619,11 @@ export class ThirdBrainView extends ItemView {
 		}
 
 		// Step 1: 콘텐츠 타입 선택
-		const [includeActionLayer, meetingType] = await new Promise<[boolean | null, MeetingType | undefined]>((resolve) => {
-			new ContentTypeModal(this.app, (inc, mt) => resolve([inc, mt]), this.plugin.settings.lang).open();
+		const selection = await new Promise<ContentTypeSelection | null>((resolve) => {
+			new ContentTypeModal(this.app, resolve, this.plugin.settings.lang).open();
 		});
-		if (includeActionLayer === null) return;
+		if (!selection) return;
+		const { contentType, includeActionLayer, meetingType, dialogueSubtype } = selection;
 
 		// Step 2: 저장할 폴더 선택
 		const folders = this.getFolderPaths();
@@ -676,11 +698,11 @@ export class ThirdBrainView extends ItemView {
 					this.setIngestBusy(true);
 					this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
 					const isLast = i === chunks.length - 1;
-					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType);
+					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype);
 					if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 				}
 			} else {
-				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType);
+				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype);
 				if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 			}
 
@@ -710,7 +732,9 @@ export class ThirdBrainView extends ItemView {
 		rawFile?: TFile,
 		needsAutoTitle = false,
 		isLastChunk = true,
-		meetingType?: MeetingType
+		meetingType?: MeetingType,
+		contentType: ContentType = 'document',
+		dialogueSubtype?: DialogueSubtype,
 	) {
 		let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, '') : undefined;
 
@@ -738,6 +762,15 @@ export class ThirdBrainView extends ItemView {
 			return result;
 		};
 
+		// 0.5차: 화자 정규화 (회의/대화 전용, 첫 청크에만 표시)
+		let workingText = text;
+		let _speakerNorm: SpeakerNormResult | null = null;
+		if (contentType === 'meeting' || contentType === 'dialogue') {
+			this.setProgress(1, this.t('progress_normalize'));
+			_speakerNorm = await normalizeSpeakers(text, this.plugin.settings);
+			workingText = _speakerNorm.text;
+		}
+
 		try {
 			// 1차: 문맥 분절
 			let contexts: ContextLayer[];
@@ -746,7 +779,7 @@ export class ThirdBrainView extends ItemView {
 				this.renderContextLayer(contexts);
 			} else {
 				this.setProgress(2, this.t('progress_context'));
-				contexts = await timed(this.t('step_context'), () => extractContexts(text, this.plugin.settings));
+				contexts = await timed(this.t('step_context'), () => extractContexts(workingText, this.plugin.settings));
 				if (contexts.length === 0) {
 					contexts = [{
 						id: `ctx-fallback-${Date.now().toString(36)}`,
@@ -776,7 +809,7 @@ export class ThirdBrainView extends ItemView {
 			let propositions: Awaited<ReturnType<typeof extractPropositions>>;
 			try {
 				propositions = await timed(this.t('step_proposition'),
-					() => extractPropositions(contexts, text, this.plugin.settings));
+					() => extractPropositions(contexts, workingText, this.plugin.settings, contentType, dialogueSubtype));
 			} catch (propErr) {
 				const diagMsg = propErr instanceof Error ? propErr.message : String(propErr);
 				new Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + ' ' : ''}명제 추출 실패\n${diagMsg}`, 15000);
@@ -793,7 +826,14 @@ export class ThirdBrainView extends ItemView {
 			this.setProgress(6, this.t('progress_edge'));
 			const rawEdges = await timed(this.t('step_edge'),
 				() => extractEdges(propositions, contexts, [], this.plugin.settings));
-			const logic: LogicLayer = { propositions, edges: rawEdges };
+
+			// Layer 3: 대조·유사성 전용 스캔 (contrasts_with / analogous_to)
+			const contrastEdges = await findContrastsAnalogies(propositions, this.plugin.settings);
+			// 중복 제거 후 병합
+			const edgeKeys = new Set(rawEdges.map(e => `${e.source}→${e.target}`));
+			const mergedEdges = [...rawEdges, ...contrastEdges.filter(e => !edgeKeys.has(`${e.source}→${e.target}`))];
+
+			const logic: LogicLayer = { propositions, edges: mergedEdges };
 			this.hideProgress();
 			this.setIngestBusy(false);
 
@@ -1189,15 +1229,15 @@ export class ThirdBrainView extends ItemView {
 		// 1) 문맥 레이어 먼저 저장 (rawSourcePath 전달 → context 노드 본문에 원본 위키링크 삽입)
 		const contextFileMap = await this.store.createContextBatch(contexts, targetFolder, rawSourcePath);
 
-		// 2) 명제 저장 (각 명제 → 소속 문맥 방향 supports 엣지 포함)
+		// 2) 명제 저장 (명제↔문맥 엣지는 아래 connectContextsToPropositions에서 관련성 가드와 함께 생성)
 		const propFileMap = await this.store.createPropositionBatch(
-			logic.propositions, logic.edges, contextTags, targetFolder, contextFileMap, rawSourcePath
+			logic.propositions, logic.edges, contextTags, targetFolder, rawSourcePath
 		);
 
 		const allFiles = [...contextFileMap.values(), ...propFileMap.values()];
 
-		// Context ↔ Proposition 엣지 생성
-		await this.connectContextsToPropositions(
+		// [Phase 2] 명제에 소속 토픽(tb_topic) 기입 (membership — 논리 엣지 아님)
+		await this.assignTopicMembership(
 			contexts, logic.propositions, contextFileMap, propFileMap
 		);
 
@@ -1558,12 +1598,12 @@ export class ThirdBrainView extends ItemView {
 	// ── Context ↔ Proposition 후생성 ───────────────────────
 
 	/**
-	 * 저장된 Context와 Proposition 노드들을 연결
-	 * - 명제의 context 필드 기반: context → proposition (정보 제공)
-	 * - 역방향: proposition → context (뒷받침)
-	 * - 크로스-컨텍스트도 자유롭게 연결
+	 * [Phase 2] 저장된 Proposition 노드에 소속 토픽(tb_topic)을 기입한다.
+	 * membership을 논리 엣지(precondition_of/supports)가 아니라 프론트매터 필드로 표현하여
+	 * 논리 그래프에는 10공리만 남긴다. 가드/구제는 "어느 토픽인지" 판정에만 사용.
+	 * (PROMPT-ARCHITECTURE.md — 레이어 분리)
 	 */
-	private async connectContextsToPropositions(
+	private async assignTopicMembership(
 		contexts: ContextLayer[],
 		propositions: Proposition[],
 		contextFileMap: Map<string, TFile>,
@@ -1573,42 +1613,25 @@ export class ThirdBrainView extends ItemView {
 			const propFile = propFileMap.get(prop.id);
 			if (!propFile) continue;
 
-			// Step 1: 명제의 context 필드가 있으면 해당 Context와 연결
-			if (prop.context) {
-				const ctxFile = contextFileMap.get(prop.context);
-				if (ctxFile) {
-					// context → proposition: precondition_of (문맥이 명제의 존재 전제)
-					await this.store.confirmEdge(ctxFile, {
-						target: `[[${propFile.basename}]]`,
-						label: 'precondition_of',
-						confirmed: true,
-						reason: `이 문맥에서 추출된 명제`,
-						confidence: 1.0,
-						axiom_basis: '파이프라인 자동 연결',
-					});
+			// Step 1: AI 배정 토픽 — 관련성 가드 통과 시에만 채택
+			// [Bug #2] hub 오염 방지: 배정 토픽과 의미 관련성이 낮으면(heading_path 오배정 포함) 배정하지 않음.
+			const ctxLayer = prop.context ? contexts.find(c => c.title === prop.context) : undefined;
+			const canAssign = !!prop.context && (
+				!ctxLayer // ContextLayer 조회 실패 시엔 판정 근거 없음 → 기존 동작대로 배정
+					? !isMisassignedContext(prop.context, prop.heading_path, contexts.map(c => c.title))
+					: shouldLinkContext(prop, ctxLayer, contexts.map(c => c.title))
+			);
+			let topicFile = canAssign ? contextFileMap.get(prop.context) : undefined;
 
-					// proposition → context: supports (문맥을 뒷받침)
-					await this.store.confirmEdge(propFile, {
-						target: `[[${ctxFile.basename}]]`,
-						label: 'supports',
-						confirmed: true,
-						reason: `"${prop.context}" 문맥의 근거`,
-						confidence: 1.0,
-						axiom_basis: '파이프라인 자동 연결',
-					});
-				}
+			// Step 2: 고립 구제 — 배정 실패 시 관련성 최고 토픽으로 재배정 (없으면 미배정 → 미연결 명제 린팅이 처리)
+			if (!topicFile) {
+				const best = bestContextByRelevance(prop, contexts);
+				topicFile = best ? contextFileMap.get(best.title) : undefined;
 			}
 
-			// Step 2: 모든 Context에 대해 연결 검토
-			// (명제가 다른 context와도 관련 있을 수 있음)
-			for (const ctx of contexts) {
-				if (ctx.title === prop.context) continue; // Step 1에서 처리함
-
-				const ctxFile = contextFileMap.get(ctx.title);
-				if (!ctxFile) continue;
-
-				// 크로스-컨텍스트 연결은 추후 분석 단계에서 처리
-				// (여기서는 명제의 문맥 필드만 기반)
+			// tb_topic = 토픽 노드 basename (엣지의 [[basename]]과 동일 규약 → 뷰/exporter 매칭 robust)
+			if (topicFile && topicFile.basename !== propFile.basename) {
+				await this.store.setNodeTopic(propFile, topicFile.basename);
 			}
 		}
 	}
@@ -2932,13 +2955,20 @@ class BridgeResultModal extends Modal {
 
 // ── 콘텐츠 타입 선택 모달 ────────────────────────────────
 
+interface ContentTypeSelection {
+	contentType: ContentType;
+	includeActionLayer: boolean;
+	meetingType?: MeetingType;
+	dialogueSubtype?: DialogueSubtype;
+}
+
 class ContentTypeModal extends Modal {
 	private resolved = false;
 	private lang: Lang;
 
 	constructor(
 		app: App,
-		private onSelect: (includeAction: boolean | null, meetingType?: MeetingType) => void,
+		private onSelect: (result: ContentTypeSelection | null) => void,
 		lang?: Lang
 	) {
 		super(app);
@@ -2947,10 +2977,10 @@ class ContentTypeModal extends Modal {
 
 	private t(key: TKey): string { return getT(this.lang)(key); }
 
-	private resolve(value: boolean | null, meetingType?: MeetingType) {
+	private resolve(result: ContentTypeSelection | null) {
 		if (this.resolved) return;
 		this.resolved = true;
-		this.onSelect(value, meetingType);
+		this.onSelect(result);
 	}
 
 	onOpen() {
@@ -2965,14 +2995,31 @@ class ContentTypeModal extends Modal {
 		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_sub') });
 
 		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
-		const btnInfo = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_info') });
-		const btnAction = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_action') });
 
-		btnInfo.addEventListener('click', () => { this.resolve(false); this.close(); });
-		btnAction.addEventListener('click', () => { this.renderSubtypeScreen(); });
+		// 정보/문서
+		const btnDoc = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_document') });
+		btnDoc.addEventListener('click', () => {
+			this.resolve({ contentType: 'document', includeActionLayer: false });
+			this.close();
+		});
+
+		// 강의
+		const btnLecture = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_lecture') });
+		btnLecture.addEventListener('click', () => {
+			this.resolve({ contentType: 'lecture', includeActionLayer: false });
+			this.close();
+		});
+
+		// 회의
+		const btnMeeting = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_meeting') });
+		btnMeeting.addEventListener('click', () => { this.renderMeetingSubtypeScreen(); });
+
+		// 대화
+		const btnDialogue = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_dialogue') });
+		btnDialogue.addEventListener('click', () => { this.renderDialogueSubtypeScreen(); });
 	}
 
-	private renderSubtypeScreen() {
+	private renderMeetingSubtypeScreen() {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_subtype_title') });
@@ -2986,7 +3033,34 @@ class ContentTypeModal extends Modal {
 		];
 		for (const { key, val } of types) {
 			const btn = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t(key) });
-			btn.addEventListener('click', () => { this.resolve(true, val); this.close(); });
+			btn.addEventListener('click', () => {
+				this.resolve({ contentType: 'meeting', includeActionLayer: true, meetingType: val });
+				this.close();
+			});
+		}
+
+		const backBtn = contentEl.createEl('button', { cls: 'tb-btn tb-content-type-back-btn', text: '← 뒤로' });
+		backBtn.addEventListener('click', () => { this.renderTypeScreen(); });
+	}
+
+	private renderDialogueSubtypeScreen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_dialogue') });
+		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_dialogue_sub') });
+
+		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
+		const types: Array<{ key: TKey; val: DialogueSubtype }> = [
+			{ key: 'modal_content_type_dialogue_english',   val: 'english_conversation' },
+			{ key: 'modal_content_type_dialogue_call',      val: 'phone_call' },
+			{ key: 'modal_content_type_dialogue_interview', val: 'interview' },
+		];
+		for (const { key, val } of types) {
+			const btn = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t(key) });
+			btn.addEventListener('click', () => {
+				this.resolve({ contentType: 'dialogue', includeActionLayer: false, dialogueSubtype: val });
+				this.close();
+			});
 		}
 
 		const backBtn = contentEl.createEl('button', { cls: 'tb-btn tb-content-type-back-btn', text: '← 뒤로' });

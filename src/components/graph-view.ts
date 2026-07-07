@@ -16,6 +16,7 @@ interface SimNode extends d3.SimulationNodeDatum {
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
 	relation: string;
 	confirmed: boolean;
+	membership?: boolean;  // [Phase 2d] tb_topic 소속 — 논리 엣지 아님(렌더/클러스터 전용)
 }
 
 // ── 엣지 타입별 색상 (10종 공리) ─────────────────────────
@@ -141,6 +142,24 @@ export class GraphView {
 				if (sn) sn.degree++;
 				if (tn) tn.degree++;
 			}
+		}
+		// ── 토픽 멤버십 링크 (tb_topic) ──────────────────
+		// 논리 엣지(10공리)가 아니라 소속 관계. 렌더/클러스터링 전용으로만 그린다.
+		// 이게 없으면 context 노드와 논리 고립 claim이 화면에서 붕 떠 보인다.
+		for (const n of nodes) {
+			if (!n.topic || n.topic === n.id) continue;
+			const topicSim = simNodeById.get(n.topic);
+			if (!topicSim) continue;   // 현재 표시 집합에 토픽 노드가 없으면 스킵
+			this.simLinks.push({
+				source: n.id,
+				target: n.topic,
+				relation: '__topic__',
+				confirmed: true,
+				membership: true,
+			});
+			const mn = simNodeById.get(n.id);
+			if (mn) mn.degree++;
+			topicSim.degree++;
 		}
 		void idMap;
 
@@ -308,12 +327,14 @@ export class GraphView {
 				d3.forceLink<SimNode, SimLink>(this.simLinks)
 					.id(d => d.id)
 					.distance((d) => {
+						// 멤버십 링크는 짧게 — 토픽 주변에 멤버가 바싹 모이게
+						if (d.membership) return 40;
 						// 고차수 노드끼리는 조금 더 멀리 — 허브가 중앙으로
 						const src = d.source as SimNode;
 						const tgt = d.target as SimNode;
 						return 55 + Math.sqrt((src.degree + tgt.degree) * 0.5) * 8;
 					})
-					.strength(0.45))
+					.strength((d) => (d.membership ? 0.6 : 0.45)))
 			.force('charge',
 				d3.forceManyBody<SimNode>()
 					.strength(d => -80 - d.degree * 12)
@@ -410,9 +431,17 @@ export class GraphView {
 			const tgt = l.target as SimNode;
 			if (src.x == null || tgt.x == null) continue;
 
-			const isActive = !activeRel || activeRel.has(l.relation);
 			const isConnected = !hovered || (connectedIds.has(src.id) && connectedIds.has(tgt.id));
 
+			// 멤버십 링크: 화살표 없는 옅은 점선(소속 표시). 관계 필터의 영향 안 받음.
+			if (l.membership) {
+				ctx.globalAlpha = isConnected ? 0.28 : 0.05;
+				this.drawLine(src.x, src.y ?? 0, tgt.x, tgt.y ?? 0, '#33aa77', true);
+				ctx.globalAlpha = 1;
+				continue;
+			}
+
+			const isActive = !activeRel || activeRel.has(l.relation);
 			let color = l.confirmed ? (EDGE_COLOR[l.relation] ?? '#999') : '#b8b8b8';
 			if (!isActive) color = '#ddd';
 
@@ -477,9 +506,14 @@ export class GraphView {
 		ctx.font = '11px sans-serif';
 
 		const isKo = this.lang === 'ko';
+		const hasMembership = this.simLinks.some(l => l.membership);
+		const hasUnconfirmed = this.simLinks.some(l => !l.membership && !l.confirmed);
 		const edgeItems = [
 			...this.legendEntries.map(e => ({ ...e, dashed: false })),
-			{ color: '#aaaaaa', label: isKo ? '미확인' : 'Unconfirmed', dashed: true },
+			// 소속(tb_topic) 점선 — 논리 엣지가 아니라 토픽 멤버십. '미확인'과 구분되도록 별도 범례.
+			...(hasMembership ? [{ color: '#33aa77', label: isKo ? '소속' : 'Topic', dashed: true }] : []),
+			// 미확정 엣지가 실제로 있을 때만 표시 (파이프라인 엣지는 기본 confirmed:true)
+			...(hasUnconfirmed ? [{ color: '#aaaaaa', label: isKo ? '미확인' : 'Unconfirmed', dashed: true }] : []),
 		];
 		// 중복 라벨 제거 — 명제 계열은 하나로 표시
 		const seenLabels = new Set<string>();
@@ -628,6 +662,21 @@ export class GraphView {
 		}
 	}
 
+	// 멤버십(소속) 링크 전용 — 화살촉 없는 단순 선. drawArrow와 달리 방향성 없음.
+	private drawLine(x1: number, y1: number, x2: number, y2: number, color: string, dashed: boolean): void {
+		const ctx = this.ctx;
+		const k = this.transform.k;
+		ctx.beginPath();
+		// 촘촘한 점 패턴 — '미확인'(긴 대시)과 시각적으로 구분되는 '소속' 전용 스타일
+		if (dashed) ctx.setLineDash([1.5 / k, 3 / k]);
+		ctx.moveTo(x1, y1);
+		ctx.lineTo(x2, y2);
+		ctx.strokeStyle = color;
+		ctx.lineWidth = 0.9 / k;
+		ctx.stroke();
+		ctx.setLineDash([]);
+	}
+
 	private closeNodePopup(): void {
 		this.nodePopupEl?.remove();
 		this.nodePopupEl = null;
@@ -656,6 +705,11 @@ export class GraphView {
 		for (const l of this.simLinks) {
 			const src = l.source as SimNode;
 			const tgt = l.target as SimNode;
+			// 멤버십 링크는 방향 무관 '소속' 표시(초록). 논리 엣지와 구분.
+			if (l.membership) {
+				if (src.id === node.id) edges.push({ dir: '→', title: tgt.title, relation: '소속', color: '#33aa77' });
+				continue;
+			}
 			if (src.id === node.id) {
 				edges.push({ dir: '→', title: tgt.title, relation: l.relation, color: EDGE_COLOR[l.relation] ?? '#999' });
 			} else if (tgt.id === node.id) {
