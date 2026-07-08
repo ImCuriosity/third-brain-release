@@ -12,12 +12,13 @@ import {
 	extractEdges,
 	findContrastsAnalogies,
 	normalizeSpeakers,
+	identifySpeakerRoster,
 	bridgeFolders,
 	summarizeFolder,
 	recommendTransplantEdges,
 	findCrossConnections,
 } from './engine/serial-pipeline';
-import type { FolderDigestNode, CrossConnection, SpeakerNormResult } from './engine/serial-pipeline';
+import type { FolderDigestNode, CrossConnection, SpeakerNormResult, SpeakerRoster } from './engine/serial-pipeline';
 import { callClaudeWithModel, getSessionStats, setRequestUrl } from './engine/cli-bridge';
 import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance } from './engine/graph-store';
 import type { TBFrontMatter } from './engine/graph-store';
@@ -599,7 +600,12 @@ export class ThirdBrainView extends ItemView {
 		this.setIngestBusy(true);
 		this.resultsEl.empty();
 		this.stepLogEl?.empty();
-		await this.runPipeline(content, undefined, targetFolder);
+		try {
+			await this.runPipeline(content, undefined, targetFolder);
+		} finally {
+			// runPipeline은 성공 경로에서 busy를 끄지 않으므로 여기서 보장 해제
+			this.setIngestBusy(false);
+		}
 	}
 
 	// ── 인제스트 진입점 ───────────────────────────────────
@@ -692,17 +698,25 @@ export class ThirdBrainView extends ItemView {
 		const allBlockIdSpans: Array<{ blockId: string; spanText: string }> = [];
 
 		try {
+			// 화자 정체성은 청크 경계를 넘어 일관돼야 한다 → 청킹 전에 전체 텍스트로 화자 명단을 1회 확정.
+			// 확정된 로스터를 각 청크 정규화에 주입해 라벨이 조각나지 않게 한다.
+			let speakerRoster: SpeakerRoster | undefined;
+			if (contentType === 'meeting' || contentType === 'dialogue') {
+				this.setProgress(1, this.t('progress_normalize'));
+				speakerRoster = await identifySpeakerRoster(text, this.plugin.settings);
+			}
+
 			if (text.length > CHUNK_SIZE) {
 				const chunks = splitIntoChunks(text, CHUNK_SIZE);
 				for (let i = 0; i < chunks.length; i++) {
 					this.setIngestBusy(true);
 					this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
 					const isLast = i === chunks.length - 1;
-					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype);
+					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype, speakerRoster);
 					if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 				}
 			} else {
-				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype);
+				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype, speakerRoster);
 				if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
 			}
 
@@ -716,6 +730,9 @@ export class ThirdBrainView extends ItemView {
 				}
 			}
 		} catch {
+			// 파이프라인 오류는 downstream에서 이미 Notice 처리됨 — 여기선 삼킴
+		} finally {
+			// 성공·실패 모두 전체 파이프라인(⑨ 크로스 연결 포함)이 끝난 뒤에만 busy 해제
 			this.hideProgress();
 			this.setIngestBusy(false);
 		}
@@ -735,6 +752,7 @@ export class ThirdBrainView extends ItemView {
 		meetingType?: MeetingType,
 		contentType: ContentType = 'document',
 		dialogueSubtype?: DialogueSubtype,
+		speakerRoster?: SpeakerRoster,
 	) {
 		let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, '') : undefined;
 
@@ -762,12 +780,12 @@ export class ThirdBrainView extends ItemView {
 			return result;
 		};
 
-		// 0.5차: 화자 정규화 (회의/대화 전용, 첫 청크에만 표시)
+		// 0.5차: 화자 정규화 (회의/대화 전용) — 청킹 전에 확정한 전역 로스터를 주입해 라벨 일관성 보장
 		let workingText = text;
 		let _speakerNorm: SpeakerNormResult | null = null;
 		if (contentType === 'meeting' || contentType === 'dialogue') {
 			this.setProgress(1, this.t('progress_normalize'));
-			_speakerNorm = await normalizeSpeakers(text, this.plugin.settings);
+			_speakerNorm = await normalizeSpeakers(text, this.plugin.settings, speakerRoster);
 			workingText = _speakerNorm.text;
 		}
 
@@ -835,13 +853,10 @@ export class ThirdBrainView extends ItemView {
 
 			const logic: LogicLayer = { propositions, edges: mergedEdges };
 			this.hideProgress();
-			this.setIngestBusy(false);
+			// busy는 여기서 끄지 않는다 — 저장·액션·⑨ 크로스 연결까지 파이프라인이 이어지므로
+			// 전체 완료(runIngest finally)까지 유지해야 그동안 버튼이 열리지 않는다.
 
 			this.renderLogicLayer(logic);
-
-			// 폴더 브리지는 별도 기능으로 분리 (generateEdgeCandidates 제거)
-			this.hideProgress();
-			this.setIngestBusy(false);
 
 			// targetFolder가 있으면 자동 저장 (중복 저장 방지)
 			if (targetFolder) {
@@ -867,13 +882,12 @@ export class ThirdBrainView extends ItemView {
 					}
 
 					// Phase 8: 액션 레이어 추출 (회의·일정 선택 시에만)
+					// 명제 우선(토픽 내 종합)으로 도출 — 명제는 이미 화자 정규화본에서 나온 정제 소스.
 					if (includeActionLayer) {
 						this.setProgress(9, this.t('progress_action'));
 						await this.extractAndSaveActions(
-							text,
 							logic.propositions,
 							contexts,
-							contextFileMap,
 							propFileMap,
 							targetFolder,
 							meetingType
@@ -1319,42 +1333,26 @@ export class ThirdBrainView extends ItemView {
 
 	// Phase 8: 액션 레이어 추출 → 저장 → 문맥 엣지 연결 → 결과 패널 렌더
 	private async extractAndSaveActions(
-		text: string,
 		propositions: Proposition[],
 		contexts: ContextLayer[],
-		contextFileMap: Map<string, TFile>,
 		propFileMap: Map<string, TFile>,
 		folder: string,
 		meetingType?: MeetingType
 	): Promise<void> {
 		try {
-			let actions = await extractActions(text, propositions, contexts, this.plugin.settings);
+			// 액션은 명제 우선(토픽 내 종합)으로 도출 — 원문 텍스트를 다시 읽지 않는다.
+			let actions = await extractActions(propositions, contexts, this.plugin.settings);
 			if (actions.length === 0) return;
 			actions = await linkActionsToPropositions(actions, propositions, this.plugin.settings);
 
-			const ctxById = new Map(contexts.map(c => [c.id, c]));
 			const propById = new Map(propositions.map(p => [p.id, p]));
 			const savedActions: ActionNode[] = [];
 
 			for (const a of actions) {
 				const actionWithMeeting = meetingType ? { ...a, meeting_type: meetingType } : a;
 				const actionFile = await this.store.createActionNode(actionWithMeeting, folder, propFileMap);
-
-				// 문맥 → 액션: precondition_of 엣지
-				for (const ctxId of (a.motivation_context_ids ?? [])) {
-					const ctx = ctxById.get(ctxId);
-					if (!ctx) continue;
-					const ctxFile = contextFileMap.get(ctx.title);
-					if (!ctxFile) continue;
-					await this.store.confirmEdge(ctxFile, {
-						target: `[[${actionFile.basename}]]`,
-						label: 'precondition_of',
-						confirmed: true,
-						reason: `이 문맥에서 도출된 액션`,
-						confidence: 1.0,
-						axiom_basis: '파이프라인 자동 연결',
-					});
-				}
+				// [옵션A] context→action은 논리 엣지(precondition_of)로 만들지 않는다.
+				// 액션의 문맥 소속은 tb_motivation_context_ids 필드에 저장됨 (10공리 그래프 불변).
 				savedActions.push({ ...actionWithMeeting, filePath: actionFile.path, _propById: propById } as ActionNode & { _propById: Map<string, Proposition> });
 			}
 			this.renderActionResults(savedActions, propById);
@@ -1424,6 +1422,12 @@ export class ThirdBrainView extends ItemView {
 		preExistingNodes: TBNode[]
 	): Promise<void> {
 		try {
+			// 크로스 연결은 명제↔명제 10공리 전용 → 액션·문맥·요약 등 비명제 노드는 대상에서 제외.
+			// (제외하지 않으면 명제→액션 precondition_of 같은 논리 엣지가 생겨 그래프 순수성이 깨진다.)
+			const NON_PROP_TYPES = new Set(['context', 'action', 'summary', 'expression']);
+			const propExistingNodes = preExistingNodes.filter(n => !NON_PROP_TYPES.has(n.type));
+			if (propExistingNodes.length === 0) return;
+
 			const newItems = newPropositions.slice(0, 15).map(p => ({
 				title: p.title,
 				content: p.text,
@@ -1432,7 +1436,7 @@ export class ThirdBrainView extends ItemView {
 
 			const connections = await findCrossConnections(
 				newItems,
-				preExistingNodes,
+				propExistingNodes,
 				this.plugin.settings
 			);
 
@@ -1443,7 +1447,7 @@ export class ThirdBrainView extends ItemView {
 
 			// 파일 매핑
 			const existingTitleToFile = new Map<string, TFile>();
-			for (const n of preExistingNodes) {
+			for (const n of propExistingNodes) {
 				const f = this.app.vault.getFileByPath(n.filePath);
 				if (f) existingTitleToFile.set(n.title, f);
 			}

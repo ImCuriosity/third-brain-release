@@ -1,5 +1,5 @@
 import { App, TFile, normalizePath } from 'obsidian';
-import { toRelation } from '../types';
+import { toRelation, isValidRelation } from '../types';
 import { detectConflicts } from './contradiction-engine';
 import { computeNodeSalience } from './topology-engine';
 import type {
@@ -156,17 +156,24 @@ export class GraphStore {
 		const fm = cache.frontmatter as TBFrontMatter;
 		const raw = await this.app.vault.read(file);
 		const body = raw.replace(/^---[\s\S]*?---\n?/, '').trim();
+		const nodeType = (fm.tb_type ?? 'claim') as TBNodeType;
+
+		// [옵션A] 엄격 게이트: 액션 노드는 논리 엣지가 없다(edges=[]). 그 외 노드는 tb_edges에서
+		// 10공리 외 라벨(구 스키마의 implements 등)을 로드 시 제거해 논리 그래프 순수성을 강제한다.
+		const edges: TBEdge[] = nodeType === 'action'
+			? []
+			: (Array.isArray(fm.tb_edges) ? fm.tb_edges : []).filter(e => isValidRelation(e?.label));
 
 		return {
 			id: file.basename,
 			title: fm.tb_title ?? file.basename,
-			type: (fm.tb_type ?? 'claim') as TBNodeType,
+			type: nodeType,
 			content: body,
 			summary: typeof fm.tb_summary === 'string' ? fm.tb_summary : undefined,
 			tags: Array.isArray(fm.tb_tags) ? fm.tb_tags : [],
 			folder: file.parent?.path ?? '',
 			created: fm.tb_created ?? new Date(file.stat.ctime).toISOString(),
-			edges: Array.isArray(fm.tb_edges) ? fm.tb_edges : [],
+			edges,
 			filePath: file.path,
 			is_core_concept: fm.tb_is_core === true,
 			proposition_type: fm.tb_proposition_type === 'fact' ? 'fact' : 'claim',
@@ -177,7 +184,29 @@ export class GraphStore {
 			topic: typeof fm.tb_topic === 'string'
 				? fm.tb_topic.replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, '$1').trim()
 				: undefined,
+			// [옵션A] 액션 노드의 동기 명제 basename (canvas 렌더 전용). 구 스키마(implements in tb_edges) 폴백.
+			motivation_ids: nodeType === 'action'
+				? this.readActionMotivations(fm)
+				: undefined,
+			link_type: nodeType === 'action'
+				? ((fm.tb_link_type ?? fm.tb_action_link_type ?? 'implements') as ActionLinkType)
+				: undefined,
 		};
+	}
+
+	// 액션 노드의 동기 명제 basename 목록을 읽는다.
+	// 신규: tb_action_motivation_ids. 하위호환: 구 스키마의 tb_edges implements/investigates 타깃에서 폴백.
+	private readActionMotivations(fm: TBFrontMatter): string[] {
+		if (Array.isArray(fm.tb_action_motivation_ids) && fm.tb_action_motivation_ids.length > 0) {
+			return fm.tb_action_motivation_ids;
+		}
+		if (Array.isArray(fm.tb_edges)) {
+			return fm.tb_edges
+				.filter(e => { const l = String(e?.label); return l === 'implements' || l === 'investigates'; })
+				.map(e => String(e.target).replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, '$1').trim())
+				.filter(Boolean);
+		}
+		return [];
 	}
 
 	// 새 노드 .md 파일을 vault에 생성
@@ -664,23 +693,18 @@ export class GraphStore {
 		let filePath = normalizePath(`${folder}/${safeTitle}.md`);
 		filePath = await this.resolveConflict(filePath);
 
-		// 동기 명제 → tb_edges (implements/investigates)
-		const motivEdges = (node.motivation_ids ?? [])
+		// [옵션A] 액션→명제 소속은 논리 엣지(tb_edges)가 아니라 별도 필드(tb_action_motivation_ids)로 저장한다.
+		// tb_edges는 10공리 명제↔명제 전용 → 액션은 항상 []. 네이티브 그래프 provenance는 tb_links 위키링크로 보존.
+		const motivBasenames = (node.motivation_ids ?? [])
 			.map(id => propFileMap?.get(id))
 			.filter((f): f is TFile => !!f)
-			.map(f => ({
-				target: `[[${f.basename}]]`,
-				label: node.link_type ?? 'implements',
-				confirmed: true,
-				reason: '동기 명제',
-				confidence: 1.0,
-				axiom_basis: '파이프라인 자동 연결',
-			}));
+			.map(f => f.basename);
 
-		const edgesJson = JSON.stringify(motivEdges);
-		const linksStr = motivEdges.length > 0
-			? '\n' + motivEdges.map(e => `  - "${e.target}"`).join('\n')
+		const linksStr = motivBasenames.length > 0
+			? '\n' + motivBasenames.map(b => `  - "[[${b}]]"`).join('\n')
 			: ' []';
+		// 파이프라인 내부 명제 id(p1, p2…)는 저장 후 무의미 → 실제 저장 파일 basename으로 해석해 저장한다.
+		const motivIdsJson = JSON.stringify(motivBasenames);
 		const motivCtxIds = JSON.stringify(node.motivation_context_ids ?? []);
 
 		const frontmatter = [
@@ -691,7 +715,8 @@ export class GraphStore {
 			`tb_created: "${node.created}"`,
 			`tb_tags: []`,
 			`tb_links:${linksStr}`,
-			`tb_edges: ${edgesJson}`,
+			`tb_edges: []`,
+			`tb_action_motivation_ids: ${motivIdsJson}`,
 			`tb_status: ${node.status}`,
 			`tb_owner: "${(node.owner ?? '').replace(/"/g, '\\"')}"`,
 			`tb_deadline: "${node.deadline ?? ''}"`,
@@ -765,7 +790,7 @@ export class GraphStore {
 			owner:   String(fm?.tb_owner ?? fm?.tb_action_owner ?? ''),
 			deadline: String(fm?.tb_deadline ?? fm?.tb_action_deadline ?? ''),
 			status:  ((fm?.tb_status ?? fm?.tb_action_status) as ActionStatus) ?? 'pending',
-			motivation_ids:         Array.isArray(fm?.tb_action_motivation_ids) ? fm.tb_action_motivation_ids : [],
+			motivation_ids:         fm ? this.readActionMotivations(fm) : [],
 			motivation_context_ids: Array.isArray(fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids)
 				? ((fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids) as string[])
 				: [],

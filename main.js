@@ -89,6 +89,9 @@ function toRelation(raw) {
     return raw;
   throw new Error(`[ThirdBrain] Invalid edge relation: "${raw}". Must be one of ${ALL_RELATIONS.join(", ")}`);
 }
+function isValidRelation(raw) {
+  return typeof raw === "string" && VALID_RELATIONS.has(raw);
+}
 var DEFAULT_SETTINGS = {
   rootFolder: "ThirdBrainRoot",
   cliBin: "claude",
@@ -1453,6 +1456,42 @@ var SELFCHECK_BLOCK = `\u2605 \uCD9C\uB825 \uC804 \uC790\uAE30\uAC80\uD1A0 (\uD5
 - \uB9CC\uB4E0 \uC5E3\uC9C0 \uBAA9\uB85D\uC744 \uB2E4\uC2DC \uBCF4\uB77C.
 - supports + precondition_of \uD569\uC774 \uC804\uCCB4\uC758 60% \uCD08\uACFC \u2192 \uACFC\uC789. \uC7AC\uAC80\uD1A0\uD558\uC5EC causes\xB7contrasts_with\xB7analogous_to \uB4F1 \uB2E4\uB978 \uCD95\uC744 \uBCF4\uAC15\uD558\uB77C.
 - \uC911\uBCF5 \uC5E3\uC9C0\xB7\uC790\uAE30 \uC790\uC2E0\uC73C\uB85C\uC758 \uC5E3\uC9C0\uAC00 \uC5C6\uB294\uC9C0 \uD655\uC778\uD558\uB77C.`;
+var SYSTEM_SPEAKER_ROSTER = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \uC804\uC0AC\uBCF8\uC758 \uBC1C\uD654\uC790 \uBA85\uB2E8\uC744 \uC2DD\uBCC4\uD558\uB294 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+\uC804\uCCB4 \uD14D\uC2A4\uD2B8\uB97C \uC77D\uACE0 \uB4F1\uC7A5\uD558\uB294 \uBAA8\uB4E0 \uBC1C\uD654\uC790\uB97C \uC77C\uAD00\uB41C \uB808\uC774\uBE14\uB85C \uC815\uB9AC\uD558\uC138\uC694. \uD14D\uC2A4\uD2B8\uB97C \uB2E4\uC2DC \uC4F0\uC9C0 \uB9C8\uC138\uC694 \u2014 \uBA85\uB2E8\uB9CC \uCD9C\uB825.
+
+\u2605 \uC2DD\uBCC4 \uADDC\uCE59:
+- \uD604\uC7A5 \uBC1C\uD654\uC790: \uBC1C\uD654 \uD328\uD134("\uC800\uB294/\uC81C\uAC00", ":" \uAD6C\uBD84\uC790, \uC774\uB984 \uD638\uCE6D)\uC73C\uB85C \uC2DD\uBCC4 \u2192 \uD654\uC7901, \uD654\uC7902, ...
+  \uC2E4\uBA85\uC774 \uC5B8\uAE09\uB418\uBA74: \uD654\uC790_\uC774\uB984 (\uC608: \uD654\uC790_\uAE40\uD300\uC7A5)
+- \uD604\uC7A5 \uBD80\uC7AC \uC778\uBB3C(\uC9C0\uC2DC \uB300\uC0C1): "\uADF8 \uC0AC\uB78C", "\uADF8\uBD84", "\uAC54" \uB4F1 \u2192 \uC678\uBD80\uC778A, \uC678\uBD80\uC778B, ... / \uC2E4\uBA85 \uC788\uC73C\uBA74 \uC678\uBD80\uC778_\uC774\uB984
+- \uAC19\uC740 \uC778\uBB3C\uC740 \uBC18\uB4DC\uC2DC \uAC19\uC740 \uB808\uC774\uBE14. \uD604\uC7A5 \uD654\uC790\uC640 \uD604\uC7A5 \uBD80\uC7AC \uC778\uBB3C \uC808\uB300 \uD63C\uC6A9 \uAE08\uC9C0.
+
+JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+{"speakers":{"\uD654\uC7901":"","\uD654\uC7902":"","\uC678\uBD80\uC778A":"\uD64D\uB300\uD45C"},"cues":"\uAC01 \uD654\uC790\uB97C \uAD6C\uBD84\uD558\uB294 \uD575\uC2EC \uB2E8\uC11C 1~3\uC904"}`;
+async function identifySpeakerRoster(fullText, settings, onProgress) {
+  onProgress?.("\uD654\uC790 \uBA85\uB2E8 \uC2DD\uBCC4 \uC911...");
+  const prompt = `${SYSTEM_SPEAKER_ROSTER}
+
+\uC804\uCCB4 \uC804\uC0AC\uBCF8:
+${fullText.slice(0, 3e4)}`;
+  try {
+    const raw = await withRetry(() => callClaudeWithModel(
+      prompt,
+      settings.cliBin,
+      "standard",
+      settings.aiProvider,
+      settings.claudeApiKey,
+      settings.geminiApiKey,
+      settings.openaiApiKey
+    ));
+    const parsed = parseJson(raw, {});
+    return {
+      speakers: typeof parsed.speakers === "object" && parsed.speakers !== null ? parsed.speakers : {},
+      cues: typeof parsed.cues === "string" ? parsed.cues : ""
+    };
+  } catch {
+  }
+  return { speakers: {}, cues: "" };
+}
 var SYSTEM_NORMALIZE_SPEAKERS = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \uC804\uC0AC\uBCF8 \uC815\uADDC\uD654 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
 \uD14D\uC2A4\uD2B8 \uB0B4 \uBAA8\uB4E0 \uBC1C\uD654\uC790\uB97C \uC77C\uAD00\uB418\uAC8C \uC2DD\uBCC4\uD558\uACE0 \uB300\uBA85\uC0AC\xB7\uC0DD\uB7B5 \uC8FC\uC5B4\uB97C \uCE58\uD658\uD569\uB2C8\uB2E4.
 
@@ -1476,14 +1515,19 @@ var SYSTEM_NORMALIZE_SPEAKERS = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \u
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
 {"normalized_text":"\uC815\uADDC\uD654\uB41C \uD14D\uC2A4\uD2B8","speakers":{"\uD654\uC7901":"","\uD654\uC7902":"","\uC678\uBD80\uC778A":"\uD64D\uB300\uD45C"}}`;
-async function normalizeSpeakers(rawText, settings, onProgress) {
+async function normalizeSpeakers(rawText, settings, roster, onProgress) {
   onProgress?.("\uD654\uC790 \uC815\uADDC\uD654 \uC911...");
-  const prompt = `${SYSTEM_NORMALIZE_SPEAKERS}
+  const rosterBlock = roster && Object.keys(roster.speakers).length > 0 ? `
+
+\u2605 \uD655\uC815\uB41C \uD654\uC790 \uBA85\uB2E8 \u2014 \uBC18\uB4DC\uC2DC \uC774 \uB808\uC774\uBE14\uB9CC \uC77C\uAD00\uB418\uAC8C \uC0AC\uC6A9\uD558\uB77C (\uC0C8 \uB808\uC774\uBE14 \uC0DD\uC131 \uAE08\uC9C0):
+${JSON.stringify(roster.speakers)}${roster.cues ? `
+\uAD6C\uBD84 \uB2E8\uC11C: ${roster.cues}` : ""}` : "";
+  const prompt = `${SYSTEM_NORMALIZE_SPEAKERS}${rosterBlock}
 
 \uD14D\uC2A4\uD2B8:
 ${rawText.slice(0, 12e3)}`;
   try {
-    const raw = await callClaudeWithModel(
+    const raw = await withRetry(() => callClaudeWithModel(
       prompt,
       settings.cliBin,
       "standard",
@@ -1491,17 +1535,19 @@ ${rawText.slice(0, 12e3)}`;
       settings.claudeApiKey,
       settings.geminiApiKey,
       settings.openaiApiKey
-    );
+    ));
     const parsed = parseJson(raw, {});
     if (typeof parsed.normalized_text === "string" && parsed.normalized_text.trim().length > 50) {
+      const parsedSpeakers = typeof parsed.speakers === "object" && parsed.speakers !== null ? parsed.speakers : {};
       return {
         text: parsed.normalized_text.trim(),
-        speakers: typeof parsed.speakers === "object" && parsed.speakers !== null ? parsed.speakers : {}
+        // 전역 로스터를 우선 유지 (청크가 명단을 축소/변형하지 않도록)
+        speakers: roster && Object.keys(roster.speakers).length > 0 ? roster.speakers : parsedSpeakers
       };
     }
   } catch {
   }
-  return { text: rawText, speakers: {} };
+  return { text: rawText, speakers: roster?.speakers ?? {} };
 }
 var SYSTEM_CONTEXT = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uD1A0\uD53D \uBD84\uC808 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
 Raw \uD14D\uC2A4\uD2B8\uB97C "\uBB34\uC5C7\uC5D0 \uAD00\uD55C \uB369\uC5B4\uB9AC\uC778\uAC00"\uB97C \uAE30\uC900\uC73C\uB85C \uAD75\uC740 \uC758\uBBF8 \uB2E8\uC704(\uD1A0\uD53D)\uB85C \uB098\uB215\uB2C8\uB2E4.
@@ -1687,6 +1733,31 @@ function shortHash(text) {
   }
   return Math.abs(h).toString(36).slice(0, 6).padStart(6, "0");
 }
+var CLI_CONCURRENCY = 8;
+async function withRetry(fn, attempts = 2, delayMs = 800) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1)
+        await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
+}
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      results[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
 async function extractPropositions(contexts, rawText, settings, contentType = "document", dialogueSubtype) {
   const paragraphs = [];
   {
@@ -1756,7 +1827,7 @@ ${para.text}
 
 ` + schema;
     try {
-      const raw = await callClaudeWithModel(
+      const raw = await withRetry(() => callClaudeWithModel(
         prompt,
         settings.cliBin,
         "fast",
@@ -1764,7 +1835,7 @@ ${para.text}
         settings.claudeApiKey,
         settings.geminiApiKey,
         settings.openaiApiKey
-      );
+      ));
       const parsed = parseJson(raw, { propositions: [] });
       return { para, props: (parsed.propositions ?? []).filter((p) => p && p.text?.trim()) };
     } catch (e) {
@@ -1774,9 +1845,7 @@ ${para.text}
     }
   };
   if (settings.aiProvider === "claude-cli") {
-    for (let i = 0; i < paragraphs.length; i++) {
-      paraResults.push(await callPara(paragraphs[i], i, paragraphs));
-    }
+    paraResults = await mapWithConcurrency(paragraphs, CLI_CONCURRENCY, (p, i) => callPara(p, i, paragraphs));
   } else {
     paraResults = await Promise.all(paragraphs.map((p, i) => callPara(p, i, paragraphs)));
   }
@@ -1999,76 +2068,95 @@ ${propList}
     return [];
   }
 }
-var SYSTEM_ACTIONS = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uC561\uC158 \uADF8\uB798\uD504 \uCD94\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
-\uC8FC\uC5B4\uC9C4 \uD14D\uC2A4\uD2B8\uC5D0\uC11C "\uD574\uC57C \uD560 \uC77C / \uD589\uB3D9 \uC9C0\uC2DC / \uACB0\uC815 \uC0AC\uD56D"\uB9CC \uCD94\uCD9C\uD558\uB77C.
-\uC0AC\uC2E4 \uC11C\uC220(is), \uBA85\uC81C, \uC124\uBA85\uC740 \uCD94\uCD9C\uD558\uC9C0 \uB9C8\uB77C \u2014 \uADF8\uAC83\uB4E4\uC740 \uBA85\uC81C \uADF8\uB798\uD504\uC5D0\uC11C \uCC98\uB9AC\uD55C\uB2E4.
-\uC561\uC158\uB9CC \uCD94\uCD9C: \uC2E4\uD589 \uAC00\uB2A5\uD558\uACE0, \uB2F4\uB2F9\uC790\uAC00 \uD2B9\uC815\uB418\uAC70\uB098 \uAE30\uD55C\uC774 \uC788\uAC70\uB098, \uAD6C\uCCB4\uC801 \uD589\uB3D9\uC744 \uAE30\uC220\uD558\uB294 \uAC83.
+var SYSTEM_ACTIONS = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uC561\uC158 \uB3C4\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+\uD558\uB098\uC758 \uD1A0\uD53D\uC5D0 \uC18D\uD55C \uBA85\uC81C\uB4E4\uC774 \uC8FC\uC5B4\uC9D1\uB2C8\uB2E4. \uC774 \uBA85\uC81C\uB4E4\uC744 **\uC885\uD569**\uD558\uC5EC, \uC774\uB4E4\uC774 \uC9D1\uD569\uC801\uC73C\uB85C \uC694\uAD6C\uD558\uB294 "\uD574\uC57C \uD560 \uC77C / \uACB0\uC815 / \uD589\uB3D9"\uC744 \uB3C4\uCD9C\uD558\uB77C.
 
-JSON\uB9CC \uBC18\uD658 (\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
-{"actions": [
+\u2605 \uC6D0\uCE59
+- \uC5EC\uB7EC \uBA85\uC81C\uB97C \uC5EE\uC740 \uBCF5\uD569 \uC561\uC158\uC744 \uC6B0\uC120\uD558\uB77C. \uBA85\uC81C \uD558\uB098\uB97C \uADF8\uB300\uB85C to-do\uB85C \uC7AC\uC9C4\uC220\uD558\uC9C0 \uB9C8\uB77C.
+- \uC5C6\uB294 \uAC83\uC744 \uC9C0\uC5B4\uB0B4\uB294 \uC885\uD569 \uAE08\uC9C0: \uAC01 \uC561\uC158\uC740 \uC2E4\uC81C\uB85C \uC8FC\uC5B4\uC9C4 \uBA85\uC81C\uB4E4\uC5D0\uC11C \uB3C4\uCD9C\uB3FC\uC57C \uD55C\uB2E4.
+- owner(\uB2F4\uB2F9\uC790)\uC640 deadline(\uAE30\uD55C)\uC740 \uBA85\uC81C\uC5D0 **\uBA85\uC2DC\uC801\uC73C\uB85C \uB098\uD0C0\uB09C \uACBD\uC6B0\uC5D0\uB9CC** \uCC44\uC6CC\uB77C. \uC5C6\uC73C\uBA74 \uBE48 \uBB38\uC790\uC5F4. \uCD94\uCE21 \uC808\uB300 \uAE08\uC9C0.
+- \uC0AC\uC2E4 \uC11C\uC220\xB7\uC124\uBA85\uC740 \uC561\uC158\uC774 \uC544\uB2C8\uB2E4(\uBA85\uC81C \uADF8\uB798\uD504\uAC00 \uCC98\uB9AC). \uC2E4\uD589 \uAC00\uB2A5\uD55C \uD589\uB3D9\uB9CC.
+- \uC774 \uD1A0\uD53D\uC5D0\uC11C \uB3C4\uCD9C\uD560 \uC561\uC158\uC774 \uC5C6\uC73C\uBA74 \uBE48 \uBC30\uC5F4.
+
+JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+{"actions":[
   {
-    "title": "\uC561\uC158 \uC81C\uBAA9 (\uB3D9\uC0AC\uB85C \uC2DC\uC791, 30\uC790 \uC774\uB0B4)",
-    "content": "\uAD6C\uCCB4\uC801 \uC2E4\uD589 \uBC29\uBC95",
-    "owner": "\uB2F4\uB2F9\uC790 (\uC5C6\uC73C\uBA74 \uBE48 \uBB38\uC790\uC5F4)",
-    "deadline": "\uAE30\uD55C ISO 8601 (\uC5C6\uC73C\uBA74 \uBE48 \uBB38\uC790\uC5F4)",
-    "link_type": "implements | investigates",
-    "motivation_prop_titles": ["\uB3D9\uAE30\uAC00 \uB41C \uBA85\uC81C \uC81C\uBAA9 \uBC30\uC5F4"],
-    "motivation_context_titles": ["\uC774 \uC561\uC158\uC774 \uC18D\uD55C \uBB38\uB9E5 \uB2E8\uC704 \uC81C\uBAA9 \uBC30\uC5F4 (\uBC18\uB4DC\uC2DC 1\uAC1C \uC774\uC0C1)"]
+    "title":"\uC561\uC158 \uC81C\uBAA9 (\uB3D9\uC0AC\uB85C \uC2DC\uC791, 30\uC790 \uC774\uB0B4)",
+    "content":"\uAD6C\uCCB4\uC801 \uC2E4\uD589 \uB0B4\uC6A9",
+    "owner":"\uB2F4\uB2F9\uC790 (\uBA85\uC2DC\uC801\uC77C \uB54C\uB9CC, \uC5C6\uC73C\uBA74 \\"\\")",
+    "deadline":"\uAE30\uD55C ISO 8601 (\uBA85\uC2DC\uC801\uC77C \uB54C\uB9CC, \uC5C6\uC73C\uBA74 \\"\\")",
+    "link_type":"implements | investigates",
+    "motivation_prop_titles":["\uADFC\uAC70\uAC00 \uB41C \uBA85\uC81C \uC81C\uBAA9\uB4E4 (1\uAC1C \uC774\uC0C1 \uD544\uC218)"]
   }
-]}
-\uC561\uC158\uC774 \uC5C6\uC73C\uBA74 {"actions": []}.`;
-async function extractActions(text, propositions, contexts, settings) {
-  if (!text.trim())
+]}`;
+async function extractActions(propositions, contexts, settings) {
+  if (propositions.length === 0)
     return [];
-  const propList = propositions.slice(0, 20).map((p) => `- "${p.title}"`).join("\n");
-  const ctxList = contexts.map((c2) => `- id:"${c2.id}" \uC81C\uBAA9:"${c2.title}"`).join("\n");
-  const textForActions = text.length > 15e3 ? text.slice(0, 8e3) + "\n...(\uC911\uB7B5)...\n" + text.slice(-7e3) : text;
-  const prompt = `${SYSTEM_ACTIONS}
+  const byTopic = /* @__PURE__ */ new Map();
+  for (const p of propositions) {
+    const key = p.context?.trim();
+    if (!key)
+      continue;
+    if (!byTopic.has(key))
+      byTopic.set(key, []);
+    byTopic.get(key).push(p);
+  }
+  if (byTopic.size === 0)
+    return [];
+  const ctxByTitle = new Map(contexts.map((c2) => [c2.title, c2]));
+  const propByTitle = new Map(propositions.map((p) => [p.title, p.id]));
+  const results = [];
+  const topicEntries = [...byTopic.entries()];
+  const perTopicActions = await mapWithConcurrency(topicEntries, CLI_CONCURRENCY, async ([topicTitle, props]) => {
+    const ctx = ctxByTitle.get(topicTitle);
+    const propBlock = props.map((p) => `- \u300C${p.title}\u300D: ${p.text}`).join("\n");
+    const prompt = `${SYSTEM_ACTIONS}
 ${jsonLangInstr(settings.lang)}
 
-\uD14D\uC2A4\uD2B8:
-${textForActions}
+\uD1A0\uD53D: "${topicTitle}"
 
-\uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D:
-${ctxList || "(\uC5C6\uC74C)"}
-
-\uBA85\uC81C \uBAA9\uB85D:
-${propList || "(\uC5C6\uC74C)"}`;
-  try {
-    const raw = await callClaudeWithModel(
-      prompt,
-      settings.cliBin,
-      "fast",
-      settings.aiProvider,
-      settings.claudeApiKey,
-      settings.geminiApiKey,
-      settings.openaiApiKey
-    );
-    const parsed = parseJson(raw, { actions: [] });
-    const propByTitle = new Map(propositions.map((p) => [p.title, p.id]));
-    const ctxByTitle = new Map(contexts.map((c2) => [c2.title, c2.id]));
-    return (parsed.actions ?? []).filter((a2) => !!a2.title?.trim()).map((a2) => {
-      const id2 = sanitizeActionId(a2.title);
-      const linkType = a2.link_type === "investigates" ? "investigates" : "implements";
-      const motivationIds = (a2.motivation_prop_titles ?? []).map((t) => propByTitle.get(t)).filter((id3) => !!id3);
-      const motivationContextIds = (a2.motivation_context_titles ?? []).map((t) => ctxByTitle.get(t)).filter((id3) => !!id3);
-      return {
-        id: id2,
-        title: a2.title.trim().slice(0, 60),
-        content: typeof a2.content === "string" ? a2.content : "",
-        owner: typeof a2.owner === "string" ? a2.owner : "",
-        deadline: typeof a2.deadline === "string" ? a2.deadline : "",
-        status: "pending",
-        motivation_ids: motivationIds,
-        motivation_context_ids: motivationContextIds,
-        link_type: linkType,
-        origin: "extracted",
-        created: (/* @__PURE__ */ new Date()).toISOString()
-      };
-    });
-  } catch {
-    return [];
-  }
+\uC774 \uD1A0\uD53D\uC758 \uBA85\uC81C \uBAA9\uB85D:
+${propBlock}`;
+    const out = [];
+    try {
+      const raw = await withRetry(() => callClaudeWithModel(
+        prompt,
+        settings.cliBin,
+        "fast",
+        settings.aiProvider,
+        settings.claudeApiKey,
+        settings.geminiApiKey,
+        settings.openaiApiKey
+      ));
+      const parsed = parseJson(raw, { actions: [] });
+      for (const a2 of parsed.actions ?? []) {
+        if (!a2.title?.trim())
+          continue;
+        const motivationIds = (a2.motivation_prop_titles ?? []).map((t) => propByTitle.get(t)).filter((id2) => !!id2);
+        if (motivationIds.length === 0)
+          continue;
+        const linkType = a2.link_type === "investigates" ? "investigates" : "implements";
+        out.push({
+          id: sanitizeActionId(a2.title),
+          title: a2.title.trim().slice(0, 60),
+          content: typeof a2.content === "string" ? a2.content : "",
+          owner: typeof a2.owner === "string" ? a2.owner : "",
+          deadline: typeof a2.deadline === "string" ? a2.deadline : "",
+          status: "pending",
+          motivation_ids: motivationIds,
+          motivation_context_ids: ctx ? [ctx.id] : [],
+          link_type: linkType,
+          origin: "extracted",
+          created: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      }
+    } catch {
+    }
+    return out;
+  });
+  for (const arr of perTopicActions)
+    results.push(...arr);
+  return results;
 }
 function sanitizeActionId(s) {
   return `act-${s.replace(/[\\/:*?"<>|#^[\]\s]/g, "-").toLowerCase().slice(0, 40)}-${Date.now().toString(36)}`;
@@ -2803,16 +2891,18 @@ var GraphStore = class {
     const fm = cache.frontmatter;
     const raw = await this.app.vault.read(file);
     const body = raw.replace(/^---[\s\S]*?---\n?/, "").trim();
+    const nodeType = fm.tb_type ?? "claim";
+    const edges = nodeType === "action" ? [] : (Array.isArray(fm.tb_edges) ? fm.tb_edges : []).filter((e) => isValidRelation(e?.label));
     return {
       id: file.basename,
       title: fm.tb_title ?? file.basename,
-      type: fm.tb_type ?? "claim",
+      type: nodeType,
       content: body,
       summary: typeof fm.tb_summary === "string" ? fm.tb_summary : void 0,
       tags: Array.isArray(fm.tb_tags) ? fm.tb_tags : [],
       folder: file.parent?.path ?? "",
       created: fm.tb_created ?? new Date(file.stat.ctime).toISOString(),
-      edges: Array.isArray(fm.tb_edges) ? fm.tb_edges : [],
+      edges,
       filePath: file.path,
       is_core_concept: fm.tb_is_core === true,
       proposition_type: fm.tb_proposition_type === "fact" ? "fact" : "claim",
@@ -2820,8 +2910,25 @@ var GraphStore = class {
       heading_path: typeof fm.tb_heading_path === "string" ? fm.tb_heading_path : void 0,
       raw_path: typeof fm.tb_raw_path === "string" ? fm.tb_raw_path : void 0,
       // tb_topic은 네이티브 그래프 인식용으로 "[[basename]]" 위키링크로 저장됨 → 내부용 basename으로 환원
-      topic: typeof fm.tb_topic === "string" ? fm.tb_topic.replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, "$1").trim() : void 0
+      topic: typeof fm.tb_topic === "string" ? fm.tb_topic.replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, "$1").trim() : void 0,
+      // [옵션A] 액션 노드의 동기 명제 basename (canvas 렌더 전용). 구 스키마(implements in tb_edges) 폴백.
+      motivation_ids: nodeType === "action" ? this.readActionMotivations(fm) : void 0,
+      link_type: nodeType === "action" ? fm.tb_link_type ?? fm.tb_action_link_type ?? "implements" : void 0
     };
+  }
+  // 액션 노드의 동기 명제 basename 목록을 읽는다.
+  // 신규: tb_action_motivation_ids. 하위호환: 구 스키마의 tb_edges implements/investigates 타깃에서 폴백.
+  readActionMotivations(fm) {
+    if (Array.isArray(fm.tb_action_motivation_ids) && fm.tb_action_motivation_ids.length > 0) {
+      return fm.tb_action_motivation_ids;
+    }
+    if (Array.isArray(fm.tb_edges)) {
+      return fm.tb_edges.filter((e) => {
+        const l = String(e?.label);
+        return l === "implements" || l === "investigates";
+      }).map((e) => String(e.target).replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, "$1").trim()).filter(Boolean);
+    }
+    return [];
   }
   // 새 노드 .md 파일을 vault에 생성
   // node.folder = 절대 vault 경로 (비어있으면 settings.nodeFolder 사용)
@@ -3192,16 +3299,9 @@ ${body}`;
     const safeTitle = sanitizeId(node.title) || node.id.slice(0, 50) || "action-untitled";
     let filePath = (0, import_obsidian2.normalizePath)(`${folder}/${safeTitle}.md`);
     filePath = await this.resolveConflict(filePath);
-    const motivEdges = (node.motivation_ids ?? []).map((id2) => propFileMap?.get(id2)).filter((f) => !!f).map((f) => ({
-      target: `[[${f.basename}]]`,
-      label: node.link_type ?? "implements",
-      confirmed: true,
-      reason: "\uB3D9\uAE30 \uBA85\uC81C",
-      confidence: 1,
-      axiom_basis: "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9 \uC5F0\uACB0"
-    }));
-    const edgesJson = JSON.stringify(motivEdges);
-    const linksStr = motivEdges.length > 0 ? "\n" + motivEdges.map((e) => `  - "${e.target}"`).join("\n") : " []";
+    const motivBasenames = (node.motivation_ids ?? []).map((id2) => propFileMap?.get(id2)).filter((f) => !!f).map((f) => f.basename);
+    const linksStr = motivBasenames.length > 0 ? "\n" + motivBasenames.map((b) => `  - "[[${b}]]"`).join("\n") : " []";
+    const motivIdsJson = JSON.stringify(motivBasenames);
     const motivCtxIds = JSON.stringify(node.motivation_context_ids ?? []);
     const frontmatter = [
       "---",
@@ -3211,7 +3311,8 @@ ${body}`;
       `tb_created: "${node.created}"`,
       `tb_tags: []`,
       `tb_links:${linksStr}`,
-      `tb_edges: ${edgesJson}`,
+      `tb_edges: []`,
+      `tb_action_motivation_ids: ${motivIdsJson}`,
       `tb_status: ${node.status}`,
       `tb_owner: "${(node.owner ?? "").replace(/"/g, '\\"')}"`,
       `tb_deadline: "${node.deadline ?? ""}"`,
@@ -3282,7 +3383,7 @@ ${node.content}`;
       owner: String(fm?.tb_owner ?? fm?.tb_action_owner ?? ""),
       deadline: String(fm?.tb_deadline ?? fm?.tb_action_deadline ?? ""),
       status: fm?.tb_status ?? fm?.tb_action_status ?? "pending",
-      motivation_ids: Array.isArray(fm?.tb_action_motivation_ids) ? fm.tb_action_motivation_ids : [],
+      motivation_ids: fm ? this.readActionMotivations(fm) : [],
       motivation_context_ids: Array.isArray(fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids) ? fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids : [],
       link_type: fm?.tb_link_type ?? fm?.tb_action_link_type ?? "implements",
       origin: fm?.tb_origin ?? fm?.tb_action_origin ?? "extracted",
@@ -35863,6 +35964,26 @@ var GraphView = class {
         mn.degree++;
       topicSim.degree++;
     }
+    for (const n of nodes) {
+      if (n.type !== "action" || !n.motivation_ids)
+        continue;
+      for (const motivId of n.motivation_ids) {
+        const targetSim = simNodeById.get(motivId);
+        if (!targetSim)
+          continue;
+        this.simLinks.push({
+          source: n.id,
+          target: motivId,
+          relation: "__action__",
+          confirmed: true,
+          action: true
+        });
+        const an = simNodeById.get(n.id);
+        if (an)
+          an.degree++;
+        targetSim.degree++;
+      }
+    }
     this.canvas = this.container.createEl("canvas", { cls: "tb-graph-canvas" });
     this.canvas.width = this.w;
     this.canvas.height = this.h;
@@ -36121,6 +36242,12 @@ var GraphView = class {
         ctx.globalAlpha = 1;
         continue;
       }
+      if (l.action) {
+        ctx.globalAlpha = isConnected ? 0.3 : 0.05;
+        this.drawLine(src.x, src.y ?? 0, tgt.x, tgt.y ?? 0, "#7755cc", true);
+        ctx.globalAlpha = 1;
+        continue;
+      }
       const isActive = !activeRel || activeRel.has(l.relation);
       let color2 = l.confirmed ? EDGE_COLOR[l.relation] ?? "#999" : "#b8b8b8";
       if (!isActive)
@@ -36178,11 +36305,14 @@ var GraphView = class {
     ctx.font = "11px sans-serif";
     const isKo = this.lang === "ko";
     const hasMembership = this.simLinks.some((l) => l.membership);
-    const hasUnconfirmed = this.simLinks.some((l) => !l.membership && !l.confirmed);
+    const hasAction = this.simLinks.some((l) => l.action);
+    const hasUnconfirmed = this.simLinks.some((l) => !l.membership && !l.action && !l.confirmed);
     const edgeItems = [
       ...this.legendEntries.map((e) => ({ ...e, dashed: false })),
       // 소속(tb_topic) 점선 — 논리 엣지가 아니라 토픽 멤버십. '미확인'과 구분되도록 별도 범례.
       ...hasMembership ? [{ color: "#33aa77", label: isKo ? "\uC18C\uC18D" : "Topic", dashed: true }] : [],
+      // 액션(tb_action_motivation_ids) 점선 — 액션→동기명제 provenance.
+      ...hasAction ? [{ color: "#7755cc", label: isKo ? "\uC561\uC158" : "Action", dashed: true }] : [],
       // 미확정 엣지가 실제로 있을 때만 표시 (파이프라인 엣지는 기본 confirmed:true)
       ...hasUnconfirmed ? [{ color: "#aaaaaa", label: isKo ? "\uBBF8\uD655\uC778" : "Unconfirmed", dashed: true }] : []
     ];
@@ -36358,6 +36488,13 @@ var GraphView = class {
           edges.push({ dir: "\u2192", title: tgt.title, relation: "\uC18C\uC18D", color: "#33aa77" });
         continue;
       }
+      if (l.action) {
+        if (src.id === node.id)
+          edges.push({ dir: "\u2192", title: tgt.title, relation: "\uB3D9\uAE30", color: "#7755cc" });
+        else if (tgt.id === node.id)
+          edges.push({ dir: "\u2190", title: src.title, relation: "\uC561\uC158", color: "#7755cc" });
+        continue;
+      }
       if (src.id === node.id) {
         edges.push({ dir: "\u2192", title: tgt.title, relation: l.relation, color: EDGE_COLOR[l.relation] ?? "#999" });
       } else if (tgt.id === node.id) {
@@ -36465,7 +36602,13 @@ var GraphExporter = class {
     const allNodesByFolder = await Promise.all(
       folders.map((f) => store.loadNodesInFolder(f))
     );
-    const allNodes = allNodesByFolder.flat();
+    const seenNodeIds = /* @__PURE__ */ new Set();
+    const allNodes = allNodesByFolder.flat().filter((n) => {
+      if (seenNodeIds.has(n.id))
+        return false;
+      seenNodeIds.add(n.id);
+      return true;
+    });
     if (allNodes.length === 0) {
       return this.buildEmptyExport(folders);
     }
@@ -36561,6 +36704,8 @@ ${JSON.stringify(jsonPart, null, 2)}
     for (const n of nodes) {
       if (n.type === "context")
         continue;
+      if (n.type === "action")
+        continue;
       if (n.topic) {
         if (!byTopic.has(n.topic))
           byTopic.set(n.topic, []);
@@ -36585,6 +36730,21 @@ ${JSON.stringify(jsonPart, null, 2)}
       for (const m2 of noTopic)
         md += `- ${m2.title}
 `;
+    }
+    const actionNodes = nodes.filter((n) => n.type === "action");
+    if (actionNodes.length > 0) {
+      const titleById = new Map(nodes.map((n) => [n.id, n.title]));
+      md += `
+## Action Links (provenance)
+`;
+      for (const a2 of actionNodes) {
+        const motiv = (a2.motivation_ids ?? []).map((id2) => titleById.get(id2) ?? id2);
+        md += `- **${a2.title}**
+`;
+        if (motiv.length > 0)
+          md += `  \u2190 ${a2.link_type ?? "implements"}: ${motiv.join(", ")}
+`;
+      }
     }
     md += `
 ## Nodes
@@ -37387,7 +37547,11 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.setIngestBusy(true);
     this.resultsEl.empty();
     this.stepLogEl?.empty();
-    await this.runPipeline(content, void 0, targetFolder);
+    try {
+      await this.runPipeline(content, void 0, targetFolder);
+    } finally {
+      this.setIngestBusy(false);
+    }
   }
   // ── 인제스트 진입점 ───────────────────────────────────
   async runIngest() {
@@ -37454,20 +37618,25 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     const allRawLinks = [];
     const allBlockIdSpans = [];
     try {
+      let speakerRoster;
+      if (contentType === "meeting" || contentType === "dialogue") {
+        this.setProgress(1, this.t("progress_normalize"));
+        speakerRoster = await identifySpeakerRoster(text, this.plugin.settings);
+      }
       if (text.length > CHUNK_SIZE) {
         const chunks = splitIntoChunks(text, CHUNK_SIZE);
         for (let i = 0; i < chunks.length; i++) {
           this.setIngestBusy(true);
           this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t("progress_chunk")}`);
           const isLast = i === chunks.length - 1;
-          const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype);
+          const res = await this.runPipeline(chunks[i], void 0, selectedFolder, `\uCCAD\uD06C ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype, speakerRoster);
           if (res) {
             allRawLinks.push(...res.rawLinks);
             allBlockIdSpans.push(...res.blockIdSpans);
           }
         }
       } else {
-        const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype);
+        const res = await this.runPipeline(text, void 0, selectedFolder, void 0, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype, speakerRoster);
         if (res) {
           allRawLinks.push(...res.rawLinks);
           allBlockIdSpans.push(...res.blockIdSpans);
@@ -37484,12 +37653,13 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
         }
       }
     } catch {
+    } finally {
       this.hideProgress();
       this.setIngestBusy(false);
     }
   }
   // ── 메인 파이프라인 (Auto vs Architect 모드) ──────
-  async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true, meetingType, contentType = "document", dialogueSubtype) {
+  async runPipeline(text, cachedContexts, targetFolder, chunkLabel, includeActionLayer = false, rawFile, needsAutoTitle = false, isLastChunk = true, meetingType, contentType = "document", dialogueSubtype, speakerRoster) {
     let rawSourcePath = rawFile ? rawFile.path.replace(/\.md$/, "") : void 0;
     this.pipelineModal?.close();
     const modal = new PipelineInfoModal(this.app, this.plugin.settings.lang);
@@ -37513,7 +37683,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     let _speakerNorm = null;
     if (contentType === "meeting" || contentType === "dialogue") {
       this.setProgress(1, this.t("progress_normalize"));
-      _speakerNorm = await normalizeSpeakers(text, this.plugin.settings);
+      _speakerNorm = await normalizeSpeakers(text, this.plugin.settings, speakerRoster);
       workingText = _speakerNorm.text;
     }
     try {
@@ -37575,10 +37745,7 @@ ${diagMsg}`
       const mergedEdges = [...rawEdges, ...contrastEdges.filter((e) => !edgeKeys.has(`${e.source}\u2192${e.target}`))];
       const logic = { propositions, edges: mergedEdges };
       this.hideProgress();
-      this.setIngestBusy(false);
       this.renderLogicLayer(logic);
-      this.hideProgress();
-      this.setIngestBusy(false);
       if (targetFolder) {
         const preExistingNodes = await this.store.loadNodesInFolder(targetFolder);
         this.setProgress(8, this.t("progress_save"));
@@ -37599,10 +37766,8 @@ ${diagMsg}`
           if (includeActionLayer) {
             this.setProgress(9, this.t("progress_action"));
             await this.extractAndSaveActions(
-              text,
               logic.propositions,
               contexts,
-              contextFileMap,
               propFileMap,
               targetFolder,
               meetingType
@@ -37999,34 +38164,17 @@ ${diagMsg}`
     }
   }
   // Phase 8: 액션 레이어 추출 → 저장 → 문맥 엣지 연결 → 결과 패널 렌더
-  async extractAndSaveActions(text, propositions, contexts, contextFileMap, propFileMap, folder, meetingType) {
+  async extractAndSaveActions(propositions, contexts, propFileMap, folder, meetingType) {
     try {
-      let actions = await extractActions(text, propositions, contexts, this.plugin.settings);
+      let actions = await extractActions(propositions, contexts, this.plugin.settings);
       if (actions.length === 0)
         return;
       actions = await linkActionsToPropositions(actions, propositions, this.plugin.settings);
-      const ctxById = new Map(contexts.map((c2) => [c2.id, c2]));
       const propById = new Map(propositions.map((p) => [p.id, p]));
       const savedActions = [];
       for (const a2 of actions) {
         const actionWithMeeting = meetingType ? { ...a2, meeting_type: meetingType } : a2;
         const actionFile = await this.store.createActionNode(actionWithMeeting, folder, propFileMap);
-        for (const ctxId of a2.motivation_context_ids ?? []) {
-          const ctx = ctxById.get(ctxId);
-          if (!ctx)
-            continue;
-          const ctxFile = contextFileMap.get(ctx.title);
-          if (!ctxFile)
-            continue;
-          await this.store.confirmEdge(ctxFile, {
-            target: `[[${actionFile.basename}]]`,
-            label: "precondition_of",
-            confirmed: true,
-            reason: `\uC774 \uBB38\uB9E5\uC5D0\uC11C \uB3C4\uCD9C\uB41C \uC561\uC158`,
-            confidence: 1,
-            axiom_basis: "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9 \uC5F0\uACB0"
-          });
-        }
         savedActions.push({ ...actionWithMeeting, filePath: actionFile.path, _propById: propById });
       }
       this.renderActionResults(savedActions, propById);
@@ -38094,6 +38242,10 @@ ${diagMsg}`
   // preExistingNodes: saveNodes 호출 전에 스냅샷한 기존 노드 목록 (타이밍 문제 없음)
   async findAndRenderCrossConnections(newPropositions, preExistingNodes) {
     try {
+      const NON_PROP_TYPES = /* @__PURE__ */ new Set(["context", "action", "summary", "expression"]);
+      const propExistingNodes = preExistingNodes.filter((n) => !NON_PROP_TYPES.has(n.type));
+      if (propExistingNodes.length === 0)
+        return;
       const newItems = newPropositions.slice(0, 15).map((p) => ({
         title: p.title,
         content: p.text,
@@ -38101,7 +38253,7 @@ ${diagMsg}`
       }));
       const connections = await findCrossConnections(
         newItems,
-        preExistingNodes,
+        propExistingNodes,
         this.plugin.settings
       );
       if (connections.length === 0) {
@@ -38109,7 +38261,7 @@ ${diagMsg}`
         return;
       }
       const existingTitleToFile = /* @__PURE__ */ new Map();
-      for (const n of preExistingNodes) {
+      for (const n of propExistingNodes) {
         const f = this.app.vault.getFileByPath(n.filePath);
         if (f)
           existingTitleToFile.set(n.title, f);

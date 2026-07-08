@@ -79,6 +79,11 @@ export function toRelation(raw: string): TBEdgeRelation {
 	throw new Error(`[ThirdBrain] Invalid edge relation: "${raw}". Must be one of ${ALL_RELATIONS.join(', ')}`);
 }
 
+/** 10공리 관계인지 판정 (throw 없이). 로드 시 tb_edges 순수성 게이트에 사용. */
+export function isValidRelation(raw: unknown): raw is TBEdgeRelation {
+	return typeof raw === 'string' && VALID_RELATIONS.has(raw as TBEdgeRelation);
+}
+
 // 2.5차 큐레이션: confirmed=false → AI 제안, confirmed=true → 유저 확정
 export interface TBEdge {
 	target: string;            // 대상 파일 경로 또는 위키링크
@@ -109,6 +114,8 @@ export interface TBNode {
 	heading_path?: string;    // h1 > h2 > h3 형태 헤딩 경로
 	raw_path?: string;        // raw 원본 파일 경로 (확장자 제외)
 	topic?: string;           // [Phase 2] 소속 토픽 노드 제목 (membership — tb_edges 논리 엣지 아님)
+	motivation_ids?: string[]; // [Phase 9] 액션 노드의 동기 명제 id (tb_action_motivation_ids — 논리 엣지 아님, 렌더 전용)
+	link_type?: ActionLinkType; // [Phase 9] 액션 링크 의미 (implements/investigates/resolves_conflict)
 }
 
 // ── 파이프라인 레이어 타입 (v0 포팅) ─────────────────────

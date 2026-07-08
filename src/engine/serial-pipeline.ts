@@ -129,6 +129,51 @@ export interface SpeakerNormResult {
 	speakers: Record<string, string>; // label → 실명 또는 ""
 }
 
+// ── 0.4차: 전역 화자 명단 (청킹 전 1회) ──────────────────
+// 화자 정체성은 문서 전체에서 일관돼야 한다. 청크별 정규화는 라벨이 조각나므로,
+// 먼저 전체 텍스트에서 화자 명단(로스터)만 확정하고 그것을 각 청크 정규화에 주입한다.
+// (전체 텍스트를 한 콜로 '리라이트'하는 건 출력 토큰 한계로 뒷부분이 잘려 불가능 → 명단만 뽑는다.)
+
+export interface SpeakerRoster {
+	speakers: Record<string, string>; // label → 실명 또는 ""
+	cues: string;                     // 화자 구분 핵심 단서 (청크별 적용 일관성용)
+}
+
+const SYSTEM_SPEAKER_ROSTER = `당신은 대화/회의 전사본의 발화자 명단을 식별하는 엔진입니다.
+전체 텍스트를 읽고 등장하는 모든 발화자를 일관된 레이블로 정리하세요. 텍스트를 다시 쓰지 마세요 — 명단만 출력.
+
+★ 식별 규칙:
+- 현장 발화자: 발화 패턴("저는/제가", ":" 구분자, 이름 호칭)으로 식별 → 화자1, 화자2, ...
+  실명이 언급되면: 화자_이름 (예: 화자_김팀장)
+- 현장 부재 인물(지시 대상): "그 사람", "그분", "걔" 등 → 외부인A, 외부인B, ... / 실명 있으면 외부인_이름
+- 같은 인물은 반드시 같은 레이블. 현장 화자와 현장 부재 인물 절대 혼용 금지.
+
+JSON만 반환(코드블록 없이):
+{"speakers":{"화자1":"","화자2":"","외부인A":"홍대표"},"cues":"각 화자를 구분하는 핵심 단서 1~3줄"}`;
+
+/** 전체 텍스트에서 화자 명단만 확정한다 (출력이 작아 잘림 없음). 청킹 전 1회 호출. */
+export async function identifySpeakerRoster(
+	fullText: string,
+	settings: ThirdBrainSettings,
+	onProgress?: (msg: string) => void,
+): Promise<SpeakerRoster> {
+	onProgress?.('화자 명단 식별 중...');
+	// CLI -p 인자 길이 한계(win32 ~32k) 대비 상한. 화자는 대개 앞부분에 모두 등장하므로 충분.
+	const prompt = `${SYSTEM_SPEAKER_ROSTER}\n\n전체 전사본:\n${fullText.slice(0, 30000)}`;
+	try {
+		const raw = await withRetry(() => callClaudeWithModel(
+			prompt, settings.cliBin, 'standard',
+			settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey,
+		));
+		const parsed = parseJson<{ speakers?: Record<string, string>; cues?: string }>(raw, {});
+		return {
+			speakers: (typeof parsed.speakers === 'object' && parsed.speakers !== null) ? parsed.speakers : {},
+			cues: typeof parsed.cues === 'string' ? parsed.cues : '',
+		};
+	} catch { /* 실패 시 빈 명단 → 청크별 정규화가 자체 식별로 폴백 */ }
+	return { speakers: {}, cues: '' };
+}
+
 const SYSTEM_NORMALIZE_SPEAKERS = `당신은 대화/회의 전사본 정규화 엔진입니다.
 텍스트 내 모든 발화자를 일관되게 식별하고 대명사·생략 주어를 치환합니다.
 
@@ -156,26 +201,31 @@ JSON만 반환(코드블록 없이):
 export async function normalizeSpeakers(
 	rawText: string,
 	settings: ThirdBrainSettings,
+	roster?: SpeakerRoster,
 	onProgress?: (msg: string) => void,
 ): Promise<SpeakerNormResult> {
 	onProgress?.('화자 정규화 중...');
-	const prompt = `${SYSTEM_NORMALIZE_SPEAKERS}\n\n텍스트:\n${rawText.slice(0, 12000)}`;
+	// 전역 로스터가 있으면 주입해 청크 간 라벨 일관성을 강제한다 (새 레이블 생성 금지).
+	const rosterBlock = roster && Object.keys(roster.speakers).length > 0
+		? `\n\n★ 확정된 화자 명단 — 반드시 이 레이블만 일관되게 사용하라 (새 레이블 생성 금지):\n${JSON.stringify(roster.speakers)}${roster.cues ? `\n구분 단서: ${roster.cues}` : ''}`
+		: '';
+	const prompt = `${SYSTEM_NORMALIZE_SPEAKERS}${rosterBlock}\n\n텍스트:\n${rawText.slice(0, 12000)}`;
 	try {
-		const raw = await callClaudeWithModel(
+		const raw = await withRetry(() => callClaudeWithModel(
 			prompt, settings.cliBin, 'standard',
 			settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey,
-		);
+		));
 		const parsed = parseJson<{ normalized_text?: string; speakers?: Record<string, string> }>(raw, {});
 		if (typeof parsed.normalized_text === 'string' && parsed.normalized_text.trim().length > 50) {
+			const parsedSpeakers = (typeof parsed.speakers === 'object' && parsed.speakers !== null) ? parsed.speakers : {};
 			return {
 				text: parsed.normalized_text.trim(),
-				speakers: (typeof parsed.speakers === 'object' && parsed.speakers !== null)
-					? parsed.speakers
-					: {},
+				// 전역 로스터를 우선 유지 (청크가 명단을 축소/변형하지 않도록)
+				speakers: roster && Object.keys(roster.speakers).length > 0 ? roster.speakers : parsedSpeakers,
 			};
 		}
 	} catch { /* 정규화 실패 시 원본 그대로 사용 */ }
-	return { text: rawText, speakers: {} };
+	return { text: rawText, speakers: roster?.speakers ?? {} };
 }
 
 // ── 1차: 문맥 레이어 추출 ────────────────────────────────
@@ -444,6 +494,41 @@ function shortHash(text: string): string {
 	return Math.abs(h).toString(36).slice(0, 6).padStart(6, '0');
 }
 
+// CLI 동시 호출 수. claude -p는 호출마다 에이전트 런타임을 콜드스타트하므로
+// 순차(1)면 콜드스타트가 직렬로 쌓여 느리고, 무제한이면 프로세스가 폭주한다. 중간값으로 겹쳐 처리.
+// 8 ≈ 30단락 기준 ~50s. 머신 RAM·백엔드 레이트리밋이 상한 — 스왑/429 나면 낮춰라.
+const CLI_CONCURRENCY = 8;
+
+/** 실패 시 짧은 backoff 후 재시도. 높은 동시성에서 순간 레이트리밋에 단락이 조용히 누락되는 것 방지. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 800): Promise<T> {
+	let lastErr: unknown;
+	for (let i = 0; i < attempts; i++) {
+		try { return await fn(); }
+		catch (e) { lastErr = e; if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs)); }
+	}
+	throw lastErr;
+}
+
+/**
+ * items를 최대 limit개씩 동시 처리하고 입력 순서대로 결과를 반환한다.
+ * limit=1이면 순차, limit≥items.length면 전체 병렬과 동일.
+ */
+async function mapWithConcurrency<T, R>(
+	items: T[],
+	limit: number,
+	fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let next = 0;
+	const worker = async (): Promise<void> => {
+		for (let i = next++; i < items.length; i = next++) {
+			results[i] = await fn(items[i], i);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+	return results;
+}
+
 export async function extractPropositions(
 	contexts: ContextLayer[],
 	rawText: string,
@@ -514,11 +599,11 @@ export async function extractPropositions(
 			`[단락]\n${para.text}\n\n` +
 			schema;
 		try {
-			const raw = await callClaudeWithModel(
+			const raw = await withRetry(() => callClaudeWithModel(
 				prompt, settings.cliBin, 'fast',
 				settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey,
 			settings.openaiApiKey
-			);
+			));
 			const parsed = parseJson<{ propositions?: RawProp[] }>(raw, { propositions: [] });
 			return { para, props: (parsed.propositions ?? []).filter(p => p && p.text?.trim()) };
 		} catch (e) {
@@ -529,10 +614,8 @@ export async function extractPropositions(
 	};
 
 	if (settings.aiProvider === 'claude-cli') {
-		// CLI: 순차 처리 (프로세스 과다 생성 방지)
-		for (let i = 0; i < paragraphs.length; i++) {
-			paraResults.push(await callPara(paragraphs[i], i, paragraphs));
-		}
+		// CLI: 제한된 병렬 — 콜드스타트를 겹쳐 처리하되 프로세스 폭주는 방지
+		paraResults = await mapWithConcurrency(paragraphs, CLI_CONCURRENCY, (p, i) => callPara(p, i, paragraphs));
 	} else {
 		// API: 전체 병렬
 		paraResults = await Promise.all(paragraphs.map((p, i) => callPara(p, i, paragraphs)));
@@ -794,99 +877,103 @@ export async function findContrastsAnalogies(
 
 // ── Phase 8-2: 액션 추출 v2 ──────────────────────────────────
 
-const SYSTEM_ACTIONS = `당신은 'Third-Brain'의 액션 그래프 추출 엔진입니다.
-주어진 텍스트에서 "해야 할 일 / 행동 지시 / 결정 사항"만 추출하라.
-사실 서술(is), 명제, 설명은 추출하지 마라 — 그것들은 명제 그래프에서 처리한다.
-액션만 추출: 실행 가능하고, 담당자가 특정되거나 기한이 있거나, 구체적 행동을 기술하는 것.
+const SYSTEM_ACTIONS = `당신은 'Third-Brain'의 액션 도출 엔진입니다.
+하나의 토픽에 속한 명제들이 주어집니다. 이 명제들을 **종합**하여, 이들이 집합적으로 요구하는 "해야 할 일 / 결정 / 행동"을 도출하라.
 
-JSON만 반환 (코드블록 없이):
-{"actions": [
+★ 원칙
+- 여러 명제를 엮은 복합 액션을 우선하라. 명제 하나를 그대로 to-do로 재진술하지 마라.
+- 없는 것을 지어내는 종합 금지: 각 액션은 실제로 주어진 명제들에서 도출돼야 한다.
+- owner(담당자)와 deadline(기한)은 명제에 **명시적으로 나타난 경우에만** 채워라. 없으면 빈 문자열. 추측 절대 금지.
+- 사실 서술·설명은 액션이 아니다(명제 그래프가 처리). 실행 가능한 행동만.
+- 이 토픽에서 도출할 액션이 없으면 빈 배열.
+
+JSON만 반환(코드블록 없이):
+{"actions":[
   {
-    "title": "액션 제목 (동사로 시작, 30자 이내)",
-    "content": "구체적 실행 방법",
-    "owner": "담당자 (없으면 빈 문자열)",
-    "deadline": "기한 ISO 8601 (없으면 빈 문자열)",
-    "link_type": "implements | investigates",
-    "motivation_prop_titles": ["동기가 된 명제 제목 배열"],
-    "motivation_context_titles": ["이 액션이 속한 문맥 단위 제목 배열 (반드시 1개 이상)"]
+    "title":"액션 제목 (동사로 시작, 30자 이내)",
+    "content":"구체적 실행 내용",
+    "owner":"담당자 (명시적일 때만, 없으면 \\"\\")",
+    "deadline":"기한 ISO 8601 (명시적일 때만, 없으면 \\"\\")",
+    "link_type":"implements | investigates",
+    "motivation_prop_titles":["근거가 된 명제 제목들 (1개 이상 필수)"]
   }
-]}
-액션이 없으면 {"actions": []}.`;
+]}`;
 
+type RawAction = {
+	title?: string;
+	content?: string;
+	owner?: string;
+	deadline?: string;
+	link_type?: string;
+	motivation_prop_titles?: string[];
+};
+
+/**
+ * 액션 도출 (명제 우선, 토픽 내 종합).
+ * 명제를 소속 토픽(context)별로 묶고, 각 토픽의 명제들을 종합해 복합 액션을 도출한다.
+ * - 토픽 경계를 넘는 종합은 하지 않는다 (토픽당 독립 호출로 구조적 강제).
+ * - motivation_ids ≥ 1 필수: 명제에 뿌리 없는 붕 뜬 액션은 버린다.
+ * - 원문 텍스트를 다시 읽지 않는다 — 명제는 이미 화자 정규화본에서 도출된 정제 소스.
+ */
 export async function extractActions(
-	text: string,
 	propositions: Proposition[],
 	contexts: ContextLayer[],
 	settings: ThirdBrainSettings
 ): Promise<Omit<ActionNode, 'filePath'>[]> {
-	if (!text.trim()) return [];
+	if (propositions.length === 0) return [];
 
-	const propList = propositions.slice(0, 20)
-		.map(p => `- "${p.title}"`)
-		.join('\n');
+	const byTopic = new Map<string, Proposition[]>();
+	for (const p of propositions) {
+		const key = p.context?.trim();
+		if (!key) continue; // 토픽 없는 명제는 액션 도출 대상에서 제외
+		if (!byTopic.has(key)) byTopic.set(key, []);
+		byTopic.get(key)!.push(p);
+	}
+	if (byTopic.size === 0) return [];
 
-	const ctxList = contexts
-		.map(c => `- id:"${c.id}" 제목:"${c.title}"`)
-		.join('\n');
+	const ctxByTitle = new Map(contexts.map(c => [c.title, c]));
+	const propByTitle = new Map(propositions.map(p => [p.title, p.id]));
+	const results: Omit<ActionNode, 'filePath'>[] = [];
 
-	// 텍스트가 길면 앞부분(8000) + 뒷부분(7000)을 합쳐 액션 섹션 누락 방지
-	const textForActions = text.length > 15000
-		? text.slice(0, 8000) + '\n...(중략)...\n' + text.slice(-7000)
-		: text;
-	const prompt = `${SYSTEM_ACTIONS}\n${jsonLangInstr(settings.lang)}\n\n텍스트:\n${textForActions}\n\n문맥 단위 목록:\n${ctxList || '(없음)'}\n\n명제 목록:\n${propList || '(없음)'}`;
-
-	try {
-		const raw = await callClaudeWithModel(
-			prompt,
-			settings.cliBin,
-			'fast',
-			settings.aiProvider,
-			settings.claudeApiKey,
-			settings.geminiApiKey,
-		settings.openaiApiKey
-		);
-		type RawAction = {
-			title?: string;
-			content?: string;
-			owner?: string;
-			deadline?: string;
-			link_type?: string;
-			motivation_prop_titles?: string[];
-			motivation_context_titles?: string[];
-		};
-		const parsed = parseJson<{ actions?: RawAction[] }>(raw, { actions: [] });
-		const propByTitle = new Map(propositions.map(p => [p.title, p.id]));
-		const ctxByTitle = new Map(contexts.map(c => [c.title, c.id]));
-
-		return (parsed.actions ?? [])
-			.filter((a): a is RawAction & { title: string } => !!a.title?.trim())
-			.map(a => {
-				const id = sanitizeActionId(a.title);
-				const linkType: ActionLinkType =
-					a.link_type === 'investigates' ? 'investigates' : 'implements';
+	// 토픽별 독립 호출을 제한된 병렬로 처리 (CLI 콜드스타트 겹침). API는 이 수치가 상한일 뿐 충분히 병렬.
+	const topicEntries = [...byTopic.entries()];
+	const perTopicActions = await mapWithConcurrency(topicEntries, CLI_CONCURRENCY, async ([topicTitle, props]) => {
+		const ctx = ctxByTitle.get(topicTitle);
+		const propBlock = props.map(p => `- 「${p.title}」: ${p.text}`).join('\n');
+		const prompt = `${SYSTEM_ACTIONS}\n${jsonLangInstr(settings.lang)}\n\n토픽: "${topicTitle}"\n\n이 토픽의 명제 목록:\n${propBlock}`;
+		const out: Omit<ActionNode, 'filePath'>[] = [];
+		try {
+			const raw = await withRetry(() => callClaudeWithModel(
+				prompt, settings.cliBin, 'fast',
+				settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey,
+			));
+			const parsed = parseJson<{ actions?: RawAction[] }>(raw, { actions: [] });
+			for (const a of parsed.actions ?? []) {
+				if (!a.title?.trim()) continue;
 				const motivationIds = (a.motivation_prop_titles ?? [])
 					.map(t => propByTitle.get(t))
 					.filter((id): id is string => !!id);
-				const motivationContextIds = (a.motivation_context_titles ?? [])
-					.map(t => ctxByTitle.get(t))
-					.filter((id): id is string => !!id);
-				return {
-					id,
+				if (motivationIds.length === 0) continue; // 그라운딩 필수 — 명제 근거 없으면 버림
+				const linkType: ActionLinkType = a.link_type === 'investigates' ? 'investigates' : 'implements';
+				out.push({
+					id:                      sanitizeActionId(a.title),
 					title:                   a.title.trim().slice(0, 60),
 					content:                 typeof a.content === 'string' ? a.content : '',
 					owner:                   typeof a.owner === 'string' ? a.owner : '',
 					deadline:                typeof a.deadline === 'string' ? a.deadline : '',
 					status:                  'pending' as const,
 					motivation_ids:          motivationIds,
-					motivation_context_ids:  motivationContextIds,
+					motivation_context_ids:  ctx ? [ctx.id] : [],
 					link_type:               linkType,
 					origin:                  'extracted' as const,
 					created:                 new Date().toISOString(),
-				};
-			});
-	} catch {
-		return [];
-	}
+				});
+			}
+		} catch { /* 이 토픽 실패 시 건너뜀 */ }
+		return out;
+	});
+	for (const arr of perTopicActions) results.push(...arr);
+	return results;
 }
 
 function sanitizeActionId(s: string): string {

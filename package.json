@@ -1,6 +1,6 @@
 {
 	"name": "thirdbrain-v2",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "ThirdBrain — 로컬 지식 그래프 IDE for Obsidian",
 	"main": "main.js",
 	"scripts": {

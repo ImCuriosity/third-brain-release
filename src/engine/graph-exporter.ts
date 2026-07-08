@@ -33,7 +33,13 @@ export class GraphExporter {
 		const allNodesByFolder = await Promise.all(
 			folders.map(f => store.loadNodesInFolder(f)),
 		);
-		const allNodes = allNodesByFolder.flat();
+		// 선택 폴더에 부모와 하위(_actions)가 함께 들어오면 재귀 로드로 노드가 중복된다 → id로 dedupe
+		const seenNodeIds = new Set<string>();
+		const allNodes = allNodesByFolder.flat().filter(n => {
+			if (seenNodeIds.has(n.id)) return false;
+			seenNodeIds.add(n.id);
+			return true;
+		});
 
 		if (allNodes.length === 0) {
 			return this.buildEmptyExport(folders);
@@ -140,6 +146,7 @@ export class GraphExporter {
 		const noTopic: TBNode[] = [];
 		for (const n of nodes) {
 			if (n.type === 'context') continue; // 토픽 노드 자신은 제외
+			if (n.type === 'action') continue;  // 액션은 아래 Action Links 섹션에서 별도 처리
 			if (n.topic) {
 				if (!byTopic.has(n.topic)) byTopic.set(n.topic, []);
 				byTopic.get(n.topic)!.push(n);
@@ -155,6 +162,18 @@ export class GraphExporter {
 		if (noTopic.length > 0) {
 			md += `\n### (미배정/고립) (${noTopic.length})\n`;
 			for (const m of noTopic) md += `- ${m.title}\n`;
+		}
+
+		// 액션 링크 (tb_action_motivation_ids — 논리 엣지가 아닌 액션→동기명제 provenance) [Phase 9]
+		const actionNodes = nodes.filter(n => n.type === 'action');
+		if (actionNodes.length > 0) {
+			const titleById = new Map(nodes.map(n => [n.id, n.title]));
+			md += `\n## Action Links (provenance)\n`;
+			for (const a of actionNodes) {
+				const motiv = (a.motivation_ids ?? []).map(id => titleById.get(id) ?? id);
+				md += `- **${a.title}**\n`;
+				if (motiv.length > 0) md += `  ← ${a.link_type ?? 'implements'}: ${motiv.join(', ')}\n`;
+			}
 		}
 
 		// 노드 목록

@@ -17,6 +17,7 @@ interface SimLink extends d3.SimulationLinkDatum<SimNode> {
 	relation: string;
 	confirmed: boolean;
 	membership?: boolean;  // [Phase 2d] tb_topic 소속 — 논리 엣지 아님(렌더/클러스터 전용)
+	action?: boolean;      // [Phase 9] 액션→동기명제 소속 — 논리 엣지 아님(렌더 전용)
 }
 
 // ── 엣지 타입별 색상 (10종 공리) ─────────────────────────
@@ -160,6 +161,25 @@ export class GraphView {
 			const mn = simNodeById.get(n.id);
 			if (mn) mn.degree++;
 			topicSim.degree++;
+		}
+		// ── 액션 링크 (tb_action_motivation_ids) ──────────
+		// 논리 엣지가 아니라 액션→동기명제 소속(provenance). 렌더 전용.
+		for (const n of nodes) {
+			if (n.type !== 'action' || !n.motivation_ids) continue;
+			for (const motivId of n.motivation_ids) {
+				const targetSim = simNodeById.get(motivId);
+				if (!targetSim) continue;
+				this.simLinks.push({
+					source: n.id,
+					target: motivId,
+					relation: '__action__',
+					confirmed: true,
+					action: true,
+				});
+				const an = simNodeById.get(n.id);
+				if (an) an.degree++;
+				targetSim.degree++;
+			}
 		}
 		void idMap;
 
@@ -440,6 +460,13 @@ export class GraphView {
 				ctx.globalAlpha = 1;
 				continue;
 			}
+			// 액션 링크: 액션→동기명제 provenance. 보라 점선, 관계 필터 영향 안 받음.
+			if (l.action) {
+				ctx.globalAlpha = isConnected ? 0.3 : 0.05;
+				this.drawLine(src.x, src.y ?? 0, tgt.x, tgt.y ?? 0, '#7755cc', true);
+				ctx.globalAlpha = 1;
+				continue;
+			}
 
 			const isActive = !activeRel || activeRel.has(l.relation);
 			let color = l.confirmed ? (EDGE_COLOR[l.relation] ?? '#999') : '#b8b8b8';
@@ -507,11 +534,14 @@ export class GraphView {
 
 		const isKo = this.lang === 'ko';
 		const hasMembership = this.simLinks.some(l => l.membership);
-		const hasUnconfirmed = this.simLinks.some(l => !l.membership && !l.confirmed);
+		const hasAction = this.simLinks.some(l => l.action);
+		const hasUnconfirmed = this.simLinks.some(l => !l.membership && !l.action && !l.confirmed);
 		const edgeItems = [
 			...this.legendEntries.map(e => ({ ...e, dashed: false })),
 			// 소속(tb_topic) 점선 — 논리 엣지가 아니라 토픽 멤버십. '미확인'과 구분되도록 별도 범례.
 			...(hasMembership ? [{ color: '#33aa77', label: isKo ? '소속' : 'Topic', dashed: true }] : []),
+			// 액션(tb_action_motivation_ids) 점선 — 액션→동기명제 provenance.
+			...(hasAction ? [{ color: '#7755cc', label: isKo ? '액션' : 'Action', dashed: true }] : []),
 			// 미확정 엣지가 실제로 있을 때만 표시 (파이프라인 엣지는 기본 confirmed:true)
 			...(hasUnconfirmed ? [{ color: '#aaaaaa', label: isKo ? '미확인' : 'Unconfirmed', dashed: true }] : []),
 		];
@@ -708,6 +738,12 @@ export class GraphView {
 			// 멤버십 링크는 방향 무관 '소속' 표시(초록). 논리 엣지와 구분.
 			if (l.membership) {
 				if (src.id === node.id) edges.push({ dir: '→', title: tgt.title, relation: '소속', color: '#33aa77' });
+				continue;
+			}
+			// 액션 링크는 '동기' 표시(보라). 액션→명제 provenance.
+			if (l.action) {
+				if (src.id === node.id) edges.push({ dir: '→', title: tgt.title, relation: '동기', color: '#7755cc' });
+				else if (tgt.id === node.id) edges.push({ dir: '←', title: src.title, relation: '액션', color: '#7755cc' });
 				continue;
 			}
 			if (src.id === node.id) {
