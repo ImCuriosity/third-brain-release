@@ -504,7 +504,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 800): 
 	let lastErr: unknown;
 	for (let i = 0; i < attempts; i++) {
 		try { return await fn(); }
-		catch (e) { lastErr = e; if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs)); }
+		catch (e) { lastErr = e; if (i < attempts - 1) await new Promise(r => window.setTimeout(r, delayMs)); }
 	}
 	throw lastErr;
 }
@@ -518,7 +518,7 @@ async function mapWithConcurrency<T, R>(
 	limit: number,
 	fn: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
-	const results: R[] = new Array(items.length);
+	const results: R[] = new Array<R>(items.length);
 	let next = 0;
 	const worker = async (): Promise<void> => {
 		for (let i = next++; i < items.length; i = next++) {

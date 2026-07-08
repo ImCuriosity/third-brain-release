@@ -1742,7 +1742,7 @@ async function withRetry(fn, attempts = 2, delayMs = 800) {
     } catch (e) {
       lastErr = e;
       if (i < attempts - 1)
-        await new Promise((r) => setTimeout(r, delayMs));
+        await new Promise((r) => window.setTimeout(r, delayMs));
     }
   }
   throw lastErr;
