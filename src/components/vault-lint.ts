@@ -44,7 +44,8 @@ export class OrphanQueueModal extends Modal {
 		const eligible = this.folders.filter(f =>
 			f !== rootFolder &&
 			!f.split('/').includes('raw') &&
-			!f.split('/').includes('_actions')
+			!f.split('/').includes('_actions') &&
+			!f.split('/').includes('_problems')
 		);
 
 		if (eligible.length === 0) {

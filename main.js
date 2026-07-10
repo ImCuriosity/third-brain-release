@@ -168,9 +168,11 @@ var KO = {
   progress_save: "\u2467 \uADF8\uB798\uD504 \uC800\uC7A5 \uC911...",
   progress_chunk: "\uCCAD\uD06C \uBD84\uC11D \uC911...",
   // step labels
+  step_normalize: "\u24EA \uD654\uC790 \uC815\uADDC\uD654",
   step_context: "\u2460 \uBB38\uB9E5 \uBD84\uC808",
   step_proposition: "\u2461 \uBA85\uC81C \uCD94\uCD9C",
   step_edge: "\u2462 \uB17C\uB9AC \uC5E3\uC9C0",
+  step_contrast: "\u2462-2 \uB300\uC870\xB7\uC720\uC0AC \uC2A4\uCE94",
   // result buttons
   result_view: "[ \uBD84\uC11D \uACB0\uACFC \uBCF4\uAE30 ]",
   // char count
@@ -208,7 +210,7 @@ var KO = {
   conflict_delete_node: "\uD3D0\uAE30: ",
   label_no_propositions: "\uC120\uD0DD\uD55C \uD3F4\uB354\uC5D0 \uBA85\uC81C \uB178\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
   label_no_edges: "\uC5F0\uACB0 \uAC00\uB2A5\uD55C \uC5E3\uC9C0\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
-  label_edge_save_hint: "\uC120\uD0DD\uD55C \uC5F0\uACB0\uB9CC \uC591\uCABD \uD30C\uC77C\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4.",
+  label_edge_save_hint: "\uC120\uD0DD\uD55C \uC5F0\uACB0\uB9CC \uCD9C\uBC1C \uB178\uB4DC\uC5D0 \uC800\uC7A5\uB429\uB2C8\uB2E4.",
   label_isomorphism: "\uC704\uC0C1 \uB3D9\uD615 \uADFC\uC0AC (NP-Complete \uADFC\uC0AC \xB7 \uCF54\uC0AC\uC778 \uC720\uC0AC\uB3C4)",
   label_no_iso: "\uAD6C\uC870\uC801 \uC720\uC0AC \uC30D\uC744 \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
   label_motiv: "\uB3D9\uAE30: ",
@@ -400,6 +402,15 @@ var KO = {
   layer_logic_edge_label: "\uC5E3\uC9C0",
   layer_action_header: "\u2469 \uC561\uC158 \uB808\uC774\uC5B4",
   progress_action: "\u2469 \uC561\uC158 \uB808\uC774\uC5B4 \uCD94\uCD9C \uC911...",
+  layer_problem_header: "\u26A0 \uBB38\uC81C \uB808\uC774\uC5B4",
+  progress_problem: "\u26A0 \uBB38\uC81C \uAC10\uC9C0 \uC911...",
+  problem_species_contradiction: "\uBAA8\uC21C",
+  problem_species_obstacle: "\uC7A5\uC560",
+  problem_species_gap: "\uACF5\uBC31",
+  problem_species_risk: "\uB9AC\uC2A4\uD06C",
+  problem_evidence_label: "\uADFC\uAC70: ",
+  problem_mark_resolved: "\uD574\uACB0\uB428\uC73C\uB85C \uD45C\uC2DC",
+  problem_resolved_by_user: "\uC0AC\uC6A9\uC790 \uD655\uC778\uC73C\uB85C \uD574\uC18C",
   // pipeline fallbacks
   fallback_title: "\uC81C\uBAA9 \uC5C6\uC74C",
   fallback_all: "\uC804\uCCB4",
@@ -511,9 +522,11 @@ var EN = {
   progress_edge: "3/3  Extracting edges...",
   progress_save: "\u2467 Saving graph...",
   progress_chunk: "Analyzing chunk...",
+  step_normalize: "\u24EA Speaker Normalization",
   step_context: "\u2460 Context Segmentation",
   step_proposition: "\u2461 Proposition Extraction",
   step_edge: "\u2462 Logic Edges",
+  step_contrast: "\u2462-2 Contrast/Analogy Scan",
   result_view: "[ View Results ]",
   char_suffix: " chars",
   error_title: "\u274C Error",
@@ -546,7 +559,7 @@ var EN = {
   conflict_delete_node: "Discard: ",
   label_no_propositions: "No proposition nodes in the selected folder.",
   label_no_edges: "No connectable edges found.",
-  label_edge_save_hint: "Only selected connections will be saved to both files.",
+  label_edge_save_hint: "Only selected connections will be saved (on the source node).",
   label_isomorphism: "Topology Isomorphism Approximation (NP-Complete approx \xB7 Cosine similarity)",
   label_no_iso: "No structurally similar pairs found.",
   label_motiv: "Motivation: ",
@@ -729,6 +742,15 @@ var EN = {
   layer_logic_edge_label: "edges",
   layer_action_header: "\u2469 Action Layer",
   progress_action: "\u2469 Extracting action layer...",
+  layer_problem_header: "\u26A0 Problem Layer",
+  progress_problem: "\u26A0 Detecting problems...",
+  problem_species_contradiction: "Contradiction",
+  problem_species_obstacle: "Obstacle",
+  problem_species_gap: "Gap",
+  problem_species_risk: "Risk",
+  problem_evidence_label: "Evidence: ",
+  problem_mark_resolved: "Mark resolved",
+  problem_resolved_by_user: "Resolved by user confirmation",
   fallback_title: "Untitled",
   fallback_all: "All",
   fallback_paragraph: "Paragraph",
@@ -1438,6 +1460,12 @@ Axis 4 \uC704\uC0C1 \uAD50\uCC28
 
 \u2605 \uD310\uBCC4 \uADDC\uCE59
 - \uB3D9\uC2DC \uCC38 \uBD88\uAC00 \u2192 conflicts_with / \uB3D9\uC2DC \uCC38\uC774\uB098 \uD3C9\uAC00 \uBC18\uB300 \u2192 contrasts_with
+- conflicts_with\xB7contrasts_with\uB294 \uB450 \uBA85\uC81C\uAC00 **\uAC19\uC740 \uB300\uC0C1\xB7\uAC19\uC740 \uC0AC\uC548**\uC744 \uC11C\uC220\uD560 \uB54C\uB9CC \uD6C4\uBCF4\uB2E4. \uC11C\uB85C \uB2E4\uB978 \uD654\uC81C\uC758 \uB450 \uBA85\uC81C(\uC608: "\uC778\uB825\uC774 \uBC85\uCC28\uBA74 \uD611\uB825\uC774 \uD544\uC694\uD558\uB2E4" \u2194 "\uC548\uB0B4\uBB38\uC5D0 \uD544\uC218\uB77C\uACE0 \uB098\uC640\uC788\uB294\uC9C0 \uD655\uC778\uD558\uACA0\uB2E4")\uB294 \uB2E8\uC5B4\uAC00 \uACB9\uCCD0\uB3C4(\uBE44\uC6A9\xB7\uB3C8\xB7\uC2DC\uAC04 \uB4F1) \uBAA8\uC21C\uB3C4 \uB300\uC870\uB3C4 \uC544\uB2C8\uB2E4 \u2014 \uC5F0\uACB0\uD558\uC9C0 \uB9C8\uB77C.
+- \uC9C8\uBB38\xB7\uBB38\uC758\xB7\uD655\uC778 \uC608\uC815\uC744 \uC11C\uC220\uD55C \uBA85\uC81C(\uC608: "~\uC778\uC9C0 \uBB3C\uC5C8\uB2E4", "~\uCDA9\uBD84\uD558\uB0D0\uB294 \uC9C8\uBB38\uC774 \uC81C\uAE30\uB418\uC5C8\uB2E4", "~\uD655\uC778\uD574\uBCF4\uACA0\uB2E4\uACE0 \uD588\uB2E4")\uB294 \uC9C4\uB9AC\uAC12\uC774 \uC5C6\uB2E4 \u2014 conflicts_with\uC758 \uC5B4\uB290 \uCABD\uC5D0\uB3C4 \uC138\uC6B0\uC9C0 \uB9C8\uB77C. \uC9C8\uBB38\uC5D0 \uB300\uD55C \uBD80\uC815 \uB2F5\uBCC0\uB3C4 \uBAA8\uC21C\uC774 \uC544\uB2C8\uB77C \uB2F5\uBCC0\uC774\uB2E4.
+- conflicts_with\uB294 "A\uAC00 \uCC38\uC778 \uC138\uACC4\uC5D0\uC11C B\uAC00 \uCC38\uC77C \uC218 \uC5C6\uB2E4"\uAC00 \uBB38\uC790 \uADF8\uB300\uB85C \uC131\uB9BD\uD560 \uB54C\uB9CC \uC4F4\uB2E4. \uC544\uB798\uB294 \uC804\uBD80 \uBAA8\uC21C\uC774 **\uC544\uB2C8\uB2E4**:
+  \xB7 \uC774\uD574\xB7\uC785\uC7A5\uC758 \uB300\uB9BD (\uC608: "\uACE0\uAC1D\uC740 \uBE44\uC6A9\uC774 \uBD80\uB2F4\uC774\uB2E4" \u2194 "\uC6B0\uB9AC\uB294 \uBE44\uC6A9 \uD6A8\uACFC\uC131\uC744 \uAC15\uC870\uD574\uC57C \uD55C\uB2E4" \u2014 \uB458 \uB2E4 \uCC38\uC77C \uC218 \uC788\uB294 \uAE34\uC7A5) \u2192 contrasts_with
+  \xB7 \uBB38\uC81C \uC9C0\uC801 \u2194 \uD574\uACB0 \uC81C\uC548 (\uC608: "\uAE30\uC874 \uBC29\uC2DD\uC740 \uB2E8\uC810\uC774 \uC788\uB2E4" \u2194 "\uC2DC\uC2A4\uD15C\uC744 \uBC14\uAFD4\uC57C \uD55C\uB2E4" \u2014 \uAC19\uC740 \uBC29\uD5A5\uC758 \uC8FC\uC7A5) \u2192 causes\xB7supports\uB97C \uAC80\uD1A0\uD558\uB77C
+  \xB7 \uD2B8\uB808\uC774\uB4DC\uC624\uD504\xB7\uC790\uC6D0 \uACBD\uC7C1 (\uC608: "\uBE44\uC6A9\uC774 \uB4E0\uB2E4" \u2194 "\uAD6C\uB3C5 \uACC4\uC57D\uC744 \uD588\uB2E4") \u2192 contrasts_with \uB610\uB294 \uC5F0\uACB0\uD558\uC9C0 \uB9C8\uB77C
 - \uAC19\uC740 \uC0AC\uAC74\xB7\uC0AC\uC2E4\uC744 \uD45C\uD604\uB9CC \uB2EC\uB9AC \uC11C\uC220\uD55C \uB450 \uBA85\uC81C(\uADFC\uC811 \uC911\uBCF5)\uB294 conflicts_with\xB7causes\uAC00 \uC544\uB2C8\uB77C isomorphic_to. \uC11C\uB85C \uBAA8\uC21C\uB3C4 \uC778\uACFC\uB3C4 \uC544\uB2C8\uB2E4.
 - "\uAC19\uC740 \uC8FC\uC81C\xB7\uBD84\uC57C\uB2E4"\uB294 supports \uADFC\uAC70 \uC544\uB2D8 \u2014 A\uAC00 B\uC758 \uAD6C\uCCB4\uC801 \uC99D\uAC70\uC77C \uB54C\uB9CC supports
 - \uC778\uACFC \uBD84\uBA85 \u2192 causes / \uC120\uD6C4\uB9CC \uBD84\uBA85 \u2192 precedes
@@ -1454,6 +1482,7 @@ var AXIOM_BLOCK = `${AXIOM_RELATIONS}
 - confidence  : 0.0~1.0. 0.75 \uBBF8\uB9CC\uC740 \uC800\uC7A5 \uC548 \uB428`;
 var SELFCHECK_BLOCK = `\u2605 \uCD9C\uB825 \uC804 \uC790\uAE30\uAC80\uD1A0 (\uD544\uC218)
 - \uB9CC\uB4E0 \uC5E3\uC9C0 \uBAA9\uB85D\uC744 \uB2E4\uC2DC \uBCF4\uB77C.
+- conflicts_with \uC5E3\uC9C0\uB9C8\uB2E4 \uCD5C\uC885 \uC790\uBB38\uD558\uB77C: "A\uAC00 \uCC38\uC774\uC5B4\uB3C4 B\uAC00 \uCC38\uC77C \uC218 \uC788\uB294\uAC00?" \uADF8\uB807\uB2E4\uBA74 contrasts_with\uB85C \uBC14\uAFB8\uAC70\uB098 \uC0AD\uC81C\uD558\uB77C. \uBAA8\uC21C\uC740 \uC2DC\uC2A4\uD15C\uC774 \uC720\uC800\uC5D0\uAC8C \uD574\uC18C\uB97C \uAC15\uC81C\uD558\uB294 \uACBD\uBCF4\uB2E4 \u2014 \uAC70\uC9D3 \uACBD\uBCF4\uB294 \uCD5C\uC545\uC758 \uC624\uC5FC\uC774\uB2E4.
 - supports + precondition_of \uD569\uC774 \uC804\uCCB4\uC758 60% \uCD08\uACFC \u2192 \uACFC\uC789. \uC7AC\uAC80\uD1A0\uD558\uC5EC causes\xB7contrasts_with\xB7analogous_to \uB4F1 \uB2E4\uB978 \uCD95\uC744 \uBCF4\uAC15\uD558\uB77C.
 - \uC911\uBCF5 \uC5E3\uC9C0\xB7\uC790\uAE30 \uC790\uC2E0\uC73C\uB85C\uC758 \uC5E3\uC9C0\uAC00 \uC5C6\uB294\uC9C0 \uD655\uC778\uD558\uB77C.`;
 var SYSTEM_SPEAKER_ROSTER = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \uC804\uC0AC\uBCF8\uC758 \uBC1C\uD654\uC790 \uBA85\uB2E8\uC744 \uC2DD\uBCC4\uD558\uB294 \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
@@ -1467,7 +1496,38 @@ var SYSTEM_SPEAKER_ROSTER = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \uC804
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
 {"speakers":{"\uD654\uC7901":"","\uD654\uC7902":"","\uC678\uBD80\uC778A":"\uD64D\uB300\uD45C"},"cues":"\uAC01 \uD654\uC790\uB97C \uAD6C\uBD84\uD558\uB294 \uD575\uC2EC \uB2E8\uC11C 1~3\uC904"}`;
+function rosterFromTranscriptLabels(fullText) {
+  const re = /(?:^|\n)\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s+)?((?:Speaker|화자|참석자|발표자|팀원)\s?\d+)\s*(?:$|[\n:.])/gim;
+  const counts = /* @__PURE__ */ new Map();
+  let m2;
+  let total = 0;
+  while ((m2 = re.exec(fullText)) !== null) {
+    const label = m2[1].replace(/\s+/g, " ").trim();
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    total++;
+  }
+  if (counts.size < 2 || total < 5)
+    return null;
+  const speakers = {};
+  const mappings = [];
+  for (const label of [...counts.keys()].sort()) {
+    const num = label.match(/\d+/)?.[0] ?? "";
+    const canonical = `\uD654\uC790${num}`;
+    speakers[canonical] = "";
+    if (label !== canonical)
+      mappings.push(`"${label}" \u2192 "${canonical}"`);
+  }
+  return {
+    speakers,
+    cues: mappings.length > 0 ? `\uBC1C\uD654\uC790 \uB77C\uBCA8\uC740 \uC6D0\uBB38 \uC804\uC0AC\uC5D0 \uD45C\uAE30\uB418\uC5B4 \uC788\uC74C. \uC6D0\uBB38 \uB77C\uBCA8\uC744 \uBC18\uB4DC\uC2DC \uB2E4\uC74C\uACFC \uAC19\uC774 \uCE58\uD658\uD558\uACE0 \uB2E4\uB978 \uD45C\uAE30(\uD300\uC6D0N\xB7\uC2A4\uD53C\uCEE4N \uB4F1)\uB97C \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C: ${mappings.join(", ")}` : "\uBC1C\uD654\uC790 \uB77C\uBCA8\uC740 \uC6D0\uBB38 \uC804\uC0AC\uC5D0 \uC774\uBBF8 \uD45C\uAE30\uB418\uC5B4 \uC788\uC74C \u2014 \uD45C\uAE30\uB41C \uB77C\uBCA8\uC744 \uADF8\uB300\uB85C \uC0AC\uC6A9\uD558\uB77C"
+  };
+}
 async function identifySpeakerRoster(fullText, settings, onProgress) {
+  const detected = rosterFromTranscriptLabels(fullText);
+  if (detected) {
+    onProgress?.(`\uD654\uC790 \uBA85\uB2E8: \uC804\uC0AC \uB77C\uBCA8 ${Object.keys(detected.speakers).length}\uBA85 \uAC10\uC9C0 (LLM \uC0DD\uB7B5)`);
+    return detected;
+  }
   onProgress?.("\uD654\uC790 \uBA85\uB2E8 \uC2DD\uBCC4 \uC911...");
   const prompt = `${SYSTEM_SPEAKER_ROSTER}
 
@@ -1512,6 +1572,11 @@ var SYSTEM_NORMALIZE_SPEAKERS = `\uB2F9\uC2E0\uC740 \uB300\uD654/\uD68C\uC758 \u
 - \uAC19\uC740 \uC778\uBB3C\uC740 \uBC18\uB4DC\uC2DC \uAC19\uC740 \uB808\uC774\uBE14 (\uC77C\uAD00\uC131 \uCD5C\uC6B0\uC120)
 - \uD654\uC790 \uC218 \uBD88\uBA85\uD655 \uC2DC 1\uBA85\uC73C\uB85C \uCC98\uB9AC \uD6C4 \uCD94\uAC00 \uBC1C\uD654 \uBC1C\uACAC \uC2DC \uCD94\uAC00
 - \uD604\uC7A5 \uD654\uC790\uC640 \uD604\uC7A5 \uBD80\uC7AC \uC778\uBB3C \uC808\uB300 \uD63C\uC6A9 \uAE08\uC9C0
+
+\u2605 \uAD6C\uC870 \uBCF4\uC874 (\uC7AC\uC791\uC131\uC774\uC9C0 \uC694\uC57D\uC774 \uC544\uB2C8\uB2E4):
+- \uC6D0\uBB38\uC758 \uBC1C\uD654 \uB2E8\uB77D \uAD6C\uC870\uB97C \uADF8\uB300\uB85C \uBCF4\uC874\uD558\uB77C. \uBC1C\uD654\uC640 \uBC1C\uD654 \uC0AC\uC774\uC758 \uBE48 \uC904\uC744 \uC720\uC9C0\uD558\uACE0, \uC5EC\uB7EC \uBC1C\uD654\uB97C \uD55C \uB2E8\uB77D\uC73C\uB85C \uBCD1\uD569\uD558\uC9C0 \uB9C8\uB77C.
+- \uB0B4\uC6A9\uC744 \uC694\uC57D\xB7\uC0DD\uB7B5\uD558\uC9C0 \uB9C8\uB77C. \uC6D0\uBB38\uC758 \uBAA8\uB4E0 \uBC1C\uD654\uAC00 \uCD9C\uB825\uC5D0 \uB0A8\uC544\uC57C \uD55C\uB2E4.
+- \uD0C0\uC784\uC2A4\uD0EC\uD504\uAC00 \uC788\uC73C\uBA74 \uAC01 \uBC1C\uD654 \uC55E\uC5D0 \uADF8\uB300\uB85C \uC720\uC9C0\uD558\uB77C.
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
 {"normalized_text":"\uC815\uADDC\uD654\uB41C \uD14D\uC2A4\uD2B8","speakers":{"\uD654\uC7901":"","\uD654\uC7902":"","\uC678\uBD80\uC778A":"\uD64D\uB300\uD45C"}}`;
@@ -1747,9 +1812,13 @@ async function withRetry(fn, attempts = 2, delayMs = 800) {
   }
   throw lastErr;
 }
-async function mapWithConcurrency(items, limit, fn) {
+async function mapWithConcurrency(items, limit, fn, primeFirst = false) {
   const results = new Array(items.length);
   let next = 0;
+  if (primeFirst && items.length > 1) {
+    results[0] = await fn(items[0], 0);
+    next = 1;
+  }
   const worker = async () => {
     for (let i = next++; i < items.length; i = next++) {
       results[i] = await fn(items[i], i);
@@ -1802,29 +1871,50 @@ async function extractPropositions(contexts, rawText, settings, contentType = "d
     throw new Error("[\uBA85\uC81C \uCD94\uCD9C 0\uAC1C]\n\uB2E8\uB77D \uBD84\uB9AC \uACB0\uACFC \uC5C6\uC74C (rawText\uAC00 \uBE44\uC5B4\uC788\uAC70\uB098 \uB2E8\uB77D \uAD6C\uBD84\uC774 \uC5C6\uC74C)");
   }
   const contextList = contexts.map((c2, i) => `[${i + 1}] ${c2.title}`).join("\n");
-  const schema = `{"propositions":[{"id":"p1","title":"\uBA85\uC0AC\uAD6C","text":"\uD55C \uBB38\uC7A5 \uC8FC\uC7A5","role":"claim","proposition_type":"claim","context":"\uBB38\uB9E5 \uB2E8\uC704 \uC81C\uBAA9","is_core_concept":false},{"id":"p2","title":"\uBA85\uC0AC\uAD6C2","text":"\uD55C \uBB38\uC7A5 \uC8FC\uC7A52","role":"claim","proposition_type":"fact","context":"\uBB38\uB9E5 \uB2E8\uC704 \uC81C\uBAA9","is_core_concept":false}]}`;
-  let paraResults = [];
+  const schema = `{"propositions":[{"id":"p1","para":1,"title":"\uBA85\uC0AC\uAD6C","text":"\uD55C \uBB38\uC7A5 \uC8FC\uC7A5","role":"claim","proposition_type":"claim","context":"\uBB38\uB9E5 \uB2E8\uC704 \uC81C\uBAA9","is_core_concept":false},{"id":"p2","para":2,"title":"\uBA85\uC0AC\uAD6C2","text":"\uD55C \uBB38\uC7A5 \uC8FC\uC7A52","role":"claim","proposition_type":"fact","context":"\uBB38\uB9E5 \uB2E8\uC704 \uC81C\uBAA9","is_core_concept":false}]}`;
   let lastError = null;
   let errorCount = 0;
   const systemPropPrompt = buildPropSystemPrompt(contentType, dialogueSubtype);
-  const callPara = async (para, paraIdx, allParas) => {
-    const sectionLine = para.sectionHint ? `[\uC18C\uC18D \uC139\uC158]: ${para.sectionHint}
-
-` : "";
-    const prevPara = paraIdx > 0 ? allParas[paraIdx - 1].text : "";
+  const PROP_BATCH_MAX_CHARS = 2e3;
+  const PROP_BATCH_MAX_COUNT = 3;
+  const batches = [];
+  {
+    let cur = [];
+    let curChars = 0;
+    let firstIdx = 0;
+    paragraphs.forEach((p, i) => {
+      if (cur.length > 0 && (cur.length >= PROP_BATCH_MAX_COUNT || curChars + p.text.length > PROP_BATCH_MAX_CHARS)) {
+        batches.push({ paras: cur, firstIdx });
+        cur = [];
+        curChars = 0;
+      }
+      if (cur.length === 0)
+        firstIdx = i;
+      cur.push(p);
+      curChars += p.text.length;
+    });
+    if (cur.length > 0)
+      batches.push({ paras: cur, firstIdx });
+  }
+  const callBatch = async (batch) => {
+    const prevPara = batch.firstIdx > 0 ? paragraphs[batch.firstIdx - 1].text : "";
     const prevLine = prevPara ? `[\uC774\uC804 \uB2E8\uB77D \u2014 \uB300\uBA85\uC0AC\xB7\uC9C0\uC2DC\uC5B4 \uCC38\uC870]
 ${prevPara.slice(0, 400)}
 
 ` : "";
+    const paraBlock = batch.paras.map(
+      (p, i) => `[\uB2E8\uB77D ${i + 1}${p.sectionHint ? ` | \uC139\uC158: ${p.sectionHint}` : ""}]
+${p.text}`
+    ).join("\n\n");
     const prompt = `${systemPropPrompt}
 ${jsonLangInstr(settings.lang)}
 
 [\uBB38\uB9E5 \uB2E8\uC704 \uBAA9\uB85D \u2014 context \uD544\uB4DC \uC120\uD0DD\uC6A9]
 ${contextList}
 
-` + prevLine + sectionLine + `[\uB2E8\uB77D]
-${para.text}
+` + prevLine + `${paraBlock}
 
+\uBAA8\uB4E0 [\uB2E8\uB77D N]\uC744 \uBE60\uC9D0\uC5C6\uC774 \uCC98\uB9AC\uD558\uACE0, \uAC01 \uBA85\uC81C\uC758 "para"\uC5D0 \uADF8 \uBA85\uC81C\uAC00 \uB098\uC628 \uB2E8\uB77D \uBC88\uD638 N\uC744 \uAE30\uC785\uD558\uB77C.
 ` + schema;
     try {
       const raw = await withRetry(() => callClaudeWithModel(
@@ -1837,22 +1927,25 @@ ${para.text}
         settings.openaiApiKey
       ));
       const parsed = parseJson(raw, { propositions: [] });
-      return { para, props: (parsed.propositions ?? []).filter((p) => p && p.text?.trim()) };
+      const out = [];
+      for (const p of (parsed.propositions ?? []).filter((p2) => p2 && p2.text?.trim())) {
+        const byIdx = typeof p.para === "number" ? batch.paras[p.para - 1] : void 0;
+        const para = byIdx ?? batch.paras.find((pp) => pp.text.includes(String(p.text).trim().slice(0, 12))) ?? batch.paras[0];
+        out.push({ para, prop: p });
+      }
+      return out;
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
       errorCount++;
-      return { para, props: [] };
+      return [];
     }
   };
-  if (settings.aiProvider === "claude-cli") {
-    paraResults = await mapWithConcurrency(paragraphs, CLI_CONCURRENCY, (p, i) => callPara(p, i, paragraphs));
-  } else {
-    paraResults = await Promise.all(paragraphs.map((p, i) => callPara(p, i, paragraphs)));
-  }
+  const primeCache = settings.aiProvider !== "claude-cli";
+  const batchResults = await mapWithConcurrency(batches, CLI_CONCURRENCY, (b) => callBatch(b), primeCache);
   const allProps = [];
   let propIdx = 1;
-  for (const r of paraResults) {
-    for (const p of r.props) {
+  for (const r of batchResults) {
+    for (const { para, prop: p } of r) {
       allProps.push({
         id: `p${propIdx++}`,
         title: String(p.title || p.text).trim().slice(0, 40),
@@ -1861,9 +1954,9 @@ ${para.text}
         proposition_type: p.proposition_type === "fact" ? "fact" : "claim",
         context: typeof p.context === "string" ? p.context.trim() : "",
         is_core_concept: p.is_core_concept === true,
-        source_span: { text: r.para.text, offset: r.para.offset },
-        block_id: `tb-${shortHash(r.para.text)}`,
-        heading_path: r.para.headingPath || void 0
+        source_span: { text: para.text, offset: para.offset },
+        block_id: `tb-${shortHash(para.text)}`,
+        heading_path: para.headingPath || void 0
       });
     }
   }
@@ -1892,6 +1985,36 @@ ${AXIOM_BLOCK}
   \u2192 supports / precondition_of \uD06C\uB85C\uC2A4-\uC139\uC158 \uAE08\uC9C0 (\uC8FC\uC81C \uC720\uC0AC\uC131\uC740 \uB17C\uB9AC \uC9C0\uC9C0 \uADFC\uAC70\uAC00 \uC544\uB2D8)
 
 ${SELFCHECK_BLOCK}`;
+var MONEY_UNIT_SRC = "\uBE44\uC6A9|\uAE08\uC561|\uC608\uC0B0|\uB2E8\uAC00|\uACBD\uBE44|\uC790\uAE08|\uC5B5\\s*\uC6D0|\uB9CC\\s*\uC6D0|[0-9]+\\s*\uC6D0|\uB3C8";
+var MONEY_UNIT_TEST = new RegExp(MONEY_UNIT_SRC);
+var MONEY_UNIT_STRIP = new RegExp(MONEY_UNIT_SRC, "g");
+var KO_STOPCHUNK = /화자\d*|한다|하다|있다|없다|된다|되어|이다|그것|이것|우리|합니다|입니다/g;
+function conflictContentTokens(text) {
+  const stripped = text.replace(MONEY_UNIT_STRIP, " ").replace(KO_STOPCHUNK, " ").replace(/[^가-힣a-zA-Z0-9\s]/g, " ");
+  const out = /* @__PURE__ */ new Set();
+  for (let tok of stripped.split(/\s+/)) {
+    tok = tok.replace(/(은|는|이|가|을|를|의|에|에서|으로|로|와|과|도|만|까지|부터|께|에게)$/, "");
+    if (tok.length >= 2)
+      out.add(tok);
+  }
+  return out;
+}
+function conflictNoOverlap(a2, b) {
+  for (const x3 of a2) {
+    for (let i = 0; i <= x3.length - 2; i++) {
+      const frag = x3.slice(i, i + 2);
+      for (const y3 of b)
+        if (y3.includes(frag))
+          return false;
+    }
+  }
+  return true;
+}
+function isMoneyVocabFalseConflict(aText, bText) {
+  if (!MONEY_UNIT_TEST.test(aText) || !MONEY_UNIT_TEST.test(bText))
+    return false;
+  return conflictNoOverlap(conflictContentTokens(aText), conflictContentTokens(bText));
+}
 async function extractEdges(allPropositions, contexts, _insights, settings) {
   if (allPropositions.length < 2)
     return [];
@@ -1904,7 +2027,10 @@ async function extractEdges(allPropositions, contexts, _insights, settings) {
   });
   const propBlock = [...ctxToProps.entries()].map(
     ([ctx, items]) => `### ${ctx}
-` + items.map(({ idx, p }) => `p${idx + 1} [${p.role}]: ${p.title.slice(0, 80)}`).join("\n")
+` + items.map(({ idx, p }) => {
+      const stmt = p.text.replace(/\s+/g, " ").trim().slice(0, 160);
+      return `p${idx + 1} [${p.role}] ${p.title.slice(0, 40)}: ${stmt}`;
+    }).join("\n")
   ).join("\n\n");
   const contextBlock = contexts.map((c2) => `- ${c2.title}: ${c2.summary.slice(0, 150)}`).join("\n").slice(0, 1500);
   const edgeSchema = `{"edges":[{"source":"p1","target":"p2","relation":"supports","reason":"...","axiom_basis":"\uC774 \uAD00\uACC4\uB97C \uC120\uD0DD\uD55C \uADFC\uAC70 \uC6D0\uBB38","confidence":0.85}]}`;
@@ -1958,9 +2084,23 @@ ${contextBlock}
         return false;
       return true;
     });
+    const propById = new Map(allPropositions.map((p) => [p.id, p]));
+    const conflictFiltered = structurallyValid.filter((e) => {
+      if (e.relation !== "conflicts_with")
+        return true;
+      const a2 = propById.get(e.source);
+      const b = propById.get(e.target);
+      if (!a2 || !b)
+        return true;
+      if (a2.block_id && b.block_id && a2.block_id === b.block_id)
+        return false;
+      if (isMoneyVocabFalseConflict(a2.text, b.text))
+        return false;
+      return true;
+    });
     const SYMMETRIC_RELATIONS = /* @__PURE__ */ new Set(["isomorphic_to", "analogous_to", "conflicts_with", "contrasts_with"]);
     const seen = /* @__PURE__ */ new Set();
-    const validEdges = [...structurallyValid].sort((a2, b) => b.confidence - a2.confidence).filter((e) => {
+    const validEdges = [...conflictFiltered].sort((a2, b) => b.confidence - a2.confidence).filter((e) => {
       const key = SYMMETRIC_RELATIONS.has(e.relation) ? [e.source, e.target].sort().join("\u2194") : `${e.source}\u2192${e.target}`;
       if (seen.has(key))
         return false;
@@ -2069,14 +2209,15 @@ ${propList}
   }
 }
 var SYSTEM_ACTIONS = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uC561\uC158 \uB3C4\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
-\uD558\uB098\uC758 \uD1A0\uD53D\uC5D0 \uC18D\uD55C \uBA85\uC81C\uB4E4\uC774 \uC8FC\uC5B4\uC9D1\uB2C8\uB2E4. \uC774 \uBA85\uC81C\uB4E4\uC744 **\uC885\uD569**\uD558\uC5EC, \uC774\uB4E4\uC774 \uC9D1\uD569\uC801\uC73C\uB85C \uC694\uAD6C\uD558\uB294 "\uD574\uC57C \uD560 \uC77C / \uACB0\uC815 / \uD589\uB3D9"\uC744 \uB3C4\uCD9C\uD558\uB77C.
+\uC5EC\uB7EC \uD1A0\uD53D\uACFC \uAC01 \uD1A0\uD53D\uC5D0 \uC18D\uD55C \uBA85\uC81C\uB4E4\uC774 \uC8FC\uC5B4\uC9D1\uB2C8\uB2E4. **\uD1A0\uD53D\uBCC4\uB85C** \uBA85\uC81C\uB4E4\uC744 \uC885\uD569\uD558\uC5EC, \uADF8 \uD1A0\uD53D\uC758 \uBA85\uC81C\uB4E4\uC774 \uC9D1\uD569\uC801\uC73C\uB85C \uC694\uAD6C\uD558\uB294 "\uD574\uC57C \uD560 \uC77C / \uACB0\uC815 / \uD589\uB3D9"\uC744 \uB3C4\uCD9C\uD558\uB77C.
 
 \u2605 \uC6D0\uCE59
+- \uD1A0\uD53D \uACBD\uACC4\uB97C \uB118\uC5B4 \uBA85\uC81C\uB97C \uC5EE\uC9C0 \uB9C8\uB77C \u2014 \uD55C \uC561\uC158\uC758 \uADFC\uAC70 \uBA85\uC81C\uB294 \uC804\uBD80 \uAC19\uC740 \uD1A0\uD53D \uC18C\uC18D\uC774\uC5B4\uC57C \uD55C\uB2E4.
 - \uC5EC\uB7EC \uBA85\uC81C\uB97C \uC5EE\uC740 \uBCF5\uD569 \uC561\uC158\uC744 \uC6B0\uC120\uD558\uB77C. \uBA85\uC81C \uD558\uB098\uB97C \uADF8\uB300\uB85C to-do\uB85C \uC7AC\uC9C4\uC220\uD558\uC9C0 \uB9C8\uB77C.
 - \uC5C6\uB294 \uAC83\uC744 \uC9C0\uC5B4\uB0B4\uB294 \uC885\uD569 \uAE08\uC9C0: \uAC01 \uC561\uC158\uC740 \uC2E4\uC81C\uB85C \uC8FC\uC5B4\uC9C4 \uBA85\uC81C\uB4E4\uC5D0\uC11C \uB3C4\uCD9C\uB3FC\uC57C \uD55C\uB2E4.
 - owner(\uB2F4\uB2F9\uC790)\uC640 deadline(\uAE30\uD55C)\uC740 \uBA85\uC81C\uC5D0 **\uBA85\uC2DC\uC801\uC73C\uB85C \uB098\uD0C0\uB09C \uACBD\uC6B0\uC5D0\uB9CC** \uCC44\uC6CC\uB77C. \uC5C6\uC73C\uBA74 \uBE48 \uBB38\uC790\uC5F4. \uCD94\uCE21 \uC808\uB300 \uAE08\uC9C0.
 - \uC0AC\uC2E4 \uC11C\uC220\xB7\uC124\uBA85\uC740 \uC561\uC158\uC774 \uC544\uB2C8\uB2E4(\uBA85\uC81C \uADF8\uB798\uD504\uAC00 \uCC98\uB9AC). \uC2E4\uD589 \uAC00\uB2A5\uD55C \uD589\uB3D9\uB9CC.
-- \uC774 \uD1A0\uD53D\uC5D0\uC11C \uB3C4\uCD9C\uD560 \uC561\uC158\uC774 \uC5C6\uC73C\uBA74 \uBE48 \uBC30\uC5F4.
+- \uB3C4\uCD9C\uD560 \uC561\uC158\uC774 \uC5C6\uB294 \uD1A0\uD53D\uC740 \uAC74\uB108\uB6F0\uC5B4\uB77C. \uC804\uBD80 \uC5C6\uC73C\uBA74 \uBE48 \uBC30\uC5F4.
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
 {"actions":[
@@ -2104,19 +2245,23 @@ async function extractActions(propositions, contexts, settings) {
   if (byTopic.size === 0)
     return [];
   const ctxByTitle = new Map(contexts.map((c2) => [c2.title, c2]));
-  const propByTitle = new Map(propositions.map((p) => [p.title, p.id]));
+  const propByTitle = new Map(propositions.map((p) => [p.title, p]));
   const results = [];
+  const ACTION_TOPICS_PER_CALL = 5;
   const topicEntries = [...byTopic.entries()];
-  const perTopicActions = await mapWithConcurrency(topicEntries, CLI_CONCURRENCY, async ([topicTitle, props]) => {
-    const ctx = ctxByTitle.get(topicTitle);
-    const propBlock = props.map((p) => `- \u300C${p.title}\u300D: ${p.text}`).join("\n");
+  const topicGroups = [];
+  for (let i = 0; i < topicEntries.length; i += ACTION_TOPICS_PER_CALL) {
+    topicGroups.push(topicEntries.slice(i, i + ACTION_TOPICS_PER_CALL));
+  }
+  const perGroupActions = await mapWithConcurrency(topicGroups, CLI_CONCURRENCY, async (group) => {
+    const topicsBlock = group.map(
+      ([topicTitle, props]) => `### \uD1A0\uD53D: "${topicTitle}"
+${props.map((p) => `- \u300C${p.title}\u300D: ${p.text}`).join("\n")}`
+    ).join("\n\n");
     const prompt = `${SYSTEM_ACTIONS}
 ${jsonLangInstr(settings.lang)}
 
-\uD1A0\uD53D: "${topicTitle}"
-
-\uC774 \uD1A0\uD53D\uC758 \uBA85\uC81C \uBAA9\uB85D:
-${propBlock}`;
+${topicsBlock}`;
     const out = [];
     try {
       const raw = await withRetry(() => callClaudeWithModel(
@@ -2132,9 +2277,13 @@ ${propBlock}`;
       for (const a2 of parsed.actions ?? []) {
         if (!a2.title?.trim())
           continue;
-        const motivationIds = (a2.motivation_prop_titles ?? []).map((t) => propByTitle.get(t)).filter((id2) => !!id2);
-        if (motivationIds.length === 0)
+        const motivProps = (a2.motivation_prop_titles ?? []).map((t) => propByTitle.get(t)).filter((p) => !!p);
+        if (motivProps.length === 0)
           continue;
+        const topicOf = motivProps[0].context?.trim() ?? "";
+        if (!topicOf || motivProps.some((p) => (p.context?.trim() ?? "") !== topicOf))
+          continue;
+        const ctx = ctxByTitle.get(topicOf);
         const linkType = a2.link_type === "investigates" ? "investigates" : "implements";
         out.push({
           id: sanitizeActionId(a2.title),
@@ -2143,7 +2292,7 @@ ${propBlock}`;
           owner: typeof a2.owner === "string" ? a2.owner : "",
           deadline: typeof a2.deadline === "string" ? a2.deadline : "",
           status: "pending",
-          motivation_ids: motivationIds,
+          motivation_ids: motivProps.map((p) => p.id),
           motivation_context_ids: ctx ? [ctx.id] : [],
           link_type: linkType,
           origin: "extracted",
@@ -2153,13 +2302,90 @@ ${propBlock}`;
     } catch {
     }
     return out;
-  });
-  for (const arr of perTopicActions)
+  }, settings.aiProvider !== "claude-cli");
+  for (const arr of perGroupActions)
     results.push(...arr);
   return results;
 }
 function sanitizeActionId(s) {
   return `act-${s.replace(/[\\/:*?"<>|#^[\]\s]/g, "-").toLowerCase().slice(0, 40)}-${Date.now().toString(36)}`;
+}
+var SYSTEM_PROBLEMS = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uBB38\uC81C \uBC1C\uACAC \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+\uD55C \uD3F4\uB354\uC758 \uBA85\uC81C\uB4E4\uC774 \uC8FC\uC5B4\uC9D1\uB2C8\uB2E4. \uBA85\uC81C\uB4E4 \uC0AC\uC774\uC758 **\uAE34\uC7A5** \u2014 \uC758\uB3C4(\uC6D0\uD568\xB7\uC57D\uC18D\xB7\uD544\uC694)\uB97C \uC11C\uC220\uD558\uB294 \uBA85\uC81C\uC640 \uD604\uC2E4(\uC0C1\uD0DC\xB7\uC81C\uC57D\xB7\uD55C\uACC4)\uC744 \uC11C\uC220\uD558\uB294 \uBA85\uC81C\uAC00 \uBD80\uB52A\uD788\uB294 \uC9C0\uC810 \u2014 \uC744 \uCC3E\uC544 "\uD574\uACB0\uD574\uC57C \uD560 \uBB38\uC81C"\uB85C \uC815\uB9AC\uD558\uB77C.
+
+\u2605 \uBB38\uC81C \uC885 (\uC774 3\uC885\uB9CC):
+- obstacle (\uC7A5\uC560): \uD558\uB824\uB294 \uAC83\uC758 \uC804\uC81C\uAC00 \uAE68\uC838 \uC788\uAC70\uB098 \uBD80\uC7AC\uD568
+- gap (\uACF5\uBC31): \uD310\uB2E8\xB7\uC2E4\uD589\uC5D0 \uD544\uC694\uD55C \uC815\uBCF4\uAC00 \uBBF8\uAC80\uC99D\uC774\uAC70\uB098 \uBD88\uBA85\uD655\uD568
+- risk (\uB9AC\uC2A4\uD06C): \uD604\uC7AC \uD750\uB984\uC774 \uB098\uC05C \uACB0\uACFC\uB85C \uD5A5\uD560 \uAC00\uB2A5\uC131\uC774 \uBA85\uC81C\uC5D0 \uB4DC\uB7EC\uB0A8
+
+\u2605 \uB2E4\uB8E8\uC9C0 \uC54A\uB294 \uAC83:
+- \uB450 \uBA85\uC81C\uAC00 \uB3D9\uC2DC\uC5D0 \uCC38\uC77C \uC218 \uC5C6\uB294 \uB17C\uB9AC\uC801 \uBAA8\uC21C \u2192 \uC804\uB2F4 \uAE30\uACC4\uAC00 \uC788\uB2E4. \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C.
+- \uC9C0\uC2DC\uC0AC\uD56D \uADF8 \uC790\uCCB4 \u2192 \uC561\uC158 \uB808\uC774\uC5B4\uAC00 \uCC98\uB9AC\uD55C\uB2E4. "\uC2DC\uCF1C\uC11C \uD558\uB294 \uC77C"\uC740 \uBB38\uC81C\uAC00 \uC544\uB2C8\uB2E4.
+
+\u2605 \uC5C4\uACA9 \uADDC\uCE59:
+- \uAC01 \uBB38\uC81C\uB294 evidence_titles\uC5D0 \uADFC\uAC70 \uBA85\uC81C \uC81C\uBAA9\uC744 1\uAC1C \uC774\uC0C1 \uBC18\uB4DC\uC2DC \uC778\uC6A9. \uBAA9\uB85D\uC5D0 \uC5C6\uB294 \uADFC\uAC70 \uAE08\uC9C0.
+- \uC5B5\uC9C0 \uBB38\uC81C \uC0DD\uC131 \uAE08\uC9C0. \uAE34\uC7A5\uC774 \uC5C6\uC73C\uBA74 \uBE48 \uBC30\uC5F4\uC774 \uC815\uB2F5\uC774\uB2E4.
+- "\uC774\uBBF8 \uC5F4\uB9B0 \uBB38\uC81C" \uBAA9\uB85D\uACFC \uC2E4\uC9C8\uC801\uC73C\uB85C \uAC19\uC740 \uBB38\uC81C\uB294 \uB2E4\uC2DC \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C.
+- suggested_action: \uADF8 \uBB38\uC81C\uB97C \uC9C1\uC811 \uB2E4\uB8E8\uB294 \uC2E4\uD589 \uAC00\uB2A5\uD55C \uD589\uB3D9 1\uAC1C (\uB9C8\uB545\uCE58 \uC54A\uC73C\uBA74 \uC0DD\uB7B5).
+
+JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+{"problems":[{"title":"\uBB38\uC81C \uC81C\uBAA9 (30\uC790 \uC774\uB0B4)","description":"\uAE34\uC7A5\uC758 \uAD6C\uCCB4\uC801 \uC11C\uC220 (\uC5B4\uB5A4 \uC758\uB3C4\uAC00 \uC5B4\uB5A4 \uD604\uC2E4\uACFC \uBD80\uB52A\uD788\uB294\uAC00)","species":"obstacle | gap | risk","evidence_titles":["\uADFC\uAC70 \uBA85\uC81C \uC81C\uBAA9"],"suggested_action":{"title":"\uB3D9\uC0AC\uB85C \uC2DC\uC791 (30\uC790 \uC774\uB0B4)","content":"\uAD6C\uCCB4\uC801 \uC2E4\uD589 \uB0B4\uC6A9","link_type":"implements | investigates"}}]}
+\uBB38\uC81C\uAC00 \uC5C6\uC73C\uBA74 {"problems":[]}.`;
+async function detectProblems(propositions, openProblemTitles, settings) {
+  if (propositions.length === 0)
+    return [];
+  const props = propositions.slice(0, 60);
+  const propBlock = props.map((p) => `- \u300C${p.title}\u300D: ${p.text.slice(0, 200)}`).join("\n");
+  const openBlock = openProblemTitles.length > 0 ? `
+
+\uC774\uBBF8 \uC5F4\uB9B0 \uBB38\uC81C (\uC911\uBCF5 \uC0DD\uC131 \uAE08\uC9C0):
+${openProblemTitles.map((t) => `- ${t}`).join("\n")}` : "";
+  const prompt = `${SYSTEM_PROBLEMS}
+${jsonLangInstr(settings.lang)}
+
+\uBA85\uC81C \uBAA9\uB85D:
+${propBlock}${openBlock}`;
+  const idByTitle = /* @__PURE__ */ new Map();
+  for (const p of props) {
+    idByTitle.set(p.title, p.id);
+    idByTitle.set(p.id, p.id);
+  }
+  const VALID_SPECIES = /* @__PURE__ */ new Set(["obstacle", "gap", "risk"]);
+  try {
+    const raw = await withRetry(() => callClaudeWithModel(
+      prompt,
+      settings.cliBin,
+      "standard",
+      settings.aiProvider,
+      settings.claudeApiKey,
+      settings.geminiApiKey,
+      settings.openaiApiKey
+    ));
+    const parsed = parseJson(raw, { problems: [] });
+    const results = [];
+    for (const p of parsed.problems ?? []) {
+      if (!p.title?.trim() || !VALID_SPECIES.has(String(p.species)))
+        continue;
+      const evidenceIds = (p.evidence_titles ?? []).map((t) => idByTitle.get(String(t).trim())).filter((id2) => !!id2);
+      if (evidenceIds.length === 0)
+        continue;
+      const sa = p.suggested_action;
+      results.push({
+        title: p.title.trim().slice(0, 60),
+        description: typeof p.description === "string" ? p.description.trim() : "",
+        species: p.species,
+        evidence_ids: [...new Set(evidenceIds)],
+        suggested_action: sa?.title?.trim() ? {
+          title: sa.title.trim().slice(0, 60),
+          content: typeof sa.content === "string" ? sa.content : "",
+          link_type: sa.link_type === "investigates" ? "investigates" : "implements"
+        } : void 0
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
 }
 async function linkActionsToPropositions(actions, propositions, settings) {
   const unlinked = actions.filter((a2) => a2.motivation_ids.length === 0);
@@ -2214,6 +2440,8 @@ ${AXIOM_RELATIONS}
 
 \u2605 \uCD9C\uB825 \uADDC\uCE59
 - edges: \uCD5C\uB300 10\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C. relation\uC740 \uC704 10\uC885 \uC911 \uD558\uB098.
+- axiom_basis: \uB450 \uB178\uB4DC \uB0B4\uC6A9\uC5D0\uC11C \uAD00\uACC4\uB97C \uC131\uB9BD\uC2DC\uD0A4\uB294 \uAD6C\uC808\uC744 \uADF8\uB300\uB85C \uC778\uC6A9 (\uD544\uC218).
+  \uADFC\uAC70 \uAD6C\uC808\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC73C\uBA74 \uADF8 \uC5F0\uACB0\uC740 \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C \u2014 \uC5B5\uC9C0 \uC5F0\uACB0 \uAE08\uC9C0.
 - insight: \uB450 \uD3F4\uB354 \uAD50\uCC28 \uC2DC \uB098\uC624\uB294 \uC0C8\uB85C\uC6B4 \uD1B5\uCC30 2~3\uBB38\uC7A5.
 
 ${SELFCHECK_BLOCK}`;
@@ -2241,7 +2469,7 @@ ${jsonLangInstr(settings.lang)}
 ${candidatesText}
 
 JSON \uC751\uB2F5 \uC608\uC2DC:
-{"edges":[{"source_title":"\uD3F4\uB354A \uB178\uB4DC \uC81C\uBAA9","target_title":"\uD3F4\uB354B \uB178\uB4DC \uC81C\uBAA9","relation":"isomorphic_to","confidence":0.85,"reason":"\uADFC\uAC70 \uD55C \uC904"}],"insight":"\uD1B5\uCC30 2~3\uBB38\uC7A5"}`;
+{"edges":[{"source_title":"\uD3F4\uB354A \uB178\uB4DC \uC81C\uBAA9","target_title":"\uD3F4\uB354B \uB178\uB4DC \uC81C\uBAA9","relation":"isomorphic_to","confidence":0.85,"reason":"\uADFC\uAC70 \uD55C \uC904","axiom_basis":"\uB450 \uB178\uB4DC \uB0B4\uC6A9\uC5D0\uC11C \uC778\uC6A9\uD55C \uADFC\uAC70 \uAD6C\uC808"}],"insight":"\uD1B5\uCC30 2~3\uBB38\uC7A5"}`;
   const raw = await callClaudeWithModel(
     prompt,
     settings.cliBin,
@@ -2255,14 +2483,15 @@ JSON \uC751\uB2F5 \uC608\uC2DC:
     raw,
     { edges: [], insight: "" }
   );
-  const edges = (parsed.edges ?? []).filter((e) => e && (e["source_title"] || e["source_file"]) && (e["target_title"] || e["target_file"])).map((e) => ({
+  const edges = (parsed.edges ?? []).filter((e) => e && (e["source_title"] || e["source_file"]) && (e["target_title"] || e["target_file"])).filter((e) => typeof e["axiom_basis"] === "string" && e["axiom_basis"].trim().length > 0).map((e) => ({
     source_title: typeof e["source_title"] === "string" ? e["source_title"] : void 0,
     target_title: typeof e["target_title"] === "string" ? e["target_title"] : void 0,
     source_file: typeof e["source_file"] === "string" ? e["source_file"] : typeof e["source_title"] === "string" ? e["source_title"] + ".md" : "",
     target_file: typeof e["target_file"] === "string" ? e["target_file"] : typeof e["target_title"] === "string" ? e["target_title"] + ".md" : "",
     relation: toRelation(typeof e["relation"] === "string" ? e["relation"] : "analogous_to"),
     confidence: typeof e["confidence"] === "number" ? e["confidence"] : 0.5,
-    reason: typeof e["reason"] === "string" ? e["reason"] : ""
+    reason: typeof e["reason"] === "string" ? e["reason"] : "",
+    axiom_basis: e["axiom_basis"].trim()
   }));
   return {
     edges,
@@ -2417,11 +2646,13 @@ ${AXIOM_RELATIONS}
 - \uAC01 \uC0C8 \uBA85\uC81C\uC640 \uAC01 \uAE30\uC874 \uB178\uB4DC\uB97C \uC9DD\uC9C0\uC5B4 \uAC80\uD1A0
 - \uCD5C\uB300 8\uAC1C, \uC5F0\uAD00\uB3C4 \uB192\uC740 \uC21C. relation\uC740 \uC704 10\uC885 \uC911 \uD558\uB098.
 - confidence: \uC9C1\uC811\xB7\uAC15\uD55C \uC5F0\uACB0=0.9+, \uAC04\uC811\xB7\uB9E5\uB77D \uACF5\uC720=0.5~0.7
+- axiom_basis: \uB450 \uB178\uB4DC \uB0B4\uC6A9\uC5D0\uC11C \uAD00\uACC4\uB97C \uC131\uB9BD\uC2DC\uD0A4\uB294 \uAD6C\uC808\uC744 \uADF8\uB300\uB85C \uC778\uC6A9 (\uD544\uC218).
+  \uB0B4\uC6A9\uC5D0\uC11C \uADFC\uAC70 \uAD6C\uC808\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC73C\uBA74 \uADF8 \uC5F0\uACB0\uC740 \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C \u2014 \uC5B5\uC9C0 \uC5F0\uACB0 \uAE08\uC9C0, \uC5F0\uACB0\uC774 \uC5C6\uC73C\uBA74 \uBE48 \uBC30\uC5F4.
 
 ${SELFCHECK_BLOCK}
 
 JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
-{"connections":[{"new_title":"\uC0C8\uBA85\uC81C\uC81C\uBAA9","existing_title":"\uAE30\uC874\uB178\uB4DC\uC81C\uBAA9","relation":"supports","confidence":0.85,"reason":"\uC5F0\uACB0 \uADFC\uAC70 \uAD6C\uCCB4\uC801\uC73C\uB85C"}]}`;
+{"connections":[{"new_title":"\uC0C8\uBA85\uC81C\uC81C\uBAA9","existing_title":"\uAE30\uC874\uB178\uB4DC\uC81C\uBAA9","relation":"supports","confidence":0.85,"reason":"\uC5F0\uACB0 \uADFC\uAC70 \uAD6C\uCCB4\uC801\uC73C\uB85C","axiom_basis":"\uB450 \uB178\uB4DC \uB0B4\uC6A9\uC5D0\uC11C \uC778\uC6A9\uD55C \uADFC\uAC70 \uAD6C\uC808"}]}`;
 async function findCrossConnections(newPropositions, existingNodes, settings, onProgress) {
   if (newPropositions.length === 0 || existingNodes.length === 0)
     return [];
@@ -2460,7 +2691,13 @@ ${existingList}`;
       settings.openaiApiKey
     );
     const result = parseJson(raw, { connections: [] });
-    return Array.isArray(result.connections) ? result.connections.map((c2) => ({ ...c2, confidence: typeof c2.confidence === "number" ? c2.confidence : 0.5 })).slice(0, 8) : [];
+    if (!Array.isArray(result.connections))
+      return [];
+    return result.connections.map((c2) => ({
+      ...c2,
+      confidence: typeof c2.confidence === "number" ? c2.confidence : 0.5,
+      axiom_basis: typeof c2.axiom_basis === "string" ? c2.axiom_basis.trim() : ""
+    })).filter((c2) => isValidRelation(c2.relation) && c2.axiom_basis.length > 0).slice(0, 8);
   } catch {
     return [];
   }
@@ -2834,7 +3071,7 @@ var GraphStore = class {
   // 배지용 — vault 전체 고립 명제 수 빠르게 집계
   async countOrphanPropositions() {
     const allNodes = await this.loadNodesInFolder(this.settings.rootFolder || "/");
-    const NON_PROP_TYPES = ["context", "action", "summary", "expression"];
+    const NON_PROP_TYPES = ["context", "action", "problem", "summary", "expression"];
     return allNodes.filter(
       (n) => !NON_PROP_TYPES.includes(n.type) && !n.folder.split("/").includes("raw") && this.isUnlinkedProp(n)
     ).length;
@@ -2842,7 +3079,7 @@ var GraphStore = class {
   // 특정 폴더 내 고립 명제 스캔 — salience 내림차순, 연결 후보도 같은 폴더에서
   async scanOrphanPropositions(folderPath) {
     const allNodes = await this.loadNodesInFolder(folderPath);
-    const NON_PROP_TYPES = ["context", "action", "summary", "expression"];
+    const NON_PROP_TYPES = ["context", "action", "problem", "summary", "expression"];
     const propositions = allNodes.filter(
       (n) => !NON_PROP_TYPES.includes(n.type) && !n.folder.split("/").includes("raw")
     );
@@ -2892,7 +3129,7 @@ var GraphStore = class {
     const raw = await this.app.vault.read(file);
     const body = raw.replace(/^---[\s\S]*?---\n?/, "").trim();
     const nodeType = fm.tb_type ?? "claim";
-    const edges = nodeType === "action" ? [] : (Array.isArray(fm.tb_edges) ? fm.tb_edges : []).filter((e) => isValidRelation(e?.label));
+    const edges = nodeType === "action" || nodeType === "problem" ? [] : (Array.isArray(fm.tb_edges) ? fm.tb_edges : []).filter((e) => isValidRelation(e?.label));
     return {
       id: file.basename,
       title: fm.tb_title ?? file.basename,
@@ -2907,13 +3144,21 @@ var GraphStore = class {
       is_core_concept: fm.tb_is_core === true,
       proposition_type: fm.tb_proposition_type === "fact" ? "fact" : "claim",
       block_id: typeof fm.tb_block_id === "string" ? fm.tb_block_id : void 0,
+      // 원문 인용 복원 — 문제 승격 등 로드된 노드에서 출처 구절을 인용할 수 있어야 한다
+      source_span: fm.tb_source_span && typeof fm.tb_source_span.text === "string" ? { text: fm.tb_source_span.text, offset: fm.tb_source_span.offset ?? 0 } : void 0,
       heading_path: typeof fm.tb_heading_path === "string" ? fm.tb_heading_path : void 0,
       raw_path: typeof fm.tb_raw_path === "string" ? fm.tb_raw_path : void 0,
       // tb_topic은 네이티브 그래프 인식용으로 "[[basename]]" 위키링크로 저장됨 → 내부용 basename으로 환원
       topic: typeof fm.tb_topic === "string" ? fm.tb_topic.replace(/^\[\[(.+?)(?:\|.+?)?\]\]$/, "$1").trim() : void 0,
       // [옵션A] 액션 노드의 동기 명제 basename (canvas 렌더 전용). 구 스키마(implements in tb_edges) 폴백.
       motivation_ids: nodeType === "action" ? this.readActionMotivations(fm) : void 0,
-      link_type: nodeType === "action" ? fm.tb_link_type ?? fm.tb_action_link_type ?? "implements" : void 0
+      link_type: nodeType === "action" ? fm.tb_link_type ?? fm.tb_action_link_type ?? "implements" : void 0,
+      // [Phase 10] 문제 노드 필드
+      problem_species: nodeType === "problem" ? fm.tb_problem_species ?? "obstacle" : void 0,
+      problem_status: nodeType === "problem" ? fm.tb_status === "resolved" ? "resolved" : "open" : void 0,
+      evidence_ids: nodeType === "problem" && Array.isArray(fm.tb_problem_evidence_ids) ? fm.tb_problem_evidence_ids : void 0,
+      problem_pair: nodeType === "problem" && typeof fm.tb_problem_pair === "string" ? fm.tb_problem_pair : void 0,
+      resolution_note: nodeType === "problem" && typeof fm.tb_resolution_note === "string" ? fm.tb_resolution_note : void 0
     };
   }
   // 액션 노드의 동기 명제 basename 목록을 읽는다.
@@ -3109,6 +3354,7 @@ ${body}`;
     for (const p of propositions)
       titleMap.set(p.id, cleanNodeTitle(p.title));
     const fileMap = /* @__PURE__ */ new Map();
+    const idToBasename = /* @__PURE__ */ new Map();
     for (const p of propositions) {
       const origin = p.origin;
       if (origin !== "user_synthesized") {
@@ -3117,14 +3363,6 @@ ${body}`;
           continue;
         }
       }
-      const outEdges = logicEdges.filter((e) => e.source === p.id).map((e) => ({
-        target: `[[${titleMap.get(e.target) ?? e.target}]]`,
-        label: toRelation(e.relation),
-        confirmed: true,
-        reason: e.reason,
-        confidence: typeof e.confidence === "number" ? e.confidence : 1,
-        axiom_basis: typeof e.axiom_basis === "string" ? e.axiom_basis : ""
-      }));
       try {
         const file = await this.createNode({
           id: sanitizeId(p.title),
@@ -3134,7 +3372,7 @@ ${body}`;
           tags: contextTags,
           folder: sessionFolder,
           created: now2,
-          edges: outEdges,
+          edges: [],
           is_core_concept: p.is_core_concept === true,
           source_span: p.source_span,
           proposition_type: p.proposition_type,
@@ -3143,8 +3381,27 @@ ${body}`;
           raw_path: rawSourcePath
         }, rawSourcePath);
         fileMap.set(p.id, file);
+        idToBasename.set(p.id, file.basename);
       } catch {
       }
+    }
+    for (const p of propositions) {
+      const file = fileMap.get(p.id);
+      if (!file)
+        continue;
+      const outEdges = logicEdges.filter((e) => e.source === p.id).map((e) => ({
+        target: `[[${idToBasename.get(e.target) ?? titleMap.get(e.target) ?? e.target}]]`,
+        label: toRelation(e.relation),
+        confirmed: true,
+        reason: e.reason,
+        confidence: typeof e.confidence === "number" ? e.confidence : 1,
+        axiom_basis: typeof e.axiom_basis === "string" ? e.axiom_basis : ""
+      }));
+      if (outEdges.length === 0)
+        continue;
+      await this.app.fileManager.processFrontMatter(file, (fm) => {
+        fm.tb_edges = outEdges;
+      });
     }
     return fileMap;
   }
@@ -3167,45 +3424,31 @@ ${body}`;
       fm.tb_edges = edges;
     });
   }
-  // 브리지 엣지 양방향 저장 (Phase 5)
+  // 브리지 엣지 저장 (Phase 5) — 단방향.
+  // 역방향에 같은 라벨을 함께 쓰면 방향성 관계(precedes/precondition_of 등)에서
+  // "A→B ∧ B→A" 논리 모순이 생기고, 대칭 관계는 중복 엣지가 된다. 출발 노드에만 기록한다.
+  // (위키링크가 이미 걸리므로 네이티브 그래프·백링크에는 양쪽 모두 보인다.)
   async saveBridgeEdges(bridgeEdges, fileMapA, fileMapB) {
     for (const edge of bridgeEdges) {
       const srcFile = (edge.source_title && fileMapA.get(edge.source_title)) ?? fileMapA.get(edge.source_file);
       const tgtFile = (edge.target_title && fileMapB.get(edge.target_title)) ?? fileMapB.get(edge.target_file);
-      const srcLabel = edge.source_title ?? edge.source_file.replace(/\.md$/, "");
+      if (!srcFile || !tgtFile)
+        continue;
       const tgtLabel = edge.target_title ?? edge.target_file.replace(/\.md$/, "");
-      if (srcFile) {
-        const edgeAtoB = {
-          target: `[[${tgtLabel}]]`,
-          label: toRelation(edge.relation),
-          confirmed: true,
-          reason: edge.reason,
-          confidence: edge.confidence ?? 1,
-          axiom_basis: ""
-        };
-        await this.app.fileManager.processFrontMatter(srcFile, (fm) => {
-          const edges = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-          if (!edges.find((e) => e.target === edgeAtoB.target))
-            edges.push(edgeAtoB);
-          fm.tb_edges = edges;
-        });
-      }
-      if (tgtFile) {
-        const edgeBtoA = {
-          target: `[[${srcLabel}]]`,
-          label: toRelation(edge.relation),
-          confirmed: true,
-          reason: edge.reason,
-          confidence: edge.confidence ?? 1,
-          axiom_basis: ""
-        };
-        await this.app.fileManager.processFrontMatter(tgtFile, (fm) => {
-          const edges = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-          if (!edges.find((e) => e.target === edgeBtoA.target))
-            edges.push(edgeBtoA);
-          fm.tb_edges = edges;
-        });
-      }
+      const edgeAtoB = {
+        target: `[[${tgtLabel}]]`,
+        label: toRelation(edge.relation),
+        confirmed: true,
+        reason: edge.reason,
+        confidence: edge.confidence ?? 1,
+        axiom_basis: edge.axiom_basis
+      };
+      await this.app.fileManager.processFrontMatter(srcFile, (fm) => {
+        const edges = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
+        if (!edges.find((e) => e.target === edgeAtoB.target))
+          edges.push(edgeAtoB);
+        fm.tb_edges = edges;
+      });
     }
   }
   /**
@@ -3319,6 +3562,7 @@ ${body}`;
       `tb_link_type: ${node.link_type}`,
       `tb_origin: ${node.origin}`,
       `tb_motivation_context_ids: ${motivCtxIds}`,
+      ...node.problem_id ? [`tb_problem_id: "${node.problem_id.replace(/"/g, '\\"')}"`] : [],
       ...node.meeting_type ? [`tb_meeting_type: ${node.meeting_type}`] : [],
       "---"
     ].join("\n");
@@ -3356,6 +3600,111 @@ ${node.content}`;
     }
     return nodes;
   }
+  // ── Phase 10: 문제 노드 CRUD ─────────────────────────────
+  // 문제 = 명제 간 긴장. 해결까지 지속(open→resolved). tb_edges는 항상 [] (논리 그래프 순수성).
+  // 증거 명제는 tb_problem_evidence_ids 필드 + tb_links 위키링크(네이티브 그래프 provenance).
+  async createProblemNode(problem, parentFolder) {
+    const folder = parentFolder ? (0, import_obsidian2.normalizePath)(`${parentFolder}/_problems`) : "_problems";
+    await this.ensureFolder(folder);
+    const safeTitle = sanitizeId(problem.title) || `problem-${Date.now().toString(36)}`;
+    let filePath = (0, import_obsidian2.normalizePath)(`${folder}/${safeTitle}.md`);
+    filePath = await this.resolveConflict(filePath);
+    const linksStr = problem.evidence_ids.length > 0 ? "\n" + problem.evidence_ids.map((b) => `  - "[[${b}]]"`).join("\n") : " []";
+    const frontmatter = [
+      "---",
+      `tb_id: "prob-${Date.now().toString(36)}"`,
+      `tb_title: "${problem.title.replace(/"/g, '\\"')}"`,
+      `tb_type: problem`,
+      `tb_created: "${(/* @__PURE__ */ new Date()).toISOString()}"`,
+      `tb_tags: []`,
+      `tb_links:${linksStr}`,
+      `tb_edges: []`,
+      `tb_problem_species: ${problem.species}`,
+      `tb_status: open`,
+      `tb_problem_evidence_ids: ${JSON.stringify(problem.evidence_ids)}`,
+      ...problem.pair ? [`tb_problem_pair: "${problem.pair.replace(/"/g, '\\"')}"`] : [],
+      "---"
+    ].join("\n");
+    return this.app.vault.create(filePath, `${frontmatter}
+
+${problem.description}`);
+  }
+  /** 문제 상태 갱신 (open ↔ resolved). resolved 시 해소 방법을 tb_resolution_note에 기록. */
+  async updateProblemStatus(file, status, resolutionNote) {
+    await this.app.fileManager.processFrontMatter(file, (fm) => {
+      fm.tb_status = status;
+      if (status === "resolved" && resolutionNote)
+        fm.tb_resolution_note = resolutionNote;
+      if (status === "open")
+        delete fm.tb_resolution_note;
+    });
+  }
+  /**
+   * 모순 → 문제 노드 조정 루프 (진실의 원천은 conflicts_with 엣지, 문제 노드는 상태 추적자).
+   * - 엣지가 있는데 문제 노드가 없으면 → contradiction 문제 노드 생성 (라이프사이클 부여)
+   * - 엣지가 사라졌는데 문제 노드가 open이면 → resolved 마킹 (모달 밖 해소도 자동 반영)
+   */
+  async reconcileContradictionProblems(folder, conflicts, allNodes) {
+    const pairOf = (a2, b) => [a2, b].sort().join("\u2194");
+    const activePairs = new Set(conflicts.map((c2) => pairOf(c2.nodeA.id, c2.nodeB.id)));
+    const problemNodes = allNodes.filter((n) => n.type === "problem" && n.problem_species === "contradiction");
+    const knownPairs = new Set(problemNodes.map((n) => n.problem_pair).filter(Boolean));
+    const evidenceBlock = (n) => {
+      const claim = (n.content.split("\n---\n")[0] ?? "").trim().split("\n")[0] ?? n.title;
+      const quote = (n.source_span?.text ?? "").replace(/\s+/g, " ").trim();
+      const quoteLine = quote ? `
+  > ${quote.length > 240 ? `${quote.slice(0, 240)}\u2026` : quote}` : "";
+      const anchor = n.raw_path ? `
+  [[${n.raw_path}${n.block_id ? `#^${n.block_id}` : ""}|\uC6D0\uBB38 \uBCF4\uAE30]]` : "";
+      return `- **${n.title}** \u2014 ${claim}${quoteLine}${anchor}`;
+    };
+    for (const c2 of conflicts) {
+      const pair = pairOf(c2.nodeA.id, c2.nodeB.id);
+      if (knownPairs.has(pair))
+        continue;
+      try {
+        await this.createProblemNode({
+          title: `\uBAA8\uC21C: ${c2.nodeA.title.slice(0, 20)} \u2194 ${c2.nodeB.title.slice(0, 20)}`,
+          description: [
+            "\uB450 \uBA85\uC81C\uAC00 \uB3D9\uC2DC\uC5D0 \uCC38\uC77C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+            evidenceBlock(c2.nodeA),
+            evidenceBlock(c2.nodeB),
+            `\uADFC\uAC70: ${c2.evidence || "\u2014"}`
+          ].join("\n"),
+          species: "contradiction",
+          evidence_ids: [c2.nodeA.id, c2.nodeB.id],
+          pair
+        }, folder);
+      } catch {
+      }
+    }
+    for (const p of problemNodes) {
+      if (p.problem_status !== "open" || !p.problem_pair)
+        continue;
+      if (activePairs.has(p.problem_pair))
+        continue;
+      const file = this.app.vault.getFileByPath(p.filePath);
+      if (file) {
+        await this.updateProblemStatus(file, "resolved", "\uBAA8\uC21C \uC5E3\uC9C0 \uD574\uC18C\uB428 (\uC790\uB3D9 \uAC10\uC9C0)").catch(() => {
+        });
+      }
+    }
+  }
+  /** 모순 해소 모달에서 호출 — 해당 쌍의 open 문제 노드에 구체적 해소 방법을 기록. */
+  async resolveContradictionProblem(folder, nodeAId, nodeBId, note) {
+    const pair = [nodeAId, nodeBId].sort().join("\u2194");
+    const problems = await this.loadNodesInFolder(
+      folder ? (0, import_obsidian2.normalizePath)(`${folder}/_problems`) : "_problems"
+    );
+    for (const p of problems) {
+      if (p.type !== "problem" || p.problem_pair !== pair || p.problem_status !== "open")
+        continue;
+      const file = this.app.vault.getFileByPath(p.filePath);
+      if (file)
+        await this.updateProblemStatus(file, "resolved", note).catch(() => {
+        });
+    }
+  }
   /** _actions 폴더를 재귀 포함 전체 볼트에서 ActionNode 로드 */
   async loadAllActionNodes() {
     const nodes = [];
@@ -3387,6 +3736,7 @@ ${node.content}`;
       motivation_context_ids: Array.isArray(fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids) ? fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids : [],
       link_type: fm?.tb_link_type ?? fm?.tb_action_link_type ?? "implements",
       origin: fm?.tb_origin ?? fm?.tb_action_origin ?? "extracted",
+      problem_id: typeof fm?.tb_problem_id === "string" ? fm.tb_problem_id : void 0,
       created: String(fm?.tb_created ?? fm?.tb_action_created ?? ""),
       filePath: file.path,
       meeting_type: fm?.tb_meeting_type ? fm.tb_meeting_type : void 0
@@ -35865,7 +36215,8 @@ var NODE_COLOR = {
   contrast: PROP_COLOR,
   application: PROP_COLOR,
   summary: PROP_COLOR,
-  action: "#ff7744"
+  action: "#ff7744",
+  problem: "#ff9800"
 };
 var NODE_LABEL = {
   raw: { ko: "Raw", en: "Raw" },
@@ -35879,7 +36230,8 @@ var NODE_LABEL = {
   contrast: { ko: "\uBA85\uC81C", en: "Proposition" },
   application: { ko: "\uBA85\uC81C", en: "Proposition" },
   summary: { ko: "\uBA85\uC81C", en: "Proposition" },
-  action: { ko: "\uC561\uC158", en: "Action" }
+  action: { ko: "\uC561\uC158", en: "Action" },
+  problem: { ko: "\uBB38\uC81C", en: "Problem" }
 };
 function nodeRadius(degree) {
   return Math.max(5, Math.min(18, 5 + Math.sqrt(degree) * 2.2));
@@ -35981,6 +36333,26 @@ var GraphView = class {
         const an = simNodeById.get(n.id);
         if (an)
           an.degree++;
+        targetSim.degree++;
+      }
+    }
+    for (const n of nodes) {
+      if (n.type !== "problem" || !n.evidence_ids)
+        continue;
+      for (const evId of n.evidence_ids) {
+        const targetSim = simNodeById.get(evId);
+        if (!targetSim)
+          continue;
+        this.simLinks.push({
+          source: n.id,
+          target: evId,
+          relation: "__problem__",
+          confirmed: true,
+          problem: true
+        });
+        const pn = simNodeById.get(n.id);
+        if (pn)
+          pn.degree++;
         targetSim.degree++;
       }
     }
@@ -36248,6 +36620,12 @@ var GraphView = class {
         ctx.globalAlpha = 1;
         continue;
       }
+      if (l.problem) {
+        ctx.globalAlpha = isConnected ? 0.32 : 0.05;
+        this.drawLine(src.x, src.y ?? 0, tgt.x, tgt.y ?? 0, "#ff9800", true);
+        ctx.globalAlpha = 1;
+        continue;
+      }
       const isActive = !activeRel || activeRel.has(l.relation);
       let color2 = l.confirmed ? EDGE_COLOR[l.relation] ?? "#999" : "#b8b8b8";
       if (!isActive)
@@ -36306,13 +36684,16 @@ var GraphView = class {
     const isKo = this.lang === "ko";
     const hasMembership = this.simLinks.some((l) => l.membership);
     const hasAction = this.simLinks.some((l) => l.action);
-    const hasUnconfirmed = this.simLinks.some((l) => !l.membership && !l.action && !l.confirmed);
+    const hasProblem = this.simLinks.some((l) => l.problem);
+    const hasUnconfirmed = this.simLinks.some((l) => !l.membership && !l.action && !l.problem && !l.confirmed);
     const edgeItems = [
       ...this.legendEntries.map((e) => ({ ...e, dashed: false })),
       // 소속(tb_topic) 점선 — 논리 엣지가 아니라 토픽 멤버십. '미확인'과 구분되도록 별도 범례.
       ...hasMembership ? [{ color: "#33aa77", label: isKo ? "\uC18C\uC18D" : "Topic", dashed: true }] : [],
       // 액션(tb_action_motivation_ids) 점선 — 액션→동기명제 provenance.
       ...hasAction ? [{ color: "#7755cc", label: isKo ? "\uC561\uC158" : "Action", dashed: true }] : [],
+      // 문제(tb_problem_evidence_ids) 점선 — 문제→증거명제 provenance.
+      ...hasProblem ? [{ color: "#ff9800", label: isKo ? "\uBB38\uC81C" : "Problem", dashed: true }] : [],
       // 미확정 엣지가 실제로 있을 때만 표시 (파이프라인 엣지는 기본 confirmed:true)
       ...hasUnconfirmed ? [{ color: "#aaaaaa", label: isKo ? "\uBBF8\uD655\uC778" : "Unconfirmed", dashed: true }] : []
     ];
@@ -36475,7 +36856,8 @@ var GraphView = class {
       premise: "#44aaff",
       context: "#33aa77",
       insight: "#cc44cc",
-      action: "#ff7744"
+      action: "#ff7744",
+      problem: "#ff9800"
     };
     const badge = popup.createEl("div", { cls: "tb-node-popup-type", text: node.type });
     badge.setCssStyles({ background: typeColors[node.type] ?? "#888" });
@@ -36493,6 +36875,13 @@ var GraphView = class {
           edges.push({ dir: "\u2192", title: tgt.title, relation: "\uB3D9\uAE30", color: "#7755cc" });
         else if (tgt.id === node.id)
           edges.push({ dir: "\u2190", title: src.title, relation: "\uC561\uC158", color: "#7755cc" });
+        continue;
+      }
+      if (l.problem) {
+        if (src.id === node.id)
+          edges.push({ dir: "\u2192", title: tgt.title, relation: "\uC99D\uAC70", color: "#ff9800" });
+        else if (tgt.id === node.id)
+          edges.push({ dir: "\u2190", title: src.title, relation: "\uBB38\uC81C", color: "#ff9800" });
         continue;
       }
       if (src.id === node.id) {
@@ -36706,6 +37095,8 @@ ${JSON.stringify(jsonPart, null, 2)}
         continue;
       if (n.type === "action")
         continue;
+      if (n.type === "problem")
+        continue;
       if (n.topic) {
         if (!byTopic.has(n.topic))
           byTopic.set(n.topic, []);
@@ -36743,6 +37134,33 @@ ${JSON.stringify(jsonPart, null, 2)}
 `;
         if (motiv.length > 0)
           md += `  \u2190 ${a2.link_type ?? "implements"}: ${motiv.join(", ")}
+`;
+      }
+    }
+    const problemNodes = nodes.filter((n) => n.type === "problem");
+    if (problemNodes.length > 0) {
+      const nodeById = new Map(nodes.map((n) => [n.id, n]));
+      md += `
+## Problems
+`;
+      for (const p of problemNodes) {
+        const status = p.problem_status ?? "open";
+        md += `- [${status === "resolved" ? "x" : " "}] **${p.title}** (${p.problem_species ?? "?"})
+`;
+        for (const id2 of p.evidence_ids ?? []) {
+          const n = nodeById.get(id2);
+          if (!n) {
+            md += `  - ${id2}
+`;
+            continue;
+          }
+          const claim = (n.content?.split("\n---\n")[0] ?? "").trim().replace(/\s+/g, " ");
+          const anchor = n.raw_path ? ` ([[${n.raw_path}${n.block_id ? `#^${n.block_id}` : ""}|\uC6D0\uBB38]])` : "";
+          md += `  - **${n.title}**${claim ? ` \u2014 ${claim}` : ""}${anchor}
+`;
+        }
+        if (p.resolution_note)
+          md += `  \uD574\uC18C: ${p.resolution_note}
 `;
       }
     }
@@ -36886,7 +37304,7 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
     });
     const rootFolder = this.settings.rootFolder || "";
     const eligible = this.folders.filter(
-      (f) => f !== rootFolder && !f.split("/").includes("raw") && !f.split("/").includes("_actions")
+      (f) => f !== rootFolder && !f.split("/").includes("raw") && !f.split("/").includes("_actions") && !f.split("/").includes("_problems")
     );
     if (eligible.length === 0) {
       contentEl.createEl("div", {
@@ -37683,7 +38101,10 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     let _speakerNorm = null;
     if (contentType === "meeting" || contentType === "dialogue") {
       this.setProgress(1, this.t("progress_normalize"));
-      _speakerNorm = await normalizeSpeakers(text, this.plugin.settings, speakerRoster);
+      _speakerNorm = await timed(
+        this.t("step_normalize"),
+        () => normalizeSpeakers(text, this.plugin.settings, speakerRoster)
+      );
       workingText = _speakerNorm.text;
     }
     try {
@@ -37740,10 +38161,20 @@ ${diagMsg}`
         this.t("step_edge"),
         () => extractEdges(propositions, contexts, [], this.plugin.settings)
       );
-      const contrastEdges = await findContrastsAnalogies(propositions, this.plugin.settings);
+      const contrastEdges = await timed(
+        this.t("step_contrast"),
+        () => findContrastsAnalogies(propositions, this.plugin.settings)
+      );
       const edgeKeys = new Set(rawEdges.map((e) => `${e.source}\u2192${e.target}`));
       const mergedEdges = [...rawEdges, ...contrastEdges.filter((e) => !edgeKeys.has(`${e.source}\u2192${e.target}`))];
-      const logic = { propositions, edges: mergedEdges };
+      const pairKey = (e) => [e.source, e.target].sort().join("\u27F7");
+      const contrastPairs = new Set(
+        mergedEdges.filter((e) => e.relation === "contrasts_with").map(pairKey)
+      );
+      const finalEdges = mergedEdges.filter(
+        (e) => !(e.relation === "conflicts_with" && contrastPairs.has(pairKey(e)))
+      );
+      const logic = { propositions, edges: finalEdges };
       this.hideProgress();
       this.renderLogicLayer(logic);
       if (targetFolder) {
@@ -37762,6 +38193,9 @@ ${diagMsg}`
             }
             void this.refreshConflictBadge();
             void this.refreshOrphanBadge();
+            await this.store.reconcileContradictionProblems(targetFolder, conflicts, savedNodes).catch(() => {
+            });
+            await this.detectAndSaveProblems(targetFolder, savedNodes, includeActionLayer);
           }
           if (includeActionLayer) {
             this.setProgress(9, this.t("progress_action"));
@@ -38213,6 +38647,99 @@ ${diagMsg}`
         this.renderActionCard(content, a2, propById);
     }
   }
+  // ── [Phase 10] 문제 레이어: 감지 → 저장 → from_problem 액션 → 카드 렌더 ──
+  async detectAndSaveProblems(folder, savedNodes, includeActionLayer) {
+    try {
+      const NON_PROP_TYPES = /* @__PURE__ */ new Set(["context", "action", "problem", "summary", "expression", "raw"]);
+      const props = savedNodes.filter((n) => !NON_PROP_TYPES.has(n.type) && n.content.trim().length > 0).map((n) => ({ id: n.id, title: n.title, text: n.content }));
+      if (props.length === 0)
+        return;
+      const openProblemTitles = savedNodes.filter((n) => n.type === "problem" && n.problem_status === "open").map((n) => n.title);
+      this.setProgress(9, this.t("progress_problem"));
+      const problems = await detectProblems(props, openProblemTitles, this.plugin.settings);
+      if (problems.length === 0)
+        return;
+      const fileByBasename = /* @__PURE__ */ new Map();
+      for (const n of savedNodes) {
+        const f = this.app.vault.getFileByPath(n.filePath);
+        if (f)
+          fileByBasename.set(n.id, f);
+      }
+      const nodeById = new Map(savedNodes.map((n) => [n.id, n]));
+      const evidenceQuotes = (ids) => ids.map((id2) => {
+        const n = nodeById.get(id2);
+        const quote = (n?.source_span?.text ?? "").replace(/\s+/g, " ").trim();
+        if (!n || !quote)
+          return "";
+        return `- **${n.title}**
+  > ${quote.length > 240 ? `${quote.slice(0, 240)}\u2026` : quote}`;
+      }).filter(Boolean).join("\n");
+      const saved = [];
+      for (const p of problems) {
+        const quotes = evidenceQuotes(p.evidence_ids);
+        const file = await this.store.createProblemNode({
+          title: p.title,
+          description: quotes ? `${p.description}
+
+**\uC99D\uAC70 \uC6D0\uBB38**
+${quotes}` : p.description,
+          species: p.species,
+          evidence_ids: p.evidence_ids
+        }, folder);
+        saved.push({ file, problem: p });
+        if (includeActionLayer && p.suggested_action) {
+          await this.store.createActionNode({
+            id: `act-prob-${Date.now().toString(36)}`,
+            title: p.suggested_action.title,
+            content: p.suggested_action.content,
+            owner: "",
+            deadline: "",
+            status: "pending",
+            motivation_ids: p.evidence_ids,
+            motivation_context_ids: [],
+            link_type: p.suggested_action.link_type,
+            origin: "from_problem",
+            problem_id: file.basename,
+            created: (/* @__PURE__ */ new Date()).toISOString()
+          }, folder, fileByBasename).catch(() => {
+          });
+        }
+      }
+      this.renderProblemResults(saved);
+    } catch {
+    }
+  }
+  renderProblemResults(items) {
+    if (items.length === 0)
+      return;
+    const { content } = this.makeSectionToggle(
+      `${this.t("layer_problem_header")} \xB7 ${items.length}${this.t("layer_count_generic")}`,
+      false
+    );
+    for (const { file, problem } of items) {
+      const card = content.createEl("div", { cls: `tb-problem-card is-${problem.species}` });
+      const head = card.createEl("div", { cls: "tb-problem-card-head" });
+      head.createEl("span", {
+        cls: `tb-problem-species is-${problem.species}`,
+        text: this.t(`problem_species_${problem.species}`)
+      });
+      head.createEl("span", { cls: "tb-problem-title", text: problem.title });
+      if (problem.description) {
+        card.createEl("div", { cls: "tb-problem-desc", text: problem.description });
+      }
+      card.createEl("div", {
+        cls: "tb-problem-evidence",
+        text: `${this.t("problem_evidence_label")}${problem.evidence_ids.join(", ")}`
+      });
+      const resolveBtn = card.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-resolve-btn", text: this.t("problem_mark_resolved") });
+      resolveBtn.addEventListener("click", () => {
+        void this.store.updateProblemStatus(file, "resolved", this.t("problem_resolved_by_user")).then(() => {
+          card.addClass("is-resolved");
+          resolveBtn.disabled = true;
+        });
+      });
+    }
+  }
   renderConflictNotice(conflicts) {
     const { content } = this.makeSectionToggle(
       `\u26A0 \uB17C\uB9AC \uBAA8\uC21C \xB7 ${conflicts.length}\uAC1C (\uADF8\uB798\uD504\uC5D0 \uBCF4\uC874\uB428)`,
@@ -38227,6 +38754,15 @@ ${diagMsg}`
       row.createEl("span", { cls: "tb-conflict-notice-a", text: c2.nodeA.title });
       row.createEl("span", { cls: "tb-conflict-notice-vs", text: "\u27F7" });
       row.createEl("span", { cls: "tb-conflict-notice-b", text: c2.nodeB.title });
+      const dA = conflictNodeDetail(c2.nodeA);
+      const dB = conflictNodeDetail(c2.nodeB);
+      if (dA.claim || dB.claim) {
+        const detail = content.createEl("div", { cls: "tb-conflict-notice-detail" });
+        if (dA.claim)
+          detail.createEl("div", { cls: "tb-conflict-notice-claim", text: `A \xB7 ${dA.claim}` });
+        if (dB.claim)
+          detail.createEl("div", { cls: "tb-conflict-notice-claim", text: `B \xB7 ${dB.claim}` });
+      }
       const btn = row.createEl("button", { cls: "tb-btn tb-conflict-resolve-btn", text: "\uD574\uC18C\uD558\uAE30" });
       const resolvedMsg = row.createEl("span", { cls: "tb-conflict-resolved-msg" });
       btn.addEventListener("click", () => {
@@ -38242,7 +38778,7 @@ ${diagMsg}`
   // preExistingNodes: saveNodes 호출 전에 스냅샷한 기존 노드 목록 (타이밍 문제 없음)
   async findAndRenderCrossConnections(newPropositions, preExistingNodes) {
     try {
-      const NON_PROP_TYPES = /* @__PURE__ */ new Set(["context", "action", "summary", "expression"]);
+      const NON_PROP_TYPES = /* @__PURE__ */ new Set(["context", "action", "problem", "summary", "expression"]);
       const propExistingNodes = preExistingNodes.filter((n) => !NON_PROP_TYPES.has(n.type));
       if (propExistingNodes.length === 0)
         return;
@@ -38273,71 +38809,62 @@ ${diagMsg}`
           newTitleToFile.set(p.title, f);
       }
       const sorted = [...connections].sort((a2, b) => (b.confidence ?? 0) - (a2.confidence ?? 0));
-      const toSave = sorted.filter((c2) => (c2.confidence ?? 0) >= 0.75);
-      const targets = toSave.length > 0 ? toSave : sorted.slice(0, 1);
-      const saved = /* @__PURE__ */ new Set();
-      for (const conn of targets) {
+      const autoTargets = sorted.filter((c2) => (c2.confidence ?? 0) >= 0.75);
+      const pending = sorted.filter((c2) => (c2.confidence ?? 0) < 0.75);
+      const saved = [];
+      for (const conn of autoTargets) {
         const newFile = newTitleToFile.get(conn.new_title);
         const existFile = existingTitleToFile.get(conn.existing_title);
         if (!newFile || !existFile)
           continue;
         await this.saveCrossEdge(conn, newFile, existFile);
-        saved.add(`${conn.new_title}\u2192${conn.existing_title}`);
+        saved.push(conn);
       }
-      if (saved.size > 0) {
-        this.renderCrossConnectionLog(connections, saved);
-        new import_obsidian5.Notice(`[ThirdBrain] \u2468 Auto: ${saved.size}\uAC1C \uC5F0\uACB0 \uC790\uB3D9 \uC800\uC7A5`);
+      if (saved.length > 0) {
+        this.renderCrossConnectionSavedLog(saved);
+        new import_obsidian5.Notice(`[ThirdBrain] \u2468 ${saved.length}${this.t("conn_auto_saved_suffix")}`);
       }
-      const showChips = saved.size === 0;
-      if (showChips) {
-        new import_obsidian5.Notice(`[ThirdBrain] \u2468 ${connections.length}\uAC1C \uC5F0\uACB0 \uD6C4\uBCF4 \u2014 \uD328\uB110\uC744 \uC2A4\uD06C\uB864\uD574 \uD655\uC778\uD558\uC138\uC694`);
-        const preSelectFirst = saved.size === 0;
-        this.renderCrossConnectionChips(connections, newTitleToFile, existingTitleToFile, saved, preSelectFirst);
+      if (pending.length > 0) {
+        new import_obsidian5.Notice(`[ThirdBrain] \u2468 ${pending.length}\uAC1C \uC5F0\uACB0 \uD6C4\uBCF4 \u2014 \uD328\uB110\uC5D0\uC11C \uD655\uC778 \uD6C4 \uC800\uC7A5\uD558\uC138\uC694`);
+        this.renderCrossConnectionChips(pending, newTitleToFile, existingTitleToFile);
       }
     } catch (err) {
       new import_obsidian5.Notice(`[ThirdBrain] \u2468 \uC5F0\uACB0 \uD0D0\uC0C9 \uC2E4\uD328: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   async saveCrossEdge(conn, newFile, existFile) {
-    const fwd = { target: `[[${conn.existing_title}]]`, label: toRelation(conn.relation), confirmed: true, reason: conn.reason, confidence: conn.confidence ?? 1, axiom_basis: "" };
-    const bwd = { target: `[[${conn.new_title}]]`, label: toRelation(conn.relation), confirmed: true, reason: conn.reason, confidence: conn.confidence ?? 1, axiom_basis: "" };
+    const fwd = { target: `[[${conn.existing_title}]]`, label: toRelation(conn.relation), confirmed: true, reason: conn.reason, confidence: conn.confidence ?? 1, axiom_basis: conn.axiom_basis };
     await this.app.fileManager.processFrontMatter(newFile, (fm) => {
       const edges = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
       if (!edges.find((e) => e.target === fwd.target))
         edges.push(fwd);
       fm.tb_edges = edges;
     });
-    await this.app.fileManager.processFrontMatter(existFile, (fm) => {
-      const edges = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-      if (!edges.find((e) => e.target === bwd.target))
-        edges.push(bwd);
-      fm.tb_edges = edges;
-    });
   }
-  renderCrossConnectionLog(connections, autoSaved) {
+  // ⑨ 자동 저장(≥0.75) 로그 — 접을 수 있는 저장 내역 표시
+  renderCrossConnectionSavedLog(saved) {
     const container = this.pipelineModal?.contentEl ?? this.resultsEl;
     const block = container.createEl("div", { cls: "tb-block" });
     const toggle = block.createEl("div", { cls: "tb-section-toggle" });
     toggle.createEl("span", { cls: "tb-section-chevron", text: "\u25BE" });
-    toggle.createEl("span", { cls: "tb-section-label", text: `\u2713 \u2468 ${autoSaved.size}${this.t("conn_auto_saved_suffix")}` });
+    toggle.createEl("span", { cls: "tb-section-label", text: `\u2713 \u2468 ${saved.length}${this.t("conn_auto_saved_suffix")}` });
     const content = block.createEl("div", { cls: "tb-section-content" });
     toggle.addEventListener("click", () => {
       const collapsed = content.hasClass("is-collapsed");
       content.toggleClass("is-collapsed", !collapsed);
       toggle.querySelector(".tb-section-chevron").textContent = collapsed ? "\u25BE" : "\u25B8";
     });
-    for (const conn of connections) {
-      const key = `${conn.new_title}\u2192${conn.existing_title}`;
-      if (!autoSaved.has(key))
-        continue;
+    for (const conn of saved) {
       const rel = relLabel(conn.relation, this.plugin.settings.lang);
       const pct = Math.round((conn.confidence ?? 0.5) * 100);
-      content.createEl("div", { cls: "tb-chip is-saved", text: `[${pct}%] ${conn.new_title} \u2015${rel}\u2192 ${conn.existing_title}` });
+      const chip = content.createEl("div", { cls: "tb-chip is-saved", text: `[${pct}%] ${conn.new_title} \u2015${rel}\u2192 ${conn.existing_title}` });
+      if (conn.reason)
+        chip.createEl("div", { cls: "tb-chip-reason", text: conn.reason });
     }
   }
-  // 인제스트 후 기존 노드 연결 후보 칩 UI
-  renderCrossConnectionChips(connections, newTitleToFile, existingTitleToFile, autoSaved = /* @__PURE__ */ new Set(), preSelectFirst = false) {
-    const pending = connections.filter((c2) => !autoSaved.has(`${c2.new_title}\u2192${c2.existing_title}`));
+  // 인제스트 후 기존 노드 연결 후보 칩 UI — <0.75 후보만 도착하므로 사전선택 없이 유저가 직접 고른다
+  renderCrossConnectionChips(connections, newTitleToFile, existingTitleToFile) {
+    const pending = connections;
     const container = this.pipelineModal?.contentEl ?? this.resultsEl;
     const block = container.createEl("div", { cls: "tb-block" });
     const toggle = block.createEl("div", { cls: "tb-section-toggle" });
@@ -38349,7 +38876,7 @@ ${diagMsg}`
       content.toggleClass("is-collapsed", !collapsed);
       toggle.querySelector(".tb-section-chevron").textContent = collapsed ? "\u25BE" : "\u25B8";
     });
-    content.createEl("div", { cls: "tb-hint", text: preSelectFirst ? this.t("conn_auto_select_hint") : this.t("conn_manual_hint") });
+    content.createEl("div", { cls: "tb-hint", text: this.t("conn_manual_hint") });
     const chipRow = content.createEl("div", { cls: "tb-edge-chips" });
     const states = [];
     let locked = false;
@@ -38357,17 +38884,16 @@ ${diagMsg}`
       const conn = pending[i];
       const rel = relLabel(conn.relation, this.plugin.settings.lang);
       const pct = Math.round((conn.confidence ?? 0.5) * 100);
-      const initSelected = preSelectFirst && i === 0;
-      const chip = chipRow.createEl("div", { cls: `tb-chip${initSelected ? " is-selected" : ""}` });
+      const chip = chipRow.createEl("div", { cls: "tb-chip" });
       const top = chip.createEl("div", { cls: "tb-chip-top" });
-      const icon = top.createEl("span", { cls: "tb-chip-icon", text: initSelected ? "\u2713" : "\u25CE" });
+      const icon = top.createEl("span", { cls: "tb-chip-icon", text: "\u25CE" });
       top.createEl("span", { cls: "tb-chip-conf", text: `[${pct}%]` });
       top.createEl("span", { cls: "tb-chip-source", text: shortText(conn.new_title, 14) });
       top.createEl("span", { cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
       top.createEl("span", { cls: "tb-chip-target", text: conn.existing_title });
       if (conn.reason)
         chip.createEl("div", { cls: "tb-chip-reason", text: conn.reason });
-      const state = { conn, selected: initSelected };
+      const state = { conn, selected: false };
       states.push(state);
       chip.addEventListener("click", () => {
         if (locked)
@@ -40556,6 +41082,11 @@ var SingleNodeBridgeModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
+function conflictNodeDetail(n) {
+  const claim = (n.content?.split("\n---\n")[0] ?? "").trim();
+  const quote = (n.source_span?.text ?? "").replace(/\s+/g, " ").trim();
+  return { claim, quote: quote.length > 240 ? `${quote.slice(0, 240)}\u2026` : quote };
+}
 var ConflictResolutionModal = class extends import_obsidian5.Modal {
   constructor(app, conflict, store, settings, onResolved) {
     super(app);
@@ -40588,9 +41119,18 @@ var ConflictResolutionModal = class extends import_obsidian5.Modal {
     contentEl.createEl("h3", { text: this.t(titleKey), cls: "tb-conflict-modal-title" });
     contentEl.createEl("p", { text: this.t(descKey), cls: "tb-conflict-modal-desc" });
     const summary = contentEl.createEl("div", { cls: "tb-conflict-summary" });
-    summary.createEl("span", { cls: "tb-conflict-node-a", text: this.conflict.nodeA.title });
-    summary.createEl("span", { cls: "tb-conflict-vs", text: " \u27F7 " });
-    summary.createEl("span", { cls: "tb-conflict-node-b", text: this.conflict.nodeB.title });
+    const renderSide = (node, cls) => {
+      const box = summary.createEl("div", { cls: `tb-conflict-side ${cls}` });
+      box.createEl("div", { cls: "tb-conflict-side-title", text: node.title });
+      const { claim, quote } = conflictNodeDetail(node);
+      if (claim)
+        box.createEl("div", { cls: "tb-conflict-side-claim", text: claim });
+      if (quote)
+        box.createEl("div", { cls: "tb-conflict-side-quote", text: quote });
+    };
+    renderSide(this.conflict.nodeA, "tb-conflict-node-a");
+    summary.createEl("div", { cls: "tb-conflict-vs", text: "\u27F7" });
+    renderSide(this.conflict.nodeB, "tb-conflict-node-b");
     if (this.conflict.evidence) {
       const evidenceLabel = this.settings.lang === "en" ? "Evidence: " : "\uADFC\uAC70: ";
       contentEl.createEl("div", { cls: "tb-conflict-evidence", text: `${evidenceLabel}${this.conflict.evidence}` });
@@ -40717,6 +41257,8 @@ Return only JSON: {"title":"title"}`;
     }
     try {
       await this.store.replaceEdge(nodeAFile, `[[${this.conflict.nodeB.title}]]`, relation, reason);
+      const folder = this.conflict.nodeA.filePath.split("/").slice(0, -1).join("/");
+      void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `\uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uC7AC\uBD84\uB958\uD558\uC5EC \uD574\uC18C`);
       new import_obsidian5.Notice(`[ThirdBrain] \uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uAD50\uCCB4\uD588\uC2B5\uB2C8\uB2E4.`);
       this.close();
       this.onResolved?.(`\uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uC7AC\uBD84\uB958`);
@@ -40758,6 +41300,7 @@ Return only JSON: {"title":"title"}`;
       }
       if (nodeBFile instanceof import_obsidian5.TFile)
         await edge(nodeBFile);
+      void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `\uC0C1\uC704 \uC804\uC81C '${parentTitle}' \uCD94\uAC00\uB85C \uD574\uC18C`);
       new import_obsidian5.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 '${parentTitle}' \uC0DD\uC131 \uBC0F \uC5F0\uACB0 \uC644\uB8CC`);
       this.close();
       this.onResolved?.(`\uC0C1\uC704 \uC804\uC81C '${parentTitle}' \uCD94\uAC00\uB428`);
@@ -40769,6 +41312,7 @@ Return only JSON: {"title":"title"}`;
     const folder = node.filePath.split("/").slice(0, -1).join("/");
     try {
       await this.store.deleteNodeAndCleanEdges(node, folder);
+      void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `'${node.title}' \uD3D0\uAE30(\uAC70\uC9D3 \uD310\uBCC4)\uB85C \uD574\uC18C`);
       new import_obsidian5.Notice(`[ThirdBrain] '${node.title}' \uC0AD\uC81C \uC644\uB8CC`);
       this.close();
       this.onResolved?.(`'${node.title}' \uD3D0\uAE30\uB428`);

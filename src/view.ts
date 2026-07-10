@@ -13,12 +13,13 @@ import {
 	findContrastsAnalogies,
 	normalizeSpeakers,
 	identifySpeakerRoster,
+	detectProblems,
 	bridgeFolders,
 	summarizeFolder,
 	recommendTransplantEdges,
 	findCrossConnections,
 } from './engine/serial-pipeline';
-import type { FolderDigestNode, CrossConnection, SpeakerNormResult, SpeakerRoster } from './engine/serial-pipeline';
+import type { FolderDigestNode, CrossConnection, SpeakerNormResult, SpeakerRoster, DetectedProblem } from './engine/serial-pipeline';
 import { callClaudeWithModel, getSessionStats, setRequestUrl } from './engine/cli-bridge';
 import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance } from './engine/graph-store';
 import type { TBFrontMatter } from './engine/graph-store';
@@ -785,7 +786,8 @@ export class ThirdBrainView extends ItemView {
 		let _speakerNorm: SpeakerNormResult | null = null;
 		if (contentType === 'meeting' || contentType === 'dialogue') {
 			this.setProgress(1, this.t('progress_normalize'));
-			_speakerNorm = await normalizeSpeakers(text, this.plugin.settings, speakerRoster);
+			_speakerNorm = await timed(this.t('step_normalize'),
+				() => normalizeSpeakers(text, this.plugin.settings, speakerRoster));
 			workingText = _speakerNorm.text;
 		}
 
@@ -846,12 +848,22 @@ export class ThirdBrainView extends ItemView {
 				() => extractEdges(propositions, contexts, [], this.plugin.settings));
 
 			// Layer 3: 대조·유사성 전용 스캔 (contrasts_with / analogous_to)
-			const contrastEdges = await findContrastsAnalogies(propositions, this.plugin.settings);
+			const contrastEdges = await timed(this.t('step_contrast'),
+				() => findContrastsAnalogies(propositions, this.plugin.settings));
 			// 중복 제거 후 병합
 			const edgeKeys = new Set(rawEdges.map(e => `${e.source}→${e.target}`));
 			const mergedEdges = [...rawEdges, ...contrastEdges.filter(e => !edgeKeys.has(`${e.source}→${e.target}`))];
 
-			const logic: LogicLayer = { propositions, edges: mergedEdges };
+			// 같은 쌍에 contrasts_with와 conflicts_with가 동시에 있으면 conflicts_with를 버린다.
+			// contrasts_with는 "동시 참 가능" 판정이므로, 같은 쌍의 모순 판정은 자기모순인 거짓 경보다.
+			const pairKey = (e: { source: string; target: string }) =>
+				[e.source, e.target].sort().join('⟷');
+			const contrastPairs = new Set(
+				mergedEdges.filter(e => e.relation === 'contrasts_with').map(pairKey));
+			const finalEdges = mergedEdges.filter(
+				e => !(e.relation === 'conflicts_with' && contrastPairs.has(pairKey(e))));
+
+			const logic: LogicLayer = { propositions, edges: finalEdges };
 			this.hideProgress();
 			// busy는 여기서 끄지 않는다 — 저장·액션·⑨ 크로스 연결까지 파이프라인이 이어지므로
 			// 전체 완료(runIngest finally)까지 유지해야 그동안 버튼이 열리지 않는다.
@@ -879,6 +891,13 @@ export class ThirdBrainView extends ItemView {
 						}
 						void this.refreshConflictBadge();
 						void this.refreshOrphanBadge();
+
+						// [Phase 10] 모순 → 문제 노드 조정 루프 (라이프사이클 부여, 진실의 원천은 엣지)
+						await this.store.reconcileContradictionProblems(targetFolder, conflicts, savedNodes)
+							.catch(() => { /* 조정 실패는 파이프라인 중단 안 함 */ });
+
+						// [Phase 10] 문제 감지 (장애/공백/리스크) — 폴더 전체 명제의 긴장 스캔
+						await this.detectAndSaveProblems(targetFolder, savedNodes, includeActionLayer);
 					}
 
 					// Phase 8: 액션 레이어 추출 (회의·일정 선택 시에만)
@@ -1389,6 +1408,111 @@ export class ThirdBrainView extends ItemView {
 		}
 	}
 
+	// ── [Phase 10] 문제 레이어: 감지 → 저장 → from_problem 액션 → 카드 렌더 ──
+
+	private async detectAndSaveProblems(
+		folder: string,
+		savedNodes: TBNode[],
+		includeActionLayer: boolean,
+	): Promise<void> {
+		try {
+			const NON_PROP_TYPES = new Set(['context', 'action', 'problem', 'summary', 'expression', 'raw']);
+			const props = savedNodes
+				.filter(n => !NON_PROP_TYPES.has(n.type) && n.content.trim().length > 0)
+				.map(n => ({ id: n.id, title: n.title, text: n.content }));
+			if (props.length === 0) return;
+
+			const openProblemTitles = savedNodes
+				.filter(n => n.type === 'problem' && n.problem_status === 'open')
+				.map(n => n.title);
+
+			this.setProgress(9, this.t('progress_problem'));
+			const problems = await detectProblems(props, openProblemTitles, this.plugin.settings);
+			if (problems.length === 0) return;
+
+			// 증거 basename → TFile (from_problem 액션의 tb_links 해석용)
+			const fileByBasename = new Map<string, TFile>();
+			for (const n of savedNodes) {
+				const f = this.app.vault.getFileByPath(n.filePath);
+				if (f) fileByBasename.set(n.id, f);
+			}
+
+			// 증거 명제의 원문 인용을 문제 본문에 동봉 — 긴장이 실제 발화·문장에 뿌리내렸음을
+			// 유저가 직접 확인할 수 있어야 한다 (역추적 철학: 인용 없는 문제는 공감 불가)
+			const nodeById = new Map(savedNodes.map(n => [n.id, n]));
+			const evidenceQuotes = (ids: string[]) => ids
+				.map(id => {
+					const n = nodeById.get(id);
+					const quote = (n?.source_span?.text ?? '').replace(/\s+/g, ' ').trim();
+					if (!n || !quote) return '';
+					return `- **${n.title}**\n  > ${quote.length > 240 ? `${quote.slice(0, 240)}…` : quote}`;
+				})
+				.filter(Boolean)
+				.join('\n');
+
+			const saved: Array<{ file: TFile; problem: DetectedProblem }> = [];
+			for (const p of problems) {
+				const quotes = evidenceQuotes(p.evidence_ids);
+				const file = await this.store.createProblemNode({
+					title: p.title,
+					description: quotes ? `${p.description}\n\n**증거 원문**\n${quotes}` : p.description,
+					species: p.species,
+					evidence_ids: p.evidence_ids,
+				}, folder);
+				saved.push({ file, problem: p });
+
+				// 문제 해결 액션 — 액션 레이어를 켠 경우만 (기존 UX 게이트 존중)
+				if (includeActionLayer && p.suggested_action) {
+					await this.store.createActionNode({
+						id: `act-prob-${Date.now().toString(36)}`,
+						title: p.suggested_action.title,
+						content: p.suggested_action.content,
+						owner: '',
+						deadline: '',
+						status: 'pending',
+						motivation_ids: p.evidence_ids,
+						motivation_context_ids: [],
+						link_type: p.suggested_action.link_type,
+						origin: 'from_problem',
+						problem_id: file.basename,
+						created: new Date().toISOString(),
+					}, folder, fileByBasename).catch(() => {});
+				}
+			}
+			this.renderProblemResults(saved);
+		} catch { /* 문제 감지 실패는 파이프라인을 중단시키지 않음 */ }
+	}
+
+	private renderProblemResults(items: Array<{ file: TFile; problem: DetectedProblem }>) {
+		if (items.length === 0) return;
+		const { content } = this.makeSectionToggle(
+			`${this.t('layer_problem_header')} · ${items.length}${this.t('layer_count_generic')}`, false
+		);
+		for (const { file, problem } of items) {
+			const card = content.createEl('div', { cls: `tb-problem-card is-${problem.species}` });
+			const head = card.createEl('div', { cls: 'tb-problem-card-head' });
+			head.createEl('span', {
+				cls: `tb-problem-species is-${problem.species}`,
+				text: this.t(`problem_species_${problem.species}` as TKey),
+			});
+			head.createEl('span', { cls: 'tb-problem-title', text: problem.title });
+			if (problem.description) {
+				card.createEl('div', { cls: 'tb-problem-desc', text: problem.description });
+			}
+			card.createEl('div', {
+				cls: 'tb-problem-evidence',
+				text: `${this.t('problem_evidence_label')}${problem.evidence_ids.join(', ')}`,
+			});
+			const resolveBtn = card.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-resolve-btn', text: this.t('problem_mark_resolved') });
+			resolveBtn.addEventListener('click', () => {
+				void this.store.updateProblemStatus(file, 'resolved', this.t('problem_resolved_by_user')).then(() => {
+					card.addClass('is-resolved');
+					resolveBtn.disabled = true;
+				});
+			});
+		}
+	}
+
 	private renderConflictNotice(conflicts: ConflictReport[]) {
 		const { content } = this.makeSectionToggle(
 			`⚠ 논리 모순 · ${conflicts.length}개 (그래프에 보존됨)`, false
@@ -1402,6 +1526,14 @@ export class ThirdBrainView extends ItemView {
 			row.createEl('span', { cls: 'tb-conflict-notice-a', text: c.nodeA.title });
 			row.createEl('span', { cls: 'tb-conflict-notice-vs', text: '⟷' });
 			row.createEl('span', { cls: 'tb-conflict-notice-b', text: c.nodeB.title });
+			// 제목 아래 명제문 동봉 — 제목만으로는 왜 모순인지 유추할 수 없다
+			const dA = conflictNodeDetail(c.nodeA);
+			const dB = conflictNodeDetail(c.nodeB);
+			if (dA.claim || dB.claim) {
+				const detail = content.createEl('div', { cls: 'tb-conflict-notice-detail' });
+				if (dA.claim) detail.createEl('div', { cls: 'tb-conflict-notice-claim', text: `A · ${dA.claim}` });
+				if (dB.claim) detail.createEl('div', { cls: 'tb-conflict-notice-claim', text: `B · ${dB.claim}` });
+			}
 			const btn = row.createEl('button', { cls: 'tb-btn tb-conflict-resolve-btn', text: '해소하기' });
 			const resolvedMsg = row.createEl('span', { cls: 'tb-conflict-resolved-msg' });
 			btn.addEventListener('click', () => {
@@ -1424,7 +1556,7 @@ export class ThirdBrainView extends ItemView {
 		try {
 			// 크로스 연결은 명제↔명제 10공리 전용 → 액션·문맥·요약 등 비명제 노드는 대상에서 제외.
 			// (제외하지 않으면 명제→액션 precondition_of 같은 논리 엣지가 생겨 그래프 순수성이 깨진다.)
-			const NON_PROP_TYPES = new Set(['context', 'action', 'summary', 'expression']);
+			const NON_PROP_TYPES = new Set(['context', 'action', 'problem', 'summary', 'expression']);
 			const propExistingNodes = preExistingNodes.filter(n => !NON_PROP_TYPES.has(n.type));
 			if (propExistingNodes.length === 0) return;
 
@@ -1458,27 +1590,27 @@ export class ThirdBrainView extends ItemView {
 				if (f) newTitleToFile.set(p.title, f);
 			}
 
-			// confidence ≥ 0.75 전부 저장, 하나도 없으면 최상위 1개 저장
+			// 하이브리드: ≥0.75는 자동 저장(모든 후보가 axiom_basis 인용을 통과한 상태), 미만은 칩으로 유저 확정.
+			// 기준 미달 시 최상위 1개를 강제 저장하던 폴백은 억지 연결이므로 폐기된 상태를 유지한다.
 			const sorted = [...connections].sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
-			const toSave = sorted.filter(c => (c.confidence ?? 0) >= 0.75);
-			const targets = toSave.length > 0 ? toSave : sorted.slice(0, 1);
-			const saved = new Set<string>();
-			for (const conn of targets) {
+			const autoTargets = sorted.filter(c => (c.confidence ?? 0) >= 0.75);
+			const pending = sorted.filter(c => (c.confidence ?? 0) < 0.75);
+
+			const saved: CrossConnection[] = [];
+			for (const conn of autoTargets) {
 				const newFile = newTitleToFile.get(conn.new_title);
 				const existFile = existingTitleToFile.get(conn.existing_title);
 				if (!newFile || !existFile) continue;
 				await this.saveCrossEdge(conn, newFile, existFile);
-				saved.add(`${conn.new_title}→${conn.existing_title}`);
+				saved.push(conn);
 			}
-			if (saved.size > 0) {
-				this.renderCrossConnectionLog(connections, saved);
-				new Notice(`[ThirdBrain] ⑨ Auto: ${saved.size}개 연결 자동 저장`);
+			if (saved.length > 0) {
+				this.renderCrossConnectionSavedLog(saved);
+				new Notice(`[ThirdBrain] ⑨ ${saved.length}${this.t('conn_auto_saved_suffix')}`);
 			}
-			const showChips = saved.size === 0;
-			if (showChips) {
-				new Notice(`[ThirdBrain] ⑨ ${connections.length}개 연결 후보 — 패널을 스크롤해 확인하세요`);
-				const preSelectFirst = saved.size === 0;
-				this.renderCrossConnectionChips(connections, newTitleToFile, existingTitleToFile, saved, preSelectFirst);
+			if (pending.length > 0) {
+				new Notice(`[ThirdBrain] ⑨ ${pending.length}개 연결 후보 — 패널에서 확인 후 저장하세요`);
+				this.renderCrossConnectionChips(pending, newTitleToFile, existingTitleToFile);
 			}
 		} catch (err) {
 			new Notice(`[ThirdBrain] ⑨ 연결 탐색 실패: ${err instanceof Error ? err.message : String(err)}`);
@@ -1486,50 +1618,46 @@ export class ThirdBrainView extends ItemView {
 	}
 
 	private async saveCrossEdge(conn: CrossConnection, newFile: TFile, existFile: TFile): Promise<void> {
-		const fwd: TBEdge = { target: `[[${conn.existing_title}]]`, label: toRelation(conn.relation), confirmed: true, reason: conn.reason, confidence: conn.confidence ?? 1.0, axiom_basis: '' };
-		const bwd: TBEdge = { target: `[[${conn.new_title}]]`, label: toRelation(conn.relation), confirmed: true, reason: conn.reason, confidence: conn.confidence ?? 1.0, axiom_basis: '' };
+		// 단방향 저장 — 방향성 관계(precedes/precondition_of 등)에 역방향 같은 라벨을 함께 쓰면
+		// "A precondition_of B ∧ B precondition_of A" 같은 논리 모순이 생긴다. 파이프라인 규약과 동일하게
+		// 출발 노드에만 기록하고, 대상 파일 존재 확인 용도로만 existFile을 받는다.
+		void existFile;
+		const fwd: TBEdge = { target: `[[${conn.existing_title}]]`, label: toRelation(conn.relation), confirmed: true, reason: conn.reason, confidence: conn.confidence ?? 1.0, axiom_basis: conn.axiom_basis };
 		await this.app.fileManager.processFrontMatter(newFile, (fm: TBFrontMatter) => {
 			const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
 			if (!edges.find(e => e.target === fwd.target)) edges.push(fwd);
 			fm.tb_edges = edges;
 		});
-		await this.app.fileManager.processFrontMatter(existFile, (fm: TBFrontMatter) => {
-			const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-			if (!edges.find(e => e.target === bwd.target)) edges.push(bwd);
-			fm.tb_edges = edges;
-		});
 	}
 
-	private renderCrossConnectionLog(connections: CrossConnection[], autoSaved: Set<string>): void {
+	// ⑨ 자동 저장(≥0.75) 로그 — 접을 수 있는 저장 내역 표시
+	private renderCrossConnectionSavedLog(saved: CrossConnection[]): void {
 		const container = this.pipelineModal?.contentEl ?? this.resultsEl;
 		const block = container.createEl('div', { cls: 'tb-block' });
 		const toggle = block.createEl('div', { cls: 'tb-section-toggle' });
 		toggle.createEl('span', { cls: 'tb-section-chevron', text: '▾' });
-		toggle.createEl('span', { cls: 'tb-section-label', text: `✓ ⑨ ${autoSaved.size}${this.t('conn_auto_saved_suffix')}` });
+		toggle.createEl('span', { cls: 'tb-section-label', text: `✓ ⑨ ${saved.length}${this.t('conn_auto_saved_suffix')}` });
 		const content = block.createEl('div', { cls: 'tb-section-content' });
 		toggle.addEventListener('click', () => {
 			const collapsed = content.hasClass('is-collapsed');
 			content.toggleClass('is-collapsed', !collapsed);
 			toggle.querySelector<HTMLElement>('.tb-section-chevron')!.textContent = collapsed ? '▾' : '▸';
 		});
-		for (const conn of connections) {
-			const key = `${conn.new_title}→${conn.existing_title}`;
-			if (!autoSaved.has(key)) continue;
+		for (const conn of saved) {
 			const rel = relLabel(conn.relation, this.plugin.settings.lang);
 			const pct = Math.round((conn.confidence ?? 0.5) * 100);
-			content.createEl('div', { cls: 'tb-chip is-saved', text: `[${pct}%] ${conn.new_title} ―${rel}→ ${conn.existing_title}` });
+			const chip = content.createEl('div', { cls: 'tb-chip is-saved', text: `[${pct}%] ${conn.new_title} ―${rel}→ ${conn.existing_title}` });
+			if (conn.reason) chip.createEl('div', { cls: 'tb-chip-reason', text: conn.reason });
 		}
 	}
 
-	// 인제스트 후 기존 노드 연결 후보 칩 UI
+	// 인제스트 후 기존 노드 연결 후보 칩 UI — <0.75 후보만 도착하므로 사전선택 없이 유저가 직접 고른다
 	private renderCrossConnectionChips(
 		connections: CrossConnection[],
 		newTitleToFile: Map<string, TFile>,
-		existingTitleToFile: Map<string, TFile>,
-		autoSaved: Set<string> = new Set(),
-		preSelectFirst = false
+		existingTitleToFile: Map<string, TFile>
 	): void {
-		const pending = connections.filter(c => !autoSaved.has(`${c.new_title}→${c.existing_title}`));
+		const pending = connections;
 		const container = this.pipelineModal?.contentEl ?? this.resultsEl;
 		const block = container.createEl('div', { cls: 'tb-block' });
 		const toggle = block.createEl('div', { cls: 'tb-section-toggle' });
@@ -1542,7 +1670,7 @@ export class ThirdBrainView extends ItemView {
 			toggle.querySelector<HTMLElement>('.tb-section-chevron')!.textContent = collapsed ? '▾' : '▸';
 		});
 
-		content.createEl('div', { cls: 'tb-hint', text: preSelectFirst ? this.t('conn_auto_select_hint') : this.t('conn_manual_hint') });
+		content.createEl('div', { cls: 'tb-hint', text: this.t('conn_manual_hint') });
 
 		const chipRow = content.createEl('div', { cls: 'tb-edge-chips' });
 		const states: Array<{ conn: CrossConnection; selected: boolean }> = [];
@@ -1552,17 +1680,16 @@ export class ThirdBrainView extends ItemView {
 			const conn = pending[i];
 			const rel = relLabel(conn.relation, this.plugin.settings.lang);
 			const pct = Math.round((conn.confidence ?? 0.5) * 100);
-			const initSelected = preSelectFirst && i === 0;
-			const chip = chipRow.createEl('div', { cls: `tb-chip${initSelected ? ' is-selected' : ''}` });
+			const chip = chipRow.createEl('div', { cls: 'tb-chip' });
 			const top  = chip.createEl('div', { cls: 'tb-chip-top' });
-			const icon = top.createEl('span', { cls: 'tb-chip-icon', text: initSelected ? '✓' : '◎' });
+			const icon = top.createEl('span', { cls: 'tb-chip-icon', text: '◎' });
 			top.createEl('span', { cls: 'tb-chip-conf', text: `[${pct}%]` });
 			top.createEl('span', { cls: 'tb-chip-source', text: shortText(conn.new_title, 14) });
 			top.createEl('span', { cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
 			top.createEl('span', { cls: 'tb-chip-target', text: conn.existing_title });
 			if (conn.reason) chip.createEl('div', { cls: 'tb-chip-reason', text: conn.reason });
 
-			const state = { conn, selected: initSelected };
+			const state = { conn, selected: false };
 			states.push(state);
 			chip.addEventListener('click', () => {
 				if (locked) return;
@@ -4061,6 +4188,14 @@ class SingleNodeBridgeModal extends Modal {
 
 // ── 모순 해소 모달 ─────────────────────────────────────────────
 
+// 모순 표시 공용: 노드 content에서 명제문(위키링크 구분선 이전)과 원문 인용을 뽑는다.
+// 제목만으로는 두 명제가 왜 모순인지 판단할 수 없으므로 모든 모순 UI가 이걸 동봉한다.
+function conflictNodeDetail(n: TBNode): { claim: string; quote: string } {
+	const claim = (n.content?.split('\n---\n')[0] ?? '').trim();
+	const quote = (n.source_span?.text ?? '').replace(/\s+/g, ' ').trim();
+	return { claim, quote: quote.length > 240 ? `${quote.slice(0, 240)}…` : quote };
+}
+
 class ConflictResolutionModal extends Modal {
 	private ranks: EdgeRank[] = [];
 	private rankLoading = true;
@@ -4101,11 +4236,18 @@ class ConflictResolutionModal extends Modal {
 		contentEl.createEl('h3', { text: this.t(titleKey), cls: 'tb-conflict-modal-title' });
 		contentEl.createEl('p', { text: this.t(descKey), cls: 'tb-conflict-modal-desc' });
 
-		// 충돌 요약
+		// 충돌 요약 — 제목·명제문·원문 인용을 양쪽 모두 표시 (제목만으로는 모순 성립 판단 불가)
 		const summary = contentEl.createEl('div', { cls: 'tb-conflict-summary' });
-		summary.createEl('span', { cls: 'tb-conflict-node-a', text: this.conflict.nodeA.title });
-		summary.createEl('span', { cls: 'tb-conflict-vs', text: ' ⟷ ' });
-		summary.createEl('span', { cls: 'tb-conflict-node-b', text: this.conflict.nodeB.title });
+		const renderSide = (node: TBNode, cls: string) => {
+			const box = summary.createEl('div', { cls: `tb-conflict-side ${cls}` });
+			box.createEl('div', { cls: 'tb-conflict-side-title', text: node.title });
+			const { claim, quote } = conflictNodeDetail(node);
+			if (claim) box.createEl('div', { cls: 'tb-conflict-side-claim', text: claim });
+			if (quote) box.createEl('div', { cls: 'tb-conflict-side-quote', text: quote });
+		};
+		renderSide(this.conflict.nodeA, 'tb-conflict-node-a');
+		summary.createEl('div', { cls: 'tb-conflict-vs', text: '⟷' });
+		renderSide(this.conflict.nodeB, 'tb-conflict-node-b');
 		if (this.conflict.evidence) {
 			const evidenceLabel = this.settings.lang === 'en' ? 'Evidence: ' : '근거: ';
 			contentEl.createEl('div', { cls: 'tb-conflict-evidence', text: `${evidenceLabel}${this.conflict.evidence}` });
@@ -4232,6 +4374,9 @@ class ConflictResolutionModal extends Modal {
 		if (!(nodeAFile instanceof TFile)) { new Notice('[ThirdBrain] 파일을 찾을 수 없습니다.'); return; }
 		try {
 			await this.store.replaceEdge(nodeAFile, `[[${this.conflict.nodeB.title}]]`, relation, reason);
+			// [Phase 10] 문제 노드에 해소 방법 기록
+			const folder = this.conflict.nodeA.filePath.split('/').slice(0, -1).join('/');
+			void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `엣지를 '${relation}'(으)로 재분류하여 해소`);
 			new Notice(`[ThirdBrain] 엣지를 '${relation}'(으)로 교체했습니다.`);
 			this.close();
 			this.onResolved?.(`엣지를 '${relation}'(으)로 재분류`);
@@ -4273,6 +4418,9 @@ class ConflictResolutionModal extends Modal {
 			}
 			if (nodeBFile instanceof TFile) await edge(nodeBFile);
 
+			// [Phase 10] 문제 노드에 해소 방법 기록
+			void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `상위 전제 '${parentTitle}' 추가로 해소`);
+
 			new Notice(`[ThirdBrain] 상위 노트 '${parentTitle}' 생성 및 연결 완료`);
 			this.close();
 			this.onResolved?.(`상위 전제 '${parentTitle}' 추가됨`);
@@ -4285,6 +4433,8 @@ class ConflictResolutionModal extends Modal {
 		const folder = node.filePath.split('/').slice(0, -1).join('/');
 		try {
 			await this.store.deleteNodeAndCleanEdges(node, folder);
+			// [Phase 10] 문제 노드에 해소 방법 기록 — "거짓 판별로 폐기됨"도 지식으로 남긴다
+			void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `'${node.title}' 폐기(거짓 판별)로 해소`);
 			new Notice(`[ThirdBrain] '${node.title}' 삭제 완료`);
 			this.close();
 			this.onResolved?.(`'${node.title}' 폐기됨`);

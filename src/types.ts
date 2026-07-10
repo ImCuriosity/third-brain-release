@@ -19,6 +19,7 @@ export type TBNodeType =
 	| PropositionRole
 	| 'context'       // 원본 문맥 단위 (명제·액션의 precondition)
 	| 'action'        // 액션 아이템
+	| 'problem'       // [Phase 10] 문제 노드 (명제 간 긴장, 해결까지 지속)
 	| 'summary'       // 컨텍스트 요약
 	| 'core'          // 레거시 호환 (= claim과 동치)
 	| 'expression';   // 언어 표현 (영어 스터디 등)
@@ -116,7 +117,26 @@ export interface TBNode {
 	topic?: string;           // [Phase 2] 소속 토픽 노드 제목 (membership — tb_edges 논리 엣지 아님)
 	motivation_ids?: string[]; // [Phase 9] 액션 노드의 동기 명제 id (tb_action_motivation_ids — 논리 엣지 아님, 렌더 전용)
 	link_type?: ActionLinkType; // [Phase 9] 액션 링크 의미 (implements/investigates/resolves_conflict)
+	// [Phase 10] 문제 노드 전용 필드 — 문제 = 의도 명제와 현실 명제 사이의 긴장 (논리 엣지 아님)
+	problem_species?: ProblemSpecies;  // tb_problem_species
+	problem_status?: ProblemStatus;    // tb_status (open → resolved 라이프사이클)
+	evidence_ids?: string[];           // tb_problem_evidence_ids — 증거 명제 basename
+	problem_pair?: string;             // tb_problem_pair — 모순 승격 문제의 안정 식별자 (정렬된 "A↔B")
+	resolution_note?: string;          // tb_resolution_note — 해소 방법 기록
 }
+
+// ── 문제 레이어 (Phase 10) ────────────────────────────────
+// 문제 = 그래프 속 긴장. 지시(시켜서 하는 일)와 달리 명제들로부터 도출되고, 해결까지 지속된다.
+// contradiction(모순)은 기존 conflicts_with 기계가 감지 → 조정 루프로 문제 노드 승격.
+// obstacle/gap/risk는 LLM 종합으로 감지 (모순형은 프롬프트에서 명시적 제외).
+
+export type ProblemSpecies =
+	| 'contradiction'  // 모순: 동시 참 불가 (conflicts_with 엣지에서 승격, 결정론적)
+	| 'obstacle'       // 장애: 의도의 전제가 깨져 있거나 부재
+	| 'gap'            // 공백: 판단에 필요하지만 미검증·불명
+	| 'risk';          // 리스크: 인과 사슬이 나쁜 결과로 향함
+
+export type ProblemStatus = 'open' | 'resolved';
 
 // ── 파이프라인 레이어 타입 (v0 포팅) ─────────────────────
 
@@ -217,6 +237,7 @@ export interface BridgeEdge {
 	relation: TBEdgeRelation;
 	confidence?: number;
 	reason: string;
+	axiom_basis: string; // 두 노드 내용에서 인용한 근거 구절 — 빈 문자열이면 후보에서 폐기 (밸리데이션 레이어와 동일 기준)
 }
 
 export interface FolderBridgeResult {
@@ -422,7 +443,8 @@ export interface ActionNode {
 	motivation_ids: string[];         // 동기가 된 Proposition ID 목록
 	motivation_context_ids: string[]; // 동기가 된 ContextLayer(TBNode) ID 목록
 	link_type: ActionLinkType;
-	origin: 'extracted' | 'user' | 'from_resolution';
+	origin: 'extracted' | 'user' | 'from_resolution' | 'from_problem';
+	problem_id?: string;         // [Phase 10] origin=from_problem일 때 해결 대상 문제 노드 basename
 	created: string;             // ISO 8601
 	filePath: string;
 	meeting_type?: MeetingType;  // 회의 유형 (액션 리뷰 모드)

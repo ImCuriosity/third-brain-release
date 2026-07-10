@@ -18,6 +18,7 @@ interface SimLink extends d3.SimulationLinkDatum<SimNode> {
 	confirmed: boolean;
 	membership?: boolean;  // [Phase 2d] tb_topic 소속 — 논리 엣지 아님(렌더/클러스터 전용)
 	action?: boolean;      // [Phase 9] 액션→동기명제 소속 — 논리 엣지 아님(렌더 전용)
+	problem?: boolean;     // [Phase 10] 문제→증거명제 — 논리 엣지 아님(렌더 전용)
 }
 
 // ── 엣지 타입별 색상 (10종 공리) ─────────────────────────
@@ -50,6 +51,7 @@ const NODE_COLOR: Record<string, string> = {
 	application: PROP_COLOR,
 	summary:     PROP_COLOR,
 	action:      '#ff7744',
+	problem:     '#ff9800',
 };
 
 const NODE_LABEL: Record<string, { ko: string; en: string }> = {
@@ -65,6 +67,7 @@ const NODE_LABEL: Record<string, { ko: string; en: string }> = {
 	application: { ko: '명제',    en: 'Proposition' },
 	summary:     { ko: '명제',    en: 'Proposition' },
 	action:      { ko: '액션',    en: 'Action' },
+	problem:     { ko: '문제',    en: 'Problem' },
 };
 
 // ── 유틸 ─────────────────────────────────────────────────
@@ -178,6 +181,25 @@ export class GraphView {
 				});
 				const an = simNodeById.get(n.id);
 				if (an) an.degree++;
+				targetSim.degree++;
+			}
+		}
+		// ── 문제 링크 (tb_problem_evidence_ids) ───────────
+		// 문제→증거명제 provenance. 렌더 전용, 논리 엣지 아님.
+		for (const n of nodes) {
+			if (n.type !== 'problem' || !n.evidence_ids) continue;
+			for (const evId of n.evidence_ids) {
+				const targetSim = simNodeById.get(evId);
+				if (!targetSim) continue;
+				this.simLinks.push({
+					source: n.id,
+					target: evId,
+					relation: '__problem__',
+					confirmed: true,
+					problem: true,
+				});
+				const pn = simNodeById.get(n.id);
+				if (pn) pn.degree++;
 				targetSim.degree++;
 			}
 		}
@@ -467,6 +489,13 @@ export class GraphView {
 				ctx.globalAlpha = 1;
 				continue;
 			}
+			// 문제 링크: 문제→증거명제 provenance. 주황 점선.
+			if (l.problem) {
+				ctx.globalAlpha = isConnected ? 0.32 : 0.05;
+				this.drawLine(src.x, src.y ?? 0, tgt.x, tgt.y ?? 0, '#ff9800', true);
+				ctx.globalAlpha = 1;
+				continue;
+			}
 
 			const isActive = !activeRel || activeRel.has(l.relation);
 			let color = l.confirmed ? (EDGE_COLOR[l.relation] ?? '#999') : '#b8b8b8';
@@ -535,13 +564,16 @@ export class GraphView {
 		const isKo = this.lang === 'ko';
 		const hasMembership = this.simLinks.some(l => l.membership);
 		const hasAction = this.simLinks.some(l => l.action);
-		const hasUnconfirmed = this.simLinks.some(l => !l.membership && !l.action && !l.confirmed);
+		const hasProblem = this.simLinks.some(l => l.problem);
+		const hasUnconfirmed = this.simLinks.some(l => !l.membership && !l.action && !l.problem && !l.confirmed);
 		const edgeItems = [
 			...this.legendEntries.map(e => ({ ...e, dashed: false })),
 			// 소속(tb_topic) 점선 — 논리 엣지가 아니라 토픽 멤버십. '미확인'과 구분되도록 별도 범례.
 			...(hasMembership ? [{ color: '#33aa77', label: isKo ? '소속' : 'Topic', dashed: true }] : []),
 			// 액션(tb_action_motivation_ids) 점선 — 액션→동기명제 provenance.
 			...(hasAction ? [{ color: '#7755cc', label: isKo ? '액션' : 'Action', dashed: true }] : []),
+			// 문제(tb_problem_evidence_ids) 점선 — 문제→증거명제 provenance.
+			...(hasProblem ? [{ color: '#ff9800', label: isKo ? '문제' : 'Problem', dashed: true }] : []),
 			// 미확정 엣지가 실제로 있을 때만 표시 (파이프라인 엣지는 기본 confirmed:true)
 			...(hasUnconfirmed ? [{ color: '#aaaaaa', label: isKo ? '미확인' : 'Unconfirmed', dashed: true }] : []),
 		];
@@ -726,6 +758,7 @@ export class GraphView {
 		const typeColors: Record<string, string> = {
 			claim: '#cc9900', core: '#ffcc00', premise: '#44aaff',
 			context: '#33aa77', insight: '#cc44cc', action: '#ff7744',
+			problem: '#ff9800',
 		};
 		const badge = popup.createEl('div', { cls: 'tb-node-popup-type', text: node.type });
 		badge.setCssStyles({ background: typeColors[node.type] ?? '#888' });
@@ -744,6 +777,12 @@ export class GraphView {
 			if (l.action) {
 				if (src.id === node.id) edges.push({ dir: '→', title: tgt.title, relation: '동기', color: '#7755cc' });
 				else if (tgt.id === node.id) edges.push({ dir: '←', title: src.title, relation: '액션', color: '#7755cc' });
+				continue;
+			}
+			// 문제 링크는 '증거' 표시(주황). 문제→명제 provenance.
+			if (l.problem) {
+				if (src.id === node.id) edges.push({ dir: '→', title: tgt.title, relation: '증거', color: '#ff9800' });
+				else if (tgt.id === node.id) edges.push({ dir: '←', title: src.title, relation: '문제', color: '#ff9800' });
 				continue;
 			}
 			if (src.id === node.id) {

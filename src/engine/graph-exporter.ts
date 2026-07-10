@@ -147,6 +147,7 @@ export class GraphExporter {
 		for (const n of nodes) {
 			if (n.type === 'context') continue; // 토픽 노드 자신은 제외
 			if (n.type === 'action') continue;  // 액션은 아래 Action Links 섹션에서 별도 처리
+			if (n.type === 'problem') continue; // 문제는 아래 Problems 섹션에서 별도 처리
 			if (n.topic) {
 				if (!byTopic.has(n.topic)) byTopic.set(n.topic, []);
 				byTopic.get(n.topic)!.push(n);
@@ -173,6 +174,28 @@ export class GraphExporter {
 				const motiv = (a.motivation_ids ?? []).map(id => titleById.get(id) ?? id);
 				md += `- **${a.title}**\n`;
 				if (motiv.length > 0) md += `  ← ${a.link_type ?? 'implements'}: ${motiv.join(', ')}\n`;
+			}
+		}
+
+		// 문제 레이어 (tb_problem_* — 명제 간 긴장, 해결까지 지속) [Phase 10]
+		const problemNodes = nodes.filter(n => n.type === 'problem');
+		if (problemNodes.length > 0) {
+			const nodeById = new Map(nodes.map(n => [n.id, n]));
+			md += `\n## Problems\n`;
+			for (const p of problemNodes) {
+				const status = p.problem_status ?? 'open';
+				md += `- [${status === 'resolved' ? 'x' : ' '}] **${p.title}** (${p.problem_species ?? '?'})\n`;
+				// 근거는 제목만으로는 문제 성립 여부를 판단할 수 없으므로 명제문 + 원문 블록 링크를 함께 기재
+				for (const id of p.evidence_ids ?? []) {
+					const n = nodeById.get(id);
+					if (!n) { md += `  - ${id}\n`; continue; }
+					const claim = (n.content?.split('\n---\n')[0] ?? '').trim().replace(/\s+/g, ' ');
+					const anchor = n.raw_path
+						? ` ([[${n.raw_path}${n.block_id ? `#^${n.block_id}` : ''}|원문]])`
+						: '';
+					md += `  - **${n.title}**${claim ? ` — ${claim}` : ''}${anchor}\n`;
+				}
+				if (p.resolution_note) md += `  해소: ${p.resolution_note}\n`;
 			}
 		}
 

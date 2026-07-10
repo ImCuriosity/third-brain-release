@@ -15,6 +15,8 @@ import type {
 	ActionNode,
 	ActionStatus,
 	ActionLinkType,
+	ProblemSpecies,
+	ProblemStatus,
 	MeetingType,
 	ConflictReport,
 } from '../types';
@@ -28,7 +30,7 @@ export interface TBFrontMatter {
 	tb_created?: string;
 	tb_edges?: TBEdge[];
 	tb_is_core?: boolean;
-	tb_source_span?: { text: string; start: number; end: number };
+	tb_source_span?: { text: string; offset?: number };
 	tb_axiom_basis?: string;
 	tb_links?: string[];
 	tb_insight_anchors?: string[];
@@ -57,6 +59,12 @@ export interface TBFrontMatter {
 	tb_heading_path?: string;
 	tb_raw_path?: string;
 	tb_topic?: string;
+	// [Phase 10] problem node fields
+	tb_problem_species?: string;
+	tb_problem_evidence_ids?: string[];
+	tb_problem_pair?: string;
+	tb_resolution_note?: string;
+	tb_problem_id?: string;   // action(from_problem) → 해결 대상 문제 basename
 }
 
 export class GraphStore {
@@ -84,7 +92,7 @@ export class GraphStore {
 	// 배지용 — vault 전체 고립 명제 수 빠르게 집계
 	async countOrphanPropositions(): Promise<number> {
 		const allNodes = await this.loadNodesInFolder(this.settings.rootFolder || '/');
-		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'summary', 'expression'];
+		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'problem', 'summary', 'expression'];
 		return allNodes.filter(n =>
 			!NON_PROP_TYPES.includes(n.type) &&
 			!n.folder.split('/').includes('raw') &&
@@ -95,7 +103,7 @@ export class GraphStore {
 	// 특정 폴더 내 고립 명제 스캔 — salience 내림차순, 연결 후보도 같은 폴더에서
 	async scanOrphanPropositions(folderPath: string): Promise<{ orphans: TBNode[]; candidates: TBNode[] }> {
 		const allNodes = await this.loadNodesInFolder(folderPath);
-		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'summary', 'expression'];
+		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'problem', 'summary', 'expression'];
 		const propositions = allNodes.filter(n =>
 			!NON_PROP_TYPES.includes(n.type) &&
 			!n.folder.split('/').includes('raw')
@@ -158,9 +166,9 @@ export class GraphStore {
 		const body = raw.replace(/^---[\s\S]*?---\n?/, '').trim();
 		const nodeType = (fm.tb_type ?? 'claim') as TBNodeType;
 
-		// [옵션A] 엄격 게이트: 액션 노드는 논리 엣지가 없다(edges=[]). 그 외 노드는 tb_edges에서
+		// [옵션A] 엄격 게이트: 액션·문제 노드는 논리 엣지가 없다(edges=[]). 그 외 노드는 tb_edges에서
 		// 10공리 외 라벨(구 스키마의 implements 등)을 로드 시 제거해 논리 그래프 순수성을 강제한다.
-		const edges: TBEdge[] = nodeType === 'action'
+		const edges: TBEdge[] = (nodeType === 'action' || nodeType === 'problem')
 			? []
 			: (Array.isArray(fm.tb_edges) ? fm.tb_edges : []).filter(e => isValidRelation(e?.label));
 
@@ -178,6 +186,10 @@ export class GraphStore {
 			is_core_concept: fm.tb_is_core === true,
 			proposition_type: fm.tb_proposition_type === 'fact' ? 'fact' : 'claim',
 			block_id: typeof fm.tb_block_id === 'string' ? fm.tb_block_id : undefined,
+			// 원문 인용 복원 — 문제 승격 등 로드된 노드에서 출처 구절을 인용할 수 있어야 한다
+			source_span: (fm.tb_source_span && typeof fm.tb_source_span.text === 'string')
+				? { text: fm.tb_source_span.text, offset: fm.tb_source_span.offset ?? 0 }
+				: undefined,
 			heading_path: typeof fm.tb_heading_path === 'string' ? fm.tb_heading_path : undefined,
 			raw_path: typeof fm.tb_raw_path === 'string' ? fm.tb_raw_path : undefined,
 			// tb_topic은 네이티브 그래프 인식용으로 "[[basename]]" 위키링크로 저장됨 → 내부용 basename으로 환원
@@ -190,6 +202,22 @@ export class GraphStore {
 				: undefined,
 			link_type: nodeType === 'action'
 				? ((fm.tb_link_type ?? fm.tb_action_link_type ?? 'implements') as ActionLinkType)
+				: undefined,
+			// [Phase 10] 문제 노드 필드
+			problem_species: nodeType === 'problem'
+				? ((fm.tb_problem_species ?? 'obstacle') as ProblemSpecies)
+				: undefined,
+			problem_status: nodeType === 'problem'
+				? (fm.tb_status === 'resolved' ? 'resolved' : 'open')
+				: undefined,
+			evidence_ids: nodeType === 'problem' && Array.isArray(fm.tb_problem_evidence_ids)
+				? fm.tb_problem_evidence_ids
+				: undefined,
+			problem_pair: nodeType === 'problem' && typeof fm.tb_problem_pair === 'string'
+				? fm.tb_problem_pair
+				: undefined,
+			resolution_note: nodeType === 'problem' && typeof fm.tb_resolution_note === 'string'
+				? fm.tb_resolution_note
 				: undefined,
 		};
 	}
@@ -448,12 +476,17 @@ export class GraphStore {
 	): Promise<Map<string, TFile>> {
 		const now = new Date().toISOString();
 
-		// 먼저 id → title 매핑 수집 (엣지 위키링크 생성에 필요) — / 포함 제목은 Obsidian이 경로로 해석하므로 반드시 정규화
+		// 엣지 위키링크 폴백용 id → title 매핑 (배치 밖 노드 대비) — / 포함 제목은 Obsidian이 경로로 해석하므로 정규화
 		const titleMap = new Map<string, string>();
 		for (const p of propositions) titleMap.set(p.id, cleanNodeTitle(p.title));
 
 		const fileMap = new Map<string, TFile>();
+		// resolveConflict가 동일 제목 노드(예: 같은 제목의 context) 존재 시 파일 basename을 `X-2`로 바꾸므로,
+		// 엣지 위키링크를 title(`[[X]]`)로 걸면 엉뚱한 동명 노드(basename=X)로 오연결된다.
+		// 실제 생성된 basename을 수집해 두었다가(Pass 1) basename 위키링크로 엣지를 건다(Pass 2).
+		const idToBasename = new Map<string, string>();
 
+		// Pass 1: 명제 파일 생성 (엣지는 대상 basename이 모두 확정된 뒤 Pass 2에서 주입)
 		for (const p of propositions) {
 			// Phase 1-7: source_span 밸리데이션 게이트 (user_synthesized 면제)
 			const origin = (p as { origin?: string }).origin;
@@ -463,18 +496,6 @@ export class GraphStore {
 					continue;
 				}
 			}
-
-			// 논리 엣지 — confidence ≥ 0.75 필터 통과 = 파이프라인 승인, confirmed: true
-			const outEdges: TBEdge[] = logicEdges
-				.filter(e => e.source === p.id)
-				.map(e => ({
-					target: `[[${titleMap.get(e.target) ?? e.target}]]`,
-					label: toRelation(e.relation),
-					confirmed: true,
-					reason: e.reason,
-					confidence: typeof e.confidence === 'number' ? e.confidence : 1.0,
-					axiom_basis: typeof e.axiom_basis === 'string' ? e.axiom_basis : '',
-				}));
 
 			// 명제→문맥 auto-edge는 connectContextsToPropositions(view.ts)가 관련성 가드와 함께
 			// 단독으로 생성한다. 여기서 중복 생성하면 가드를 우회하므로 만들지 않는다. [Bug #2]
@@ -488,7 +509,7 @@ export class GraphStore {
 					tags: contextTags,
 					folder: sessionFolder,
 					created: now,
-					edges: outEdges,
+					edges: [],
 					is_core_concept: p.is_core_concept === true,
 					source_span: p.source_span,
 					proposition_type: p.proposition_type,
@@ -497,9 +518,30 @@ export class GraphStore {
 					raw_path: rawSourcePath,
 				}, rawSourcePath);
 				fileMap.set(p.id, file);
+				idToBasename.set(p.id, file.basename);
 			} catch {
 				// 개별 노드 실패는 전체를 중단시키지 않음
 			}
+		}
+
+		// Pass 2: 논리 엣지를 실제 basename 위키링크로 주입 — confidence ≥ 0.75 필터 통과 = 파이프라인 승인, confirmed: true
+		for (const p of propositions) {
+			const file = fileMap.get(p.id);
+			if (!file) continue;
+			const outEdges: TBEdge[] = logicEdges
+				.filter(e => e.source === p.id)
+				.map(e => ({
+					target: `[[${idToBasename.get(e.target) ?? titleMap.get(e.target) ?? e.target}]]`,
+					label: toRelation(e.relation),
+					confirmed: true,
+					reason: e.reason,
+					confidence: typeof e.confidence === 'number' ? e.confidence : 1.0,
+					axiom_basis: typeof e.axiom_basis === 'string' ? e.axiom_basis : '',
+				}));
+			if (outEdges.length === 0) continue;
+			await this.app.fileManager.processFrontMatter(file, (fm: TBFrontMatter) => {
+				fm.tb_edges = outEdges;
+			});
 		}
 
 		return fileMap;
@@ -527,53 +569,37 @@ export class GraphStore {
 		});
 	}
 
-	// 브리지 엣지 양방향 저장 (Phase 5)
+	// 브리지 엣지 저장 (Phase 5) — 단방향.
+	// 역방향에 같은 라벨을 함께 쓰면 방향성 관계(precedes/precondition_of 등)에서
+	// "A→B ∧ B→A" 논리 모순이 생기고, 대칭 관계는 중복 엣지가 된다. 출발 노드에만 기록한다.
+	// (위키링크가 이미 걸리므로 네이티브 그래프·백링크에는 양쪽 모두 보인다.)
 	async saveBridgeEdges(
 		bridgeEdges: BridgeEdge[],
 		fileMapA: Map<string, TFile>,
 		fileMapB: Map<string, TFile>
 	): Promise<void> {
 		for (const edge of bridgeEdges) {
-			// title 우선, 없으면 filename fallback
+			// title 우선, 없으면 filename fallback — 양쪽 파일이 실재해야 저장 (댕글링 링크 방지)
 			const srcFile = (edge.source_title && fileMapA.get(edge.source_title))
 				?? fileMapA.get(edge.source_file);
 			const tgtFile = (edge.target_title && fileMapB.get(edge.target_title))
 				?? fileMapB.get(edge.target_file);
+			if (!srcFile || !tgtFile) continue;
 
-			const srcLabel = edge.source_title ?? edge.source_file.replace(/\.md$/, '');
 			const tgtLabel = edge.target_title ?? edge.target_file.replace(/\.md$/, '');
-
-			if (srcFile) {
-				const edgeAtoB: TBEdge = {
-					target: `[[${tgtLabel}]]`,
-					label: toRelation(edge.relation),
-					confirmed: true,
-					reason: edge.reason,
-					confidence: edge.confidence ?? 1.0,
-					axiom_basis: '',
-				};
-				await this.app.fileManager.processFrontMatter(srcFile, (fm: TBFrontMatter) => {
-					const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-					if (!edges.find(e => e.target === edgeAtoB.target)) edges.push(edgeAtoB);
-					fm.tb_edges = edges;
-				});
-			}
-
-			if (tgtFile) {
-				const edgeBtoA: TBEdge = {
-					target: `[[${srcLabel}]]`,
-					label: toRelation(edge.relation),
-					confirmed: true,
-					reason: edge.reason,
-					confidence: edge.confidence ?? 1.0,
-					axiom_basis: '',
-				};
-				await this.app.fileManager.processFrontMatter(tgtFile, (fm: TBFrontMatter) => {
-					const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-					if (!edges.find(e => e.target === edgeBtoA.target)) edges.push(edgeBtoA);
-					fm.tb_edges = edges;
-				});
-			}
+			const edgeAtoB: TBEdge = {
+				target: `[[${tgtLabel}]]`,
+				label: toRelation(edge.relation),
+				confirmed: true,
+				reason: edge.reason,
+				confidence: edge.confidence ?? 1.0,
+				axiom_basis: edge.axiom_basis,
+			};
+			await this.app.fileManager.processFrontMatter(srcFile, (fm: TBFrontMatter) => {
+				const edges: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
+				if (!edges.find(e => e.target === edgeAtoB.target)) edges.push(edgeAtoB);
+				fm.tb_edges = edges;
+			});
 		}
 	}
 
@@ -723,6 +749,7 @@ export class GraphStore {
 			`tb_link_type: ${node.link_type}`,
 			`tb_origin: ${node.origin}`,
 			`tb_motivation_context_ids: ${motivCtxIds}`,
+			...(node.problem_id ? [`tb_problem_id: "${node.problem_id.replace(/"/g, '\\"')}"`] : []),
 			...(node.meeting_type ? [`tb_meeting_type: ${node.meeting_type}`] : []),
 			'---',
 		].join('\n');
@@ -763,6 +790,133 @@ export class GraphStore {
 		return nodes;
 	}
 
+	// ── Phase 10: 문제 노드 CRUD ─────────────────────────────
+	// 문제 = 명제 간 긴장. 해결까지 지속(open→resolved). tb_edges는 항상 [] (논리 그래프 순수성).
+	// 증거 명제는 tb_problem_evidence_ids 필드 + tb_links 위키링크(네이티브 그래프 provenance).
+
+	async createProblemNode(
+		problem: {
+			title: string;
+			description: string;
+			species: ProblemSpecies;
+			evidence_ids: string[];
+			pair?: string; // contradiction 승격용 안정 식별자 (정렬된 "A↔B")
+		},
+		parentFolder: string,
+	): Promise<TFile> {
+		const folder = parentFolder
+			? normalizePath(`${parentFolder}/_problems`)
+			: '_problems';
+		await this.ensureFolder(folder);
+
+		const safeTitle = sanitizeId(problem.title) || `problem-${Date.now().toString(36)}`;
+		let filePath = normalizePath(`${folder}/${safeTitle}.md`);
+		filePath = await this.resolveConflict(filePath);
+
+		const linksStr = problem.evidence_ids.length > 0
+			? '\n' + problem.evidence_ids.map(b => `  - "[[${b}]]"`).join('\n')
+			: ' []';
+
+		const frontmatter = [
+			'---',
+			`tb_id: "prob-${Date.now().toString(36)}"`,
+			`tb_title: "${problem.title.replace(/"/g, '\\"')}"`,
+			`tb_type: problem`,
+			`tb_created: "${new Date().toISOString()}"`,
+			`tb_tags: []`,
+			`tb_links:${linksStr}`,
+			`tb_edges: []`,
+			`tb_problem_species: ${problem.species}`,
+			`tb_status: open`,
+			`tb_problem_evidence_ids: ${JSON.stringify(problem.evidence_ids)}`,
+			...(problem.pair ? [`tb_problem_pair: "${problem.pair.replace(/"/g, '\\"')}"`] : []),
+			'---',
+		].join('\n');
+
+		return this.app.vault.create(filePath, `${frontmatter}\n\n${problem.description}`);
+	}
+
+	/** 문제 상태 갱신 (open ↔ resolved). resolved 시 해소 방법을 tb_resolution_note에 기록. */
+	async updateProblemStatus(file: TFile, status: ProblemStatus, resolutionNote?: string): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (fm: TBFrontMatter) => {
+			fm.tb_status = status;
+			if (status === 'resolved' && resolutionNote) fm.tb_resolution_note = resolutionNote;
+			if (status === 'open') delete fm.tb_resolution_note;
+		});
+	}
+
+	/**
+	 * 모순 → 문제 노드 조정 루프 (진실의 원천은 conflicts_with 엣지, 문제 노드는 상태 추적자).
+	 * - 엣지가 있는데 문제 노드가 없으면 → contradiction 문제 노드 생성 (라이프사이클 부여)
+	 * - 엣지가 사라졌는데 문제 노드가 open이면 → resolved 마킹 (모달 밖 해소도 자동 반영)
+	 */
+	async reconcileContradictionProblems(
+		folder: string,
+		conflicts: ConflictReport[],
+		allNodes: TBNode[],
+	): Promise<void> {
+		const pairOf = (a: string, b: string) => [a, b].sort().join('↔');
+		const activePairs = new Set(conflicts.map(c => pairOf(c.nodeA.id, c.nodeB.id)));
+		const problemNodes = allNodes.filter(n => n.type === 'problem' && n.problem_species === 'contradiction');
+		const knownPairs = new Set(problemNodes.map(n => n.problem_pair).filter(Boolean));
+
+		// 명제문 + 원문 인용 + 원본 블록 링크 동봉 — 유저가 원문을 직접 열어보고
+		// 진짜 모순인지 판단할 수 있어야 한다 (역추적 철학). 인용만 있고 링크가 없으면
+		// 정확히 어느 발화인지 다시 찾아 헤매야 하므로 반드시 함께 붙인다.
+		const evidenceBlock = (n: TBNode) => {
+			const claim = (n.content.split('\n---\n')[0] ?? '').trim().split('\n')[0] ?? n.title;
+			const quote = (n.source_span?.text ?? '').replace(/\s+/g, ' ').trim();
+			const quoteLine = quote ? `\n  > ${quote.length > 240 ? `${quote.slice(0, 240)}…` : quote}` : '';
+			const anchor = n.raw_path
+				? `\n  [[${n.raw_path}${n.block_id ? `#^${n.block_id}` : ''}|원문 보기]]`
+				: '';
+			return `- **${n.title}** — ${claim}${quoteLine}${anchor}`;
+		};
+
+		// 신규 모순 → 문제 노드 승격
+		for (const c of conflicts) {
+			const pair = pairOf(c.nodeA.id, c.nodeB.id);
+			if (knownPairs.has(pair)) continue;
+			try {
+				await this.createProblemNode({
+					title: `모순: ${c.nodeA.title.slice(0, 20)} ↔ ${c.nodeB.title.slice(0, 20)}`,
+					description: [
+						'두 명제가 동시에 참일 수 없습니다.',
+						evidenceBlock(c.nodeA),
+						evidenceBlock(c.nodeB),
+						`근거: ${c.evidence || '—'}`,
+					].join('\n'),
+					species: 'contradiction',
+					evidence_ids: [c.nodeA.id, c.nodeB.id],
+					pair,
+				}, folder);
+			} catch { /* 개별 생성 실패는 조정 루프를 중단시키지 않음 */ }
+		}
+
+		// 엣지가 사라진 open 문제 → 자동 resolved
+		for (const p of problemNodes) {
+			if (p.problem_status !== 'open' || !p.problem_pair) continue;
+			if (activePairs.has(p.problem_pair)) continue;
+			const file = this.app.vault.getFileByPath(p.filePath);
+			if (file) {
+				await this.updateProblemStatus(file, 'resolved', '모순 엣지 해소됨 (자동 감지)').catch(() => {});
+			}
+		}
+	}
+
+	/** 모순 해소 모달에서 호출 — 해당 쌍의 open 문제 노드에 구체적 해소 방법을 기록. */
+	async resolveContradictionProblem(folder: string, nodeAId: string, nodeBId: string, note: string): Promise<void> {
+		const pair = [nodeAId, nodeBId].sort().join('↔');
+		const problems = await this.loadNodesInFolder(
+			folder ? normalizePath(`${folder}/_problems`) : '_problems',
+		);
+		for (const p of problems) {
+			if (p.type !== 'problem' || p.problem_pair !== pair || p.problem_status !== 'open') continue;
+			const file = this.app.vault.getFileByPath(p.filePath);
+			if (file) await this.updateProblemStatus(file, 'resolved', note).catch(() => {});
+		}
+	}
+
 	/** _actions 폴더를 재귀 포함 전체 볼트에서 ActionNode 로드 */
 	async loadAllActionNodes(): Promise<ActionNode[]> {
 		const nodes: ActionNode[] = [];
@@ -795,7 +949,8 @@ export class GraphStore {
 				? ((fm?.tb_motivation_context_ids ?? fm?.tb_action_motivation_context_ids) as string[])
 				: [],
 			link_type:    (fm?.tb_link_type ?? fm?.tb_action_link_type ?? 'implements') as ActionLinkType,
-			origin:       (fm?.tb_origin ?? fm?.tb_action_origin ?? 'extracted') as 'extracted' | 'user' | 'from_resolution',
+			origin:       (fm?.tb_origin ?? fm?.tb_action_origin ?? 'extracted') as ActionNode['origin'],
+			problem_id:   typeof fm?.tb_problem_id === 'string' ? fm.tb_problem_id : undefined,
 			created:      String(fm?.tb_created ?? fm?.tb_action_created ?? ''),
 			filePath:     file.path,
 			meeting_type: fm?.tb_meeting_type ? (fm.tb_meeting_type as MeetingType) : undefined,

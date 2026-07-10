@@ -4,7 +4,7 @@ import { GraphStore } from '../engine/graph-store';
 import type { TBFrontMatter } from '../engine/graph-store';
 import { bridgeFolders } from '../engine/serial-pipeline';
 import { toRelation } from '../types';
-import type { TBNode, TBEdge, BridgeEdge } from '../types';
+import type { TBEdge } from '../types';
 import { SOOTBALL_LOGO } from '../sootball';
 import { ThirdBrainView, VIEW_TYPE } from '../view';
 
@@ -339,7 +339,7 @@ export class NodeTransplantModal extends Modal {
 		}
 
 		loadingEl.remove();
-		this.renderBridgeResult(contentEl, movedFile, result, targetNodes);
+		this.renderBridgeResult(contentEl, movedFile, result);
 	}
 
 	// ── 브릿지 결과 UI ───────────────────────────────────
@@ -347,8 +347,7 @@ export class NodeTransplantModal extends Modal {
 	private renderBridgeResult(
 		contentEl: HTMLElement,
 		movedFile: TFile,
-		result: import('../types').FolderBridgeResult,
-		targetNodes: TBNode[]
+		result: import('../types').FolderBridgeResult
 	) {
 		const preview = contentEl.createEl('div', { cls: 'tb-transplant-preview' });
 
@@ -385,7 +384,7 @@ export class NodeTransplantModal extends Modal {
 							confirmed: true,
 							reason: e.reason,
 							confidence: e.confidence ?? 1.0,
-							axiom_basis: '',
+							axiom_basis: e.axiom_basis,
 						});
 					} else {
 						const idx = selectedEdges.findIndex(
@@ -410,7 +409,7 @@ export class NodeTransplantModal extends Modal {
 
 		confirmBtn.addEventListener('click', () => {
 			confirmBtn.disabled = true;
-			void this.saveEdgesAndOpen(movedFile, selectedEdges, targetNodes, result.edges, confirmBtn);
+			void this.saveEdgesAndOpen(movedFile, selectedEdges, confirmBtn);
 		});
 	}
 
@@ -419,12 +418,12 @@ export class NodeTransplantModal extends Modal {
 	private async saveEdgesAndOpen(
 		movedFile: TFile,
 		selectedEdges: TBEdge[],
-		targetNodes: TBNode[],
-		allEdges: BridgeEdge[],
 		confirmBtn: HTMLButtonElement
 	) {
 		try {
-			// 이식된 노드에 선택된 엣지 주입
+			// 이식된 노드에 선택된 엣지 주입 — 단방향.
+			// 역방향에 같은 라벨을 쓰면 방향성 관계에서 "A→B ∧ B→A" 논리 모순이 생긴다.
+			// 위키링크로 네이티브 그래프·백링크에는 양쪽 모두 보인다.
 			if (selectedEdges.length > 0) {
 				await this.app.fileManager.processFrontMatter(movedFile, (fm: TBFrontMatter) => {
 					const existing: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
@@ -434,29 +433,6 @@ export class NodeTransplantModal extends Modal {
 					fm.tb_edges = existing;
 					fm.tb_links = existing.map(e => e.target);
 				});
-
-				// 대상 노드에도 역방향 엣지 저장
-				for (const se of selectedEdges) {
-					const targetTitle = se.target.replace(/^\[\[|\]\]$/g, '');
-					const targetNode  = targetNodes.find(n => n.title === targetTitle || n.id === targetTitle);
-					if (!targetNode) continue;
-					const targetFile = this.app.vault.getFileByPath(targetNode.filePath);
-					if (!targetFile) continue;
-					await this.app.fileManager.processFrontMatter(targetFile, (fm: TBFrontMatter) => {
-						const existing: TBEdge[] = Array.isArray(fm.tb_edges) ? fm.tb_edges : [];
-						const back: TBEdge = {
-							target: `[[${movedFile.basename}]]`,
-							label: se.label,
-							confirmed: true,
-							reason: se.reason,
-							confidence: se.confidence ?? 1.0,
-							axiom_basis: se.axiom_basis ?? '',
-						};
-						if (!existing.find(ex => ex.target === back.target)) existing.push(back);
-						fm.tb_edges = existing;
-						fm.tb_links = existing.map(e => e.target);
-					});
-				}
 			}
 
 			new Notice(`✅ 이식 완료: ${movedFile.basename}`);

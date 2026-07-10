@@ -661,17 +661,19 @@
 
 .tb-step-name {
 	flex: 0 0 90px;
+	font-size: 10px;
 	color: var(--tb-primary);
 	font-weight: 600;
 }
 .tb-step-time {
 	flex: 0 0 40px;
+	font-size: 10px;
 	text-align: right;
 	color: var(--tb-muted);
 	padding-right: 10px;
 }
-.tb-step-in  { flex: 0 0 75px; color: #3a9; }
-.tb-step-out { flex: 0 0 75px; color: #96a; }
+.tb-step-in  { flex: 0 0 75px; font-size: 10px; color: #3a9; }
+.tb-step-out { flex: 0 0 75px; font-size: 10px; color: #96a; }
 
 /* ── 결과 영역 ───────────────────────────────────────────── */
 .tb-results {
@@ -3685,6 +3687,19 @@
 	font-size: 0.85rem;
 }
 
+/* 모순 알림 행 아래 명제문 — 제목만으로는 왜 모순인지 유추 불가 */
+.tb-conflict-notice-detail {
+	padding: 2px 0 6px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tb-conflict-notice-claim {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	padding-left: 8px;
+	white-space: normal;
+}
+
 .tb-conflict-resolve-btn {
 	margin-left: auto;
 	font-size: 0.72rem;
@@ -3724,21 +3739,47 @@
 
 .tb-conflict-summary {
 	display: flex;
-	align-items: center;
-	gap: 4px;
+	align-items: stretch;
+	gap: 6px;
 	font-size: 0.85rem;
 	font-weight: 500;
 }
 
-.tb-conflict-node-a,
-.tb-conflict-node-b {
+.tb-conflict-summary .tb-conflict-vs {
+	align-self: center;
+}
+
+/* 모순 양측 상세 박스 — 제목·명제문·원문 인용 (제목만으로는 모순 판단 불가) */
+.tb-conflict-side {
+	flex: 1 1 0;
+	min-width: 0;
 	background: var(--background-secondary);
-	padding: 2px 6px;
-	border-radius: 4px;
-	max-width: 180px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 2px;
+	padding: 6px 8px;
+}
+
+.tb-conflict-side-title {
+	font-weight: 600;
+	font-size: 0.82rem;
+	margin-bottom: 4px;
+}
+
+.tb-conflict-side-claim {
+	font-size: 0.78rem;
+	font-weight: 400;
+	color: var(--text-normal);
+	white-space: normal;
+}
+
+.tb-conflict-side-quote {
+	font-size: 0.72rem;
+	font-weight: 400;
+	color: var(--text-muted);
+	margin-top: 4px;
+	padding-left: 6px;
+	border-left: 2px solid #e05c5c;
+	white-space: normal;
 }
 
 .tb-conflict-evidence {
@@ -4096,4 +4137,60 @@
 .is-mobile .tb-ob-skip {
 	font-size: 13px;
 	padding: 8px 0;
+}
+
+/* ── [Phase 10] 문제 레이어 카드 ─────────────────────────── */
+
+.tb-problem-card {
+	border: 1.5px solid var(--tb-border);
+	border-radius: var(--tb-radius-sm);
+	padding: 10px 12px;
+	margin-bottom: 6px;
+	background: white;
+	border-left: 3px solid #ff9800;
+}
+
+.tb-problem-card.is-obstacle { border-left-color: #ff9800; }
+.tb-problem-card.is-gap      { border-left-color: #3b82f6; }
+.tb-problem-card.is-risk     { border-left-color: #ef4444; }
+.tb-problem-card.is-resolved { opacity: 0.55; }
+
+.tb-problem-card-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.tb-problem-species {
+	font-size: 11px;
+	font-weight: 700;
+	padding: 1px 6px;
+	border-radius: 2px;
+	color: white;
+	background: #ff9800;
+}
+.tb-problem-species.is-gap  { background: #3b82f6; }
+.tb-problem-species.is-risk { background: #ef4444; }
+
+.tb-problem-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.tb-problem-desc {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-bottom: 6px;
+	white-space: pre-wrap;
+}
+
+.tb-problem-evidence {
+	font-size: 11px;
+	color: var(--text-faint);
+	margin-bottom: 6px;
+}
+
+.tb-problem-resolve-btn {
+	font-size: 11px;
 }
