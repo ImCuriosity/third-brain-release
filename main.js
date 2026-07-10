@@ -67,7 +67,7 @@ __export(main_exports, {
   default: () => ThirdBrainPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/types.ts
 var TRANSITIVE_RELATIONS = /* @__PURE__ */ new Set(["causes", "precedes"]);
@@ -99,11 +99,12 @@ var DEFAULT_SETTINGS = {
   aiProvider: "claude-cli",
   bridgeTopKPerNode: 3,
   onboardingComplete: false,
-  lang: "en"
+  lang: "en",
+  showCostPreflight: true
 };
 
 // src/view.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/i18n.ts
 var KO = {
@@ -3639,6 +3640,58 @@ ${problem.description}`);
         delete fm.tb_resolution_note;
     });
   }
+  /** [문제 작업공간] 볼트 전체의 열린(open) 문제 노드 목록 — 미션 보드/배지용. */
+  async loadOpenProblems() {
+    const all = await this.loadNodesInFolder(this.settings.rootFolder || "/");
+    return all.filter((n) => n.type === "problem" && n.problem_status === "open");
+  }
+  /**
+   * [뇌 상태] 세션 폴더별로 열린 미션(문제)과 미연결 명제 수를 집계.
+   * 미션·미연결은 글로벌 경보가 아니라 "폴더 안에서 아직 안 끝난 일" → 폴더 단위로 드릴인한다.
+   * 미션이나 미연결이 하나라도 있는 폴더만 반환(미션 많은 순 → 미연결 많은 순).
+   */
+  async loadBrainStatus() {
+    const root2 = this.settings.rootFolder || "";
+    const all = await this.loadNodesInFolder(root2 || "/");
+    const NON_PROP_TYPES = ["context", "action", "problem", "summary", "expression"];
+    const sessionOf = (folder) => {
+      let rel = folder;
+      if (root2 && (folder === root2 || folder.startsWith(`${root2}/`))) {
+        rel = folder.slice(root2.length).replace(/^\/+/, "");
+      }
+      const first = rel.split("/")[0] ?? "";
+      return root2 ? first ? `${root2}/${first}` : root2 : first;
+    };
+    const map = /* @__PURE__ */ new Map();
+    for (const n of all) {
+      if (n.folder.split("/").includes("raw"))
+        continue;
+      const session = sessionOf(n.folder);
+      let st = map.get(session);
+      if (!st) {
+        st = { sessionFolder: session, missions: [], orphanCount: 0 };
+        map.set(session, st);
+      }
+      if (n.type === "problem" && n.problem_status === "open") {
+        st.missions.push(n);
+      } else if (!NON_PROP_TYPES.includes(n.type) && this.isUnlinkedProp(n)) {
+        st.orphanCount++;
+      }
+    }
+    return [...map.values()].filter((s) => s.missions.length > 0 || s.orphanCount > 0).sort((a2, b) => b.missions.length - a2.missions.length || b.orphanCount - a2.orphanCount);
+  }
+  /** [문제 작업공간] 미션 작업 노트를 세션 `_solving/` 하위에 생성. 이미 있으면 재사용(유저의 해결 작업 보존). */
+  async createSolvingNote(problem, content) {
+    const sessionRoot = problem.folder.replace(/[\\/]_problems$/, "");
+    const folder = sessionRoot ? (0, import_obsidian2.normalizePath)(`${sessionRoot}/_solving`) : "_solving";
+    await this.ensureFolder(folder);
+    const safe = sanitizeId(problem.title) || `mission-${Date.now().toString(36)}`;
+    const path = (0, import_obsidian2.normalizePath)(`${folder}/\uBBF8\uC158-${safe}.md`);
+    const existing = this.app.vault.getFileByPath(path);
+    if (existing)
+      return existing;
+    return this.app.vault.create(path, content);
+  }
   /**
    * 모순 → 문제 노드 조정 루프 (진실의 원천은 conflicts_with 엣지, 문제 노드는 상태 추적자).
    * - 엣지가 있는데 문제 노드가 없으면 → contradiction 문제 노드 생성 (라이프사이클 부여)
@@ -3883,6 +3936,63 @@ function bestContextByRelevance(prop, contexts, threshold = 0.1) {
     }
   }
   return best;
+}
+function gatherProblemMaterial(problem, allNodes, topN = 8) {
+  const evidenceIds = new Set(problem.evidence_ids ?? []);
+  const evidenceNodes = allNodes.filter((n) => evidenceIds.has(n.id));
+  const signal = [
+    problem.title,
+    problem.content,
+    ...evidenceNodes.map((n) => `${n.title} ${n.content}`)
+  ].join(" ");
+  const sessionRoot = problem.folder.replace(/[\\/]_problems$/, "");
+  const inOwnSession = (f) => f === sessionRoot || f.startsWith(`${sessionRoot}/`);
+  return allNodes.filter((n) => n.id !== problem.id && (n.type === "claim" || n.type === "conclusion" || n.type === "action") && !evidenceIds.has(n.id) && !inOwnSession(n.folder)).map((n) => ({ node: n, score: contextRelevanceScore(signal, { title: n.title, tags: n.tags }) })).filter((m2) => m2.score > 0).sort((a2, b) => b.score - a2.score).slice(0, topN);
+}
+function buildSolvingNote(problem, evidenceNodes, material) {
+  const firstLine = (s) => ((s.split("\n---\n")[0] ?? "").trim().split("\n")[0] ?? "").trim();
+  const fm = [
+    "---",
+    `tb_solving_for: "${problem.id.replace(/"/g, '\\"')}"`,
+    "tb_type: solving",
+    `tb_created: "${(/* @__PURE__ */ new Date()).toISOString()}"`,
+    "---"
+  ].join("\n");
+  let md = `
+# \uBBF8\uC158: ${problem.title}
+`;
+  const stmt = firstLine(problem.content);
+  if (stmt)
+    md += `
+${stmt}
+`;
+  md += `
+## \uBB38\uC81C (\uC99D\uAC70)
+`;
+  if (evidenceNodes.length === 0)
+    md += `- (\uC99D\uAC70 \uBA85\uC81C \uC5C6\uC74C)
+`;
+  for (const e of evidenceNodes) {
+    const link = e.raw_path ? ` ([[${e.raw_path}${e.block_id ? `#^${e.block_id}` : ""}|\uC6D0\uBB38]])` : "";
+    md += `- **[[${e.id}]]** \u2014 ${firstLine(e.content)}${link}
+`;
+  }
+  md += `
+## \uB2E4\uB978 \uD3F4\uB354 \uC7AC\uB8CC (\uC790\uB3D9 \uC218\uC9D1)
+`;
+  if (material.length === 0)
+    md += `- (\uAD00\uB828 \uC7AC\uB8CC \uC5C6\uC74C)
+`;
+  for (const m2 of material) {
+    md += `- [[${m2.node.id}]] (${m2.node.type}, ${Math.round(m2.score * 100)}%) \u2014 ${firstLine(m2.node.content)}
+`;
+  }
+  md += `
+## \uD574\uACB0 \uC791\uC5C5
+
+`;
+  return `${fm}
+${md}`;
 }
 function shouldLinkContext(prop, ctx, allContextTitles, relevanceThreshold = 0.05) {
   if (isMisassignedContext(prop.context, prop.heading_path, allContextTitles))
@@ -37273,15 +37383,200 @@ Selected folders contain no nodes.
 };
 
 // src/components/vault-lint.ts
+var import_obsidian5 = require("obsidian");
+
+// src/components/ai-preflight.ts
 var import_obsidian4 = require("obsidian");
+
+// src/engine/cost-estimator.ts
+var PRICING = {
+  "claude-cli": { fast: { in: 1, out: 5 }, standard: { in: 3, out: 15 } },
+  "claude-api": { fast: { in: 1, out: 5 }, standard: { in: 3, out: 15 } },
+  "gemini": { fast: { in: 0.3, out: 2.5 }, standard: { in: 1.25, out: 10 } },
+  "openai": { fast: { in: 0.15, out: 0.6 }, standard: { in: 2.5, out: 10 } }
+};
+var THROUGHPUT = { fast: 55, standard: 30 };
+function perCallLatency(provider) {
+  return provider === "claude-cli" ? 3 : 1.5;
+}
+var CHARS_PER_TOKEN = 2;
+var SYSTEM_OVERHEAD_TOKENS = 700;
+var PROFILES = {
+  "pipeline": { passMultiplier: 3.5, outputRatio: 0.5, charsPerCall: 800 },
+  "analysis": { passMultiplier: 1.2, outputRatio: 0.4, charsPerCall: 6e3 },
+  "bridge": { passMultiplier: 1.3, outputRatio: 0.3, charsPerCall: 4e3 },
+  "graph-analysis": { passMultiplier: 1.2, outputRatio: 0.4, charsPerCall: 6e3 },
+  "orphan-lint": { passMultiplier: 1.5, outputRatio: 0.2, charsPerCall: 2e3 },
+  "transcript": { passMultiplier: 1.1, outputRatio: 0.5, charsPerCall: 8e3 },
+  "audio": { passMultiplier: 1, outputRatio: 0.3, charsPerCall: 1e5 }
+};
+function estimateAIOperation(req) {
+  const profile = PROFILES[req.operation];
+  const price = PRICING[req.provider][req.tier];
+  const baseInputTokens = Math.ceil(Math.max(0, req.charCount) / CHARS_PER_TOKEN);
+  const calls = Math.max(1, req.units ?? Math.ceil(req.charCount / profile.charsPerCall));
+  const inputTokens = Math.round(baseInputTokens * profile.passMultiplier + SYSTEM_OVERHEAD_TOKENS * calls);
+  const outputTokens = Math.round(baseInputTokens * profile.outputRatio);
+  const totalTokens = inputTokens + outputTokens;
+  const costUsd = inputTokens / 1e6 * price.in + outputTokens / 1e6 * price.out;
+  const seconds = calls * perCallLatency(req.provider) + outputTokens / THROUGHPUT[req.tier];
+  return {
+    operation: req.operation,
+    provider: req.provider,
+    tier: req.tier,
+    calls,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    costUsd,
+    seconds: Math.round(seconds),
+    isSubscription: req.provider === "claude-cli"
+  };
+}
+function formatTokens(n) {
+  if (n >= 1e6)
+    return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3)
+    return `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}K`;
+  return `${n}`;
+}
+function formatCostUsd(usd) {
+  if (usd < 0.01)
+    return "<$0.01";
+  if (usd < 1)
+    return `$${usd.toFixed(2)}`;
+  return `$${usd.toFixed(2)}`;
+}
+function formatDuration(sec, ko) {
+  if (sec < 60)
+    return ko ? `\uC57D ${sec}\uCD08` : `~${sec}s`;
+  const m2 = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (ko)
+    return s > 0 ? `\uC57D ${m2}\uBD84 ${s}\uCD08` : `\uC57D ${m2}\uBD84`;
+  return s > 0 ? `~${m2}m ${s}s` : `~${m2}m`;
+}
+function modelLabel(provider, tier) {
+  const map = {
+    "claude-cli": { fast: "Claude CLI \xB7 Haiku 4.5", standard: "Claude CLI \xB7 Sonnet 4.6" },
+    "claude-api": { fast: "Claude Haiku 4.5", standard: "Claude Sonnet 4.6" },
+    "gemini": { fast: "Gemini 3.5 Flash", standard: "Gemini 2.5 Pro" },
+    "openai": { fast: "GPT-4o mini", standard: "GPT-4o" }
+  };
+  return map[provider][tier];
+}
+
+// src/components/ai-preflight.ts
+var OP_LABEL = {
+  "pipeline": { ko: "\uC0DD\uC131 \u2014 \uBA85\uC81C\xB7\uC5E3\uC9C0 \uCD94\uCD9C", en: "Generate \u2014 extract propositions & edges" },
+  "analysis": { ko: "\uD3F4\uB354 \uBD84\uC11D", en: "Folder analysis" },
+  "bridge": { ko: "\uC5F0\uACB0 \u2014 \uD06C\uB85C\uC2A4 \uCEE4\uB125\uC158", en: "Bridge \u2014 cross connections" },
+  "graph-analysis": { ko: "\uADF8\uB798\uD504 \uBD84\uC11D", en: "Graph analysis" },
+  "orphan-lint": { ko: "\uACE0\uB9BD \uB178\uB4DC \uB9B0\uD305", en: "Orphan node linting" },
+  "transcript": { ko: "\uC804\uC0AC\uBCF8 \uBD84\uC11D", en: "Transcript analysis" },
+  "audio": { ko: "\uC74C\uC131 \uC804\uC0AC", en: "Audio transcription" }
+};
+var AICostPreflightModal = class extends import_obsidian4.Modal {
+  constructor(app, est, lang, resolve) {
+    super(app);
+    this.est = est;
+    this.lang = lang;
+    this.resolve = resolve;
+    this.resolved = false;
+  }
+  get ko() {
+    return this.lang === "ko";
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("tb-preflight");
+    this.setTitle(this.ko ? "\u26A1 AI \uC2E4\uD589 \uD655\uC778" : "\u26A1 Confirm AI run");
+    const opName = OP_LABEL[this.est.operation][this.ko ? "ko" : "en"];
+    contentEl.createEl("div", { cls: "tb-preflight-op", text: opName });
+    contentEl.createEl("div", {
+      cls: "tb-preflight-model",
+      text: modelLabel(this.est.provider, this.est.tier)
+    });
+    const grid = contentEl.createEl("div", { cls: "tb-preflight-grid" });
+    const cell = (label, value, accent = false) => {
+      const c2 = grid.createEl("div", { cls: "tb-preflight-cell" });
+      c2.createEl("div", { cls: "tb-preflight-cell-label", text: label });
+      const v = c2.createEl("div", { cls: "tb-preflight-cell-value", text: value });
+      if (accent)
+        v.addClass("is-accent");
+    };
+    cell(this.ko ? "\uC608\uC0C1 \uD638\uCD9C" : "Est. calls", `${this.est.calls}`);
+    cell(
+      this.ko ? "\uC608\uC0C1 \uD1A0\uD070" : "Est. tokens",
+      `~${formatTokens(this.est.totalTokens)}`
+    );
+    cell(
+      this.ko ? "\uC608\uC0C1 \uBE44\uC6A9" : "Est. cost",
+      `~${formatCostUsd(this.est.costUsd)}`,
+      true
+    );
+    cell(
+      this.ko ? "\uC608\uC0C1 \uC2DC\uAC04" : "Est. time",
+      formatDuration(this.est.seconds, this.ko)
+    );
+    contentEl.createEl("div", {
+      cls: "tb-preflight-breakdown",
+      text: this.ko ? `\uC785\uB825 ~${formatTokens(this.est.inputTokens)} \xB7 \uCD9C\uB825 ~${formatTokens(this.est.outputTokens)}` : `in ~${formatTokens(this.est.inputTokens)} \xB7 out ~${formatTokens(this.est.outputTokens)}`
+    });
+    if (this.est.isSubscription) {
+      contentEl.createEl("div", {
+        cls: "tb-preflight-note",
+        text: this.ko ? "\u203B Claude CLI\uB294 \uAD6C\uB3C5 \uC0AC\uC6A9\uB7C9\uC5D0\uC11C \uCC28\uAC10\uB429\uB2C8\uB2E4 (\uBCC4\uB3C4 \uACFC\uAE08 \uC544\uB2D8). \uBE44\uC6A9\uC740 API \uD658\uC0B0 \uCC38\uACE0\uCE58\uC785\uB2C8\uB2E4." : "\u203B Claude CLI draws from your subscription (no separate billing). Cost is an API-equivalent reference."
+      });
+    }
+    contentEl.createEl("div", {
+      cls: "tb-preflight-disclaimer",
+      text: this.ko ? "\uCD94\uC815\uCE58\uC785\uB2C8\uB2E4 \u2014 \uC2E4\uC81C \uC0AC\uC6A9\uB7C9\uACFC \uB2E4\uB97C \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "Estimate only \u2014 actual usage may differ."
+    });
+    const btns = contentEl.createEl("div", { cls: "tb-preflight-btns" });
+    const cancelBtn = btns.createEl("button", { cls: "tb-btn tb-preflight-cancel", text: this.ko ? "\uCDE8\uC18C" : "Cancel" });
+    cancelBtn.addEventListener("click", () => {
+      this.finish(false);
+    });
+    const goBtn = btns.createEl("button", { cls: "tb-btn tb-preflight-go", text: this.ko ? "\uC9C4\uD589" : "Proceed" });
+    goBtn.addEventListener("click", () => {
+      this.finish(true);
+    });
+  }
+  finish(proceed) {
+    if (this.resolved)
+      return;
+    this.resolved = true;
+    this.resolve(proceed);
+    this.close();
+  }
+  onClose() {
+    this.contentEl.empty();
+    if (!this.resolved) {
+      this.resolved = true;
+      this.resolve(false);
+    }
+  }
+};
+function confirmAICost(app, settings, req) {
+  if (settings.showCostPreflight === false)
+    return Promise.resolve(true);
+  const est = estimateAIOperation(req);
+  return new Promise((resolve) => {
+    new AICostPreflightModal(app, est, settings.lang ?? "en", resolve).open();
+  });
+}
+
+// src/components/vault-lint.ts
 var MAX_ORPHANS = 10;
-var OrphanQueueModal = class extends import_obsidian4.Modal {
-  constructor(app, store, settings, folders, onResolved) {
+var OrphanQueueModal = class extends import_obsidian5.Modal {
+  constructor(app, store, settings, folders, onResolved, initialFolder) {
     super(app);
     this.store = store;
     this.settings = settings;
     this.folders = folders;
     this.onResolved = onResolved;
+    this.initialFolder = initialFolder;
   }
   get isKo() {
     return this.settings.lang === "ko";
@@ -37290,7 +37585,11 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
     return getT(this.settings.lang);
   }
   onOpen() {
-    this.renderFolderSelect();
+    if (this.initialFolder) {
+      void this.renderLintResults(this.initialFolder);
+    } else {
+      this.renderFolderSelect();
+    }
   }
   // ── Phase 1: 폴더 선택 ───────────────────────────────────
   renderFolderSelect() {
@@ -37334,7 +37633,7 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
     });
     startBtn.addEventListener("click", () => {
       if (!selected) {
-        new import_obsidian4.Notice(this.isKo ? "[ThirdBrain] \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694." : "[ThirdBrain] Select a folder.");
+        new import_obsidian5.Notice(this.isKo ? "[ThirdBrain] \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694." : "[ThirdBrain] Select a folder.");
         return;
       }
       void this.renderLintResults(selected);
@@ -37364,16 +37663,32 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
     loading.remove();
     const backBtn = contentEl.createEl("button", {
       cls: "tb-btn tb-content-type-back-btn",
-      text: this.isKo ? "\u2190 \uD3F4\uB354 \uC120\uD0DD" : "\u2190 Back"
+      text: this.initialFolder ? this.isKo ? "\u2190 \uB2EB\uAE30" : "\u2190 Close" : this.isKo ? "\u2190 \uD3F4\uB354 \uC120\uD0DD" : "\u2190 Back"
     });
     backBtn.addEventListener("click", () => {
-      this.renderFolderSelect();
+      if (this.initialFolder) {
+        this.close();
+      } else {
+        this.renderFolderSelect();
+      }
     });
     if (orphans.length === 0) {
       contentEl.createEl("div", {
         cls: "tb-manual-conflict-empty",
         text: this.isKo ? "\u2713 \uC774 \uD3F4\uB354\uC5D0 \uACE0\uB9BD \uBA85\uC81C \uC5C6\uC74C" : "\u2713 No isolated propositions in this folder"
       });
+      return;
+    }
+    const orphanChars = orphans.reduce((s, n) => s + n.title.length + n.content.length, 0);
+    const candChars = candidates.reduce((s, n) => s + n.title.length + n.content.length, 0);
+    if (!await confirmAICost(this.app, this.settings, {
+      operation: "orphan-lint",
+      charCount: orphanChars + candChars * orphans.length,
+      units: orphans.length,
+      tier: "fast",
+      provider: this.settings.aiProvider
+    })) {
+      this.close();
       return;
     }
     const desc = contentEl.createEl("div", { cls: "tb-manual-conflict-count" });
@@ -37462,7 +37777,7 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
           const targetFilePath = this.findFilePath(res.targetTitle);
           const targetFile = targetFilePath ? this.app.vault.getFileByPath(targetFilePath) : null;
           if (!orphanFile || !targetFile) {
-            new import_obsidian4.Notice(this.isKo ? "[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : "[ThirdBrain] File not found.");
+            new import_obsidian5.Notice(this.isKo ? "[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." : "[ThirdBrain] File not found.");
             acceptBtn.disabled = false;
             return;
           }
@@ -37480,7 +37795,7 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
           doneMsg.addClass("is-visible");
           this.onResolved();
         } catch {
-          new import_obsidian4.Notice(this.isKo ? "[ThirdBrain] \uC5F0\uACB0 \uC800\uC7A5 \uC2E4\uD328" : "[ThirdBrain] Failed to save connection.");
+          new import_obsidian5.Notice(this.isKo ? "[ThirdBrain] \uC5F0\uACB0 \uC800\uC7A5 \uC2E4\uD328" : "[ThirdBrain] Failed to save connection.");
           acceptBtn.disabled = false;
         }
       })();
@@ -37497,6 +37812,21 @@ var OrphanQueueModal = class extends import_obsidian4.Modal {
 
 // src/view.ts
 var VIEW_TYPE = "thirdbrain-view";
+async function openMissionWorkbench(app, store, settings, problemFile) {
+  const problem = await store.fileToNode(problemFile);
+  if (!problem || problem.type !== "problem") {
+    new import_obsidian6.Notice("[ThirdBrain] \uBB38\uC81C \uB178\uB4DC\uAC00 \uC544\uB2D9\uB2C8\uB2E4");
+    return;
+  }
+  const allNodes = await store.loadNodesInFolder(settings.rootFolder || "/");
+  const evidenceIds = new Set(problem.evidence_ids ?? []);
+  const evidenceNodes = allNodes.filter((n) => evidenceIds.has(n.id));
+  const material = gatherProblemMaterial(problem, allNodes);
+  const content = buildSolvingNote(problem, evidenceNodes, material);
+  const file = await store.createSolvingNote(problem, content);
+  await app.workspace.openLinkText(file.basename, "", false);
+  new import_obsidian6.Notice(`[ThirdBrain] \uBBF8\uC158 \uC791\uC5C5\uB300 \xB7 \uD06C\uB85C\uC2A4\uD3F4\uB354 \uC7AC\uB8CC ${material.length}\uAC1C`);
+}
 var RELATION_KO = {
   causes: "\uC720\uBC1C",
   precedes: "\uC120\uD589",
@@ -37522,7 +37852,7 @@ function sanitizeId2(s) {
 function shortText(s, max2 = 26) {
   return s.length > max2 ? s.slice(0, max2 - 1) + "\u2026" : s;
 }
-var ThirdBrainView = class extends import_obsidian5.ItemView {
+var ThirdBrainView = class extends import_obsidian6.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.pipelineModal = null;
@@ -37560,7 +37890,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     return getT(this.plugin.settings.lang)(key);
   }
   async onOpen() {
-    setRequestUrl(import_obsidian5.requestUrl);
+    setRequestUrl(import_obsidian6.requestUrl);
     this.store = new GraphStore(this.app, this.plugin.settings);
     const root2 = this.containerEl.children[1];
     root2.empty();
@@ -37572,7 +37902,6 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.buildProgressBar(inputPane);
     this.syncIngestBtnState();
     void this.refreshConflictBadge();
-    void this.refreshOrphanBadge();
     this.registerEvent(this.app.vault.on("delete", () => this.scheduleBadgeRefresh()));
     this.registerEvent(this.app.vault.on("rename", () => this.scheduleBadgeRefresh()));
     this.resultsEl = this.ingestContainer.createEl("div", { cls: "tb-results" });
@@ -37609,8 +37938,21 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     const panel = parent.createEl("div", { cls: "tb-ingest" });
     const dropZone = panel.createEl("div", { cls: "tb-dropzone" });
     this.dropZoneEl = dropZone;
-    const faceEl = dropZone.createEl("div", { cls: "tb-dropzone-face" });
-    faceEl.appendChild((0, import_obsidian5.sanitizeHTMLToDom)(SOOTBALL_WAITING));
+    const faceEl = dropZone.createEl("div", { cls: "tb-dropzone-face is-clickable" });
+    faceEl.appendChild((0, import_obsidian6.sanitizeHTMLToDom)(SOOTBALL_WAITING));
+    faceEl.setAttribute("title", this.plugin.settings.lang === "ko" ? "\uD074\uB9AD \u2014 \uB1CC \uC0C1\uD0DC (\uD3F4\uB354\uBCC4 \uBBF8\uC158\xB7\uBBF8\uC5F0\uACB0)" : "Click \u2014 Brain status (missions & unlinked by folder)");
+    faceEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      new BrainStatusModal(
+        this.app,
+        this.store,
+        this.plugin.settings,
+        (file) => {
+          void openMissionWorkbench(this.app, this.store, this.plugin.settings, file);
+        },
+        this.getFolderPaths()
+      ).open();
+    });
     const dropLabel = dropZone.createEl("div", { cls: "tb-dropzone-label", text: this.t("dropzone_label") });
     const fileInput = dropZone.createEl("input", {
       attr: { type: "file", accept: ".md,.txt,.pdf,.mp3", multiple: true }
@@ -37625,7 +37967,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     let dragDepth = 0;
     const setFaceHungry = (hungry) => {
       faceEl.empty();
-      faceEl.appendChild((0, import_obsidian5.sanitizeHTMLToDom)(hungry ? SOOTBALL_HUNGRY : SOOTBALL_WAITING));
+      faceEl.appendChild((0, import_obsidian6.sanitizeHTMLToDom)(hungry ? SOOTBALL_HUNGRY : SOOTBALL_WAITING));
       dropLabel.textContent = hungry ? this.t("dropzone_hungry") : this.t("dropzone_label");
     };
     dropZone.addEventListener("dragenter", (e) => {
@@ -37724,19 +38066,6 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
         }
       ).open();
     });
-    this.orphanBadgeEl = parent.createEl("button", { cls: "tb-orphan-badge" });
-    this.orphanBadgeEl.hide();
-    this.orphanBadgeEl.addEventListener("click", () => {
-      new OrphanQueueModal(
-        this.app,
-        this.store,
-        this.plugin.settings,
-        this.getFolderPaths(),
-        () => {
-          void this.refreshOrphanBadge();
-        }
-      ).open();
-    });
   }
   async refreshConflictBadge() {
     try {
@@ -37751,19 +38080,6 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       this.conflictBadgeEl.hide();
     }
   }
-  async refreshOrphanBadge() {
-    try {
-      const count = await this.store.countOrphanPropositions();
-      if (count > 0) {
-        this.orphanBadgeEl.textContent = this.plugin.settings.lang === "ko" ? `\u25C8 \uBBF8\uC5F0\uACB0 \uBA85\uC81C ${count}\uAC74` : `\u25C8 ${count} unlinked node${count > 1 ? "s" : ""}`;
-        this.orphanBadgeEl.show();
-      } else {
-        this.orphanBadgeEl.hide();
-      }
-    } catch {
-      this.orphanBadgeEl.hide();
-    }
-  }
   // vault 파일 삭제/이름변경 시 배지 갱신 — 대량 삭제 대비 디바운스
   scheduleBadgeRefresh() {
     if (this.badgeRefreshTimer !== null)
@@ -37771,7 +38087,6 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.badgeRefreshTimer = window.setTimeout(() => {
       this.badgeRefreshTimer = null;
       void this.refreshConflictBadge();
-      void this.refreshOrphanBadge();
     }, 400);
   }
   handleFileDrop(e) {
@@ -37781,10 +38096,10 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     const drg = dm?.draggable;
     if (drg) {
       const tfiles = [];
-      if (drg.type === "file" && drg.file instanceof import_obsidian5.TFile) {
+      if (drg.type === "file" && drg.file instanceof import_obsidian6.TFile) {
         tfiles.push(drg.file);
       } else if (Array.isArray(drg.files)) {
-        tfiles.push(...drg.files.filter((f) => f instanceof import_obsidian5.TFile));
+        tfiles.push(...drg.files.filter((f) => f instanceof import_obsidian6.TFile));
       }
       if (tfiles.length > 0) {
         void this.loadVaultFilesToTextarea(tfiles);
@@ -37799,7 +38114,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     const plainText = e.dataTransfer?.getData("text/plain")?.trim() ?? "";
     if (plainText) {
       const tf = this.app.vault.getFileByPath(plainText);
-      if (tf instanceof import_obsidian5.TFile) {
+      if (tf instanceof import_obsidian6.TFile) {
         void this.loadVaultFilesToTextarea([tf]);
       }
     }
@@ -37813,13 +38128,13 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     const mp3Files = files.filter((f) => /\.mp3$/i.test(f.name));
     if (mp3Files.length > 0) {
       if (files.length > 1)
-        new import_obsidian5.Notice(this.t("stt_notice_mp3_only"));
+        new import_obsidian6.Notice(this.t("stt_notice_mp3_only"));
       await this.handleAudioFile(mp3Files[0]);
       return;
     }
     const filtered = files.filter((f) => /\.(md|txt|pdf)$/i.test(f.name));
     if (filtered.length === 0) {
-      new import_obsidian5.Notice(this.t("notice_file_type"));
+      new import_obsidian6.Notice(this.t("notice_file_type"));
       return;
     }
     const texts = [];
@@ -37835,7 +38150,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.updateCharCount();
     this.syncIngestBtnState();
     this.ingestSource = filtered.length === 1 ? { kind: "external", name: filtered[0].name } : { kind: "paste" };
-    new import_obsidian5.Notice(`[ThirdBrain] ${filtered.length} files loaded`);
+    new import_obsidian6.Notice(`[ThirdBrain] ${filtered.length} files loaded`);
   }
   setSTTInputLock(locked) {
     if (locked) {
@@ -37857,13 +38172,22 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       return;
     }
     if (!settings.openaiApiKey?.trim()) {
-      new import_obsidian5.Notice(this.t("stt_notice_need_key"));
+      new import_obsidian6.Notice(this.t("stt_notice_need_key"));
       return;
     }
     if (file.size > 25 * 1024 * 1024) {
-      new import_obsidian5.Notice(this.t("stt_notice_too_large"));
+      new import_obsidian6.Notice(this.t("stt_notice_too_large"));
       return;
     }
+    const estMinutes = Math.max(1, Math.round(file.size / (1024 * 1024)));
+    if (!await confirmAICost(this.app, settings, {
+      operation: "audio",
+      charCount: estMinutes * 900,
+      units: 2,
+      tier: "fast",
+      provider: "openai"
+    }))
+      return;
     this.setAIBusy(true);
     this.setIngestBusy(true);
     this.setSTTInputLock(true);
@@ -37871,13 +38195,13 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       const buf = await file.arrayBuffer();
       const result = await transcribeAudioFile(buf, file.name, settings, (step) => {
         const key = step === "whisper" ? "stt_progress_whisper" : step === "speakers" ? "stt_progress_speakers" : "stt_progress_title";
-        new import_obsidian5.Notice(this.t(key));
+        new import_obsidian6.Notice(this.t(key));
       });
       const dateStr = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const safeTitle = result.title.replace(/[\\/:*?"<>|]/g, "").trim();
       const fileName = `${safeTitle}_${dateStr}.md`;
-      const folderPath = (0, import_obsidian5.normalizePath)(`${settings.rootFolder}/raw/stt_raw`);
-      const filePath = (0, import_obsidian5.normalizePath)(`${folderPath}/${fileName}`);
+      const folderPath = (0, import_obsidian6.normalizePath)(`${settings.rootFolder}/raw/stt_raw`);
+      const filePath = (0, import_obsidian6.normalizePath)(`${folderPath}/${fileName}`);
       try {
         await this.app.vault.createFolder(folderPath);
       } catch {
@@ -37887,9 +38211,9 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       this.updateCharCount();
       this.syncIngestBtnState();
       this.ingestSource = { kind: "vault", file: sttFile };
-      new import_obsidian5.Notice(`${this.t("stt_saved")}: ${fileName}`);
+      new import_obsidian6.Notice(`${this.t("stt_saved")}: ${fileName}`);
     } catch (err) {
-      new import_obsidian5.Notice(`[ThirdBrain] STT \uC624\uB958: ${String(err)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] STT \uC624\uB958: ${String(err)}`);
     } finally {
       this.setAIBusy(false);
       this.setIngestBusy(false);
@@ -37901,7 +38225,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
   async loadVaultFilesToTextarea(files) {
     const filtered = files.filter((f) => /\.(md|txt|pdf)$/i.test(f.name));
     if (filtered.length === 0) {
-      new import_obsidian5.Notice(this.t("notice_file_type"));
+      new import_obsidian6.Notice(this.t("notice_file_type"));
       return;
     }
     const texts = [];
@@ -37935,15 +38259,15 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.ingestSource = filtered.length === 1 ? { kind: "vault", file: filtered[0] } : { kind: "paste" };
     if (filtered.length === 1) {
       const isTB = !!this.app.metadataCache.getFileCache(filtered[0])?.frontmatter?.tb_id;
-      new import_obsidian5.Notice(`[ThirdBrain] ${filtered[0].basename} \uB85C\uB4DC\uB428${isTB ? " \u2014 TB \uB178\uB4DC (\uC778\uC81C\uC2A4\uD2B8 \u2192 \uBE0C\uB9BF\uC9C0 \uC2E4\uD589)" : ""}`);
+      new import_obsidian6.Notice(`[ThirdBrain] ${filtered[0].basename} \uB85C\uB4DC\uB428${isTB ? " \u2014 TB \uB178\uB4DC (\uC778\uC81C\uC2A4\uD2B8 \u2192 \uBE0C\uB9BF\uC9C0 \uC2E4\uD589)" : ""}`);
     } else {
-      new import_obsidian5.Notice(`[ThirdBrain] ${filtered.length}\uAC1C \uB178\uD2B8 \uB85C\uB4DC\uB428`);
+      new import_obsidian6.Notice(`[ThirdBrain] ${filtered.length}\uAC1C \uB178\uD2B8 \uB85C\uB4DC\uB428`);
     }
   }
   buildProgressBar(parent) {
     this.progressEl = parent.createEl("div", { cls: "tb-progress" });
     const sootball = this.progressEl.createEl("span", { cls: "tb-progress-sootball" });
-    sootball.appendChild((0, import_obsidian5.sanitizeHTMLToDom)(SOOTBALL_LOGO));
+    sootball.appendChild((0, import_obsidian6.sanitizeHTMLToDom)(SOOTBALL_LOGO));
     this.progressBarEl = this.progressEl.createEl("span", { cls: "tb-progress-bar", text: progressBar(0) });
     this.progressMsgEl = this.progressEl.createEl("span", { cls: "tb-progress-msg", text: "" });
     this.stepLogEl = parent.createEl("div", { cls: "tb-step-log" });
@@ -37975,7 +38299,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
   async runIngest() {
     const text = this.ingestTextarea.value.trim();
     if (!text) {
-      new import_obsidian5.Notice(this.t("notice_no_text"));
+      new import_obsidian6.Notice(this.t("notice_no_text"));
       return;
     }
     const root2 = this.plugin.settings.rootFolder;
@@ -37999,10 +38323,20 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
       }, this.plugin.settings.lang, this.plugin.settings.rootFolder).open();
     });
     if (selectedFolder === null) {
-      new import_obsidian5.Notice(this.t("notice_no_folder"));
+      new import_obsidian6.Notice(this.t("notice_no_folder"));
       return;
     }
     const tbMatch = this.ingestTextarea.value.match(/^\[TB 노드:(.+?)\]/);
+    if (!tbMatch) {
+      const ok = await confirmAICost(this.app, this.plugin.settings, {
+        operation: "pipeline",
+        charCount: text.length,
+        tier: "fast",
+        provider: this.plugin.settings.aiProvider
+      });
+      if (!ok)
+        return;
+    }
     const capturedSource = this.ingestSource;
     this.ingestSource = null;
     this.ingestTextarea.value = "";
@@ -38030,8 +38364,8 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
     this.resultsEl.empty();
     this.pipelineModal?.close();
     this.pipelineModal = null;
-    if (import_obsidian5.Platform.isMobile) {
-      new import_obsidian5.Notice(this.t("notice_mobile_keep_screen"), 6e3);
+    if (import_obsidian6.Platform.isMobile) {
+      new import_obsidian6.Notice(this.t("notice_mobile_keep_screen"), 6e3);
     }
     const allRawLinks = [];
     const allBlockIdSpans = [];
@@ -38145,7 +38479,7 @@ var ThirdBrainView = class extends import_obsidian5.ItemView {
         );
       } catch (propErr) {
         const diagMsg = propErr instanceof Error ? propErr.message : String(propErr);
-        new import_obsidian5.Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + " " : ""}\uBA85\uC81C \uCD94\uCD9C \uC2E4\uD328
+        new import_obsidian6.Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + " " : ""}\uBA85\uC81C \uCD94\uCD9C \uC2E4\uD328
 ${diagMsg}`, 15e3);
         this.resultsEl.createEl("div", {
           cls: "tb-error-msg",
@@ -38184,7 +38518,7 @@ ${diagMsg}`
           const result = await this.saveNodes(contexts, logic, targetFolder, rawSourcePath, rawFile);
           const { contextFileMap, propFileMap, rawLinks, blockIdSpans } = result;
           this.hideProgress();
-          new import_obsidian5.Notice(`${this.t("notice_graph_save_done_full")} (${logic.propositions.length}${this.t("notice_prop_suffix")}${logic.edges.length}${this.t("notice_edge_suffix")})`);
+          new import_obsidian6.Notice(`${this.t("notice_graph_save_done_full")} (${logic.propositions.length}${this.t("notice_prop_suffix")}${logic.edges.length}${this.t("notice_edge_suffix")})`);
           if (isLastChunk) {
             const savedNodes = await this.store.loadNodesInFolder(targetFolder);
             const conflicts = detectConflicts(savedNodes);
@@ -38192,7 +38526,6 @@ ${diagMsg}`
               this.renderConflictNotice(conflicts);
             }
             void this.refreshConflictBadge();
-            void this.refreshOrphanBadge();
             await this.store.reconcileContradictionProblems(targetFolder, conflicts, savedNodes).catch(() => {
             });
             await this.detectAndSaveProblems(targetFolder, savedNodes, includeActionLayer);
@@ -38221,7 +38554,7 @@ ${diagMsg}`
           return { rawLinks, blockIdSpans };
         } catch (err) {
           this.hideProgress();
-          new import_obsidian5.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian6.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);
         }
       } else {
         this.renderSaveSection(
@@ -38256,7 +38589,7 @@ ${diagMsg}`
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_3") });
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_4") });
       }
-      new import_obsidian5.Notice(`\u26A0\uFE0F ${msg}`);
+      new import_obsidian6.Notice(`\u26A0\uFE0F ${msg}`);
     }
   }
   // ── 1차 결과: 문맥 레이어 ────────────────────────────
@@ -38463,7 +38796,7 @@ ${diagMsg}`
         const { files, folder: dest, actualPath } = await onSave(folder);
         this.fileCountEl.textContent = this.vaultCountText();
         saveBtn.textContent = `${this.t("btn_save_done").replace("]", "")} (${files.length}) ]`;
-        new import_obsidian5.Notice(`[ThirdBrain] ${files.length}${this.t("notice_graph_save_done_suffix")} ${dest}`);
+        new import_obsidian6.Notice(`[ThirdBrain] ${files.length}${this.t("notice_graph_save_done_suffix")} ${dest}`);
         if (files.length > 0) {
           const destLabel = dest === this.t("fallback_folder_root") ? this.t("label_vault_root") : `${dest}/`;
           resultArea.createEl("div", { cls: "tb-save-result-label", text: `\u2713 ${destLabel}${this.t("label_saved_in_suffix")}` });
@@ -38483,7 +38816,7 @@ ${diagMsg}`
         saveBtn.textContent = this.t("btn_save_graph");
         saveBtn.disabled = false;
         resultArea.createEl("div", { cls: "tb-save-result-error", text: `${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}` });
-        new import_obsidian5.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+        new import_obsidian6.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     };
     saveBtn.addEventListener("click", () => {
@@ -38613,7 +38946,7 @@ ${diagMsg}`
       }
       this.renderActionResults(savedActions, propById);
     } catch (e) {
-      new import_obsidian5.Notice(`[ThirdBrain] \uC561\uC158 \uCD94\uCD9C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uC561\uC158 \uCD94\uCD9C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   renderActionResults(actions, propById) {
@@ -38731,7 +39064,12 @@ ${quotes}` : p.description,
         cls: "tb-problem-evidence",
         text: `${this.t("problem_evidence_label")}${problem.evidence_ids.join(", ")}`
       });
-      const resolveBtn = card.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-resolve-btn", text: this.t("problem_mark_resolved") });
+      const btnRow = card.createEl("div", { cls: "tb-problem-card-btns" });
+      const workbenchBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-workbench-btn", text: "\u{1F3AF} \uC791\uC5C5\uB300" });
+      workbenchBtn.addEventListener("click", () => {
+        void this.openWorkbench(file);
+      });
+      const resolveBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-resolve-btn", text: this.t("problem_mark_resolved") });
       resolveBtn.addEventListener("click", () => {
         void this.store.updateProblemStatus(file, "resolved", this.t("problem_resolved_by_user")).then(() => {
           card.addClass("is-resolved");
@@ -38739,6 +39077,10 @@ ${quotes}` : p.description,
         });
       });
     }
+  }
+  /** [문제 작업공간] 미션 작업 노트 열기 (뷰 버튼용). 코어는 openMissionWorkbench 재사용. */
+  async openWorkbench(problemFile) {
+    await openMissionWorkbench(this.app, this.store, this.plugin.settings, problemFile);
   }
   renderConflictNotice(conflicts) {
     const { content } = this.makeSectionToggle(
@@ -38793,7 +39135,7 @@ ${quotes}` : p.description,
         this.plugin.settings
       );
       if (connections.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_no_connection"));
+        new import_obsidian6.Notice(this.t("notice_no_connection"));
         return;
       }
       const existingTitleToFile = /* @__PURE__ */ new Map();
@@ -38822,14 +39164,14 @@ ${quotes}` : p.description,
       }
       if (saved.length > 0) {
         this.renderCrossConnectionSavedLog(saved);
-        new import_obsidian5.Notice(`[ThirdBrain] \u2468 ${saved.length}${this.t("conn_auto_saved_suffix")}`);
+        new import_obsidian6.Notice(`[ThirdBrain] \u2468 ${saved.length}${this.t("conn_auto_saved_suffix")}`);
       }
       if (pending.length > 0) {
-        new import_obsidian5.Notice(`[ThirdBrain] \u2468 ${pending.length}\uAC1C \uC5F0\uACB0 \uD6C4\uBCF4 \u2014 \uD328\uB110\uC5D0\uC11C \uD655\uC778 \uD6C4 \uC800\uC7A5\uD558\uC138\uC694`);
+        new import_obsidian6.Notice(`[ThirdBrain] \u2468 ${pending.length}\uAC1C \uC5F0\uACB0 \uD6C4\uBCF4 \u2014 \uD328\uB110\uC5D0\uC11C \uD655\uC778 \uD6C4 \uC800\uC7A5\uD558\uC138\uC694`);
         this.renderCrossConnectionChips(pending, newTitleToFile, existingTitleToFile);
       }
     } catch (err) {
-      new import_obsidian5.Notice(`[ThirdBrain] \u2468 \uC5F0\uACB0 \uD0D0\uC0C9 \uC2E4\uD328: ${err instanceof Error ? err.message : String(err)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \u2468 \uC5F0\uACB0 \uD0D0\uC0C9 \uC2E4\uD328: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   async saveCrossEdge(conn, newFile, existFile) {
@@ -38908,7 +39250,7 @@ ${quotes}` : p.description,
     saveBtn.addEventListener("click", () => void (async () => {
       const selected = states.filter((s) => s.selected);
       if (selected.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_no_selection"));
+        new import_obsidian6.Notice(this.t("notice_no_selection"));
         return;
       }
       locked = true;
@@ -38923,7 +39265,7 @@ ${quotes}` : p.description,
             continue;
           await this.saveCrossEdge(conn, newFile, existFile);
         }
-        new import_obsidian5.Notice(`${this.t("conn_saved_notice")}${selected.length}${this.t("conn_saved_notice_suffix")}`);
+        new import_obsidian6.Notice(`${this.t("conn_saved_notice")}${selected.length}${this.t("conn_saved_notice_suffix")}`);
         bar.remove();
         labelEl.textContent = `\u2713 \u2468 ${selected.length}${this.t("conn_saved_label_suffix")}`;
       } catch (err) {
@@ -38931,7 +39273,7 @@ ${quotes}` : p.description,
         chipRow.removeClass("is-locked");
         saveBtn.disabled = false;
         saveBtn.textContent = this.t("btn_save_connection");
-        new import_obsidian5.Notice(`${this.t("save_error_notice_prefix")}${err instanceof Error ? err.message : String(err)}`);
+        new import_obsidian6.Notice(`${this.t("save_error_notice_prefix")}${err instanceof Error ? err.message : String(err)}`);
       }
     })());
   }
@@ -39010,9 +39352,9 @@ ${quotes}` : p.description,
     const path = targetFolder ? `${targetFolder}/${fileName}` : fileName;
     try {
       await this.app.vault.create(path, content);
-      new import_obsidian5.Notice(`${this.t("notice_analysis_saved_prefix")}${fileName}`);
+      new import_obsidian6.Notice(`${this.t("notice_analysis_saved_prefix")}${fileName}`);
     } catch (e) {
-      new import_obsidian5.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       throw e;
     }
   }
@@ -39025,7 +39367,7 @@ ${quotes}` : p.description,
     try {
       const folder = folderPath || "";
       void this.openNativeGraph([folder]);
-      new import_obsidian5.Notice(`\u{1F4CA} \uADF8\uB798\uD504 \uBDF0 \uC5F4\uAE30: ${folderPath || "\uB8E8\uD2B8"}`);
+      new import_obsidian6.Notice(`\u{1F4CA} \uADF8\uB798\uD504 \uBDF0 \uC5F4\uAE30: ${folderPath || "\uB8E8\uD2B8"}`);
     } catch {
     }
   }
@@ -39036,7 +39378,7 @@ ${quotes}` : p.description,
     this.setProgress(5, `${this.t("analysis_progress_label")} (${mode === "rich" ? this.t("analysis_depth_rich") : this.t("analysis_depth_summary")})`);
     const folder = this.app.vault.getFolderByPath(folderPath);
     if (!folder) {
-      new import_obsidian5.Notice("[ThirdBrain] \uD3F4\uB354\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian6.Notice("[ThirdBrain] \uD3F4\uB354\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       this.setAIBusy(false);
       this.hideProgress();
       return;
@@ -39044,7 +39386,7 @@ ${quotes}` : p.description,
     const readFilesFromFolder = async (files, nodeType) => {
       const result = [];
       for (const child of files) {
-        if (!(child instanceof import_obsidian5.TFile) || child.extension !== "md")
+        if (!(child instanceof import_obsidian6.TFile) || child.extension !== "md")
           continue;
         const raw = await this.app.vault.cachedRead(child);
         const cache = this.app.metadataCache.getFileCache(child);
@@ -39075,9 +39417,21 @@ ${quotes}` : p.description,
       }
     }
     if (nodes.length === 0) {
-      new import_obsidian5.Notice("[ThirdBrain] \uD3F4\uB354\uC5D0 \uB9C8\uD06C\uB2E4\uC6B4 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian6.Notice("[ThirdBrain] \uD3F4\uB354\uC5D0 \uB9C8\uD06C\uB2E4\uC6B4 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
       this.setAIBusy(false);
       this.hideProgress();
+      return;
+    }
+    const analysisChars = nodes.reduce((s, n) => s + n.title.length + n.content.length, 0);
+    if (!await confirmAICost(this.app, this.plugin.settings, {
+      operation: "analysis",
+      charCount: analysisChars,
+      units: 1,
+      tier: "standard",
+      provider: this.plugin.settings.aiProvider
+    })) {
+      this.hideProgress();
+      this.setAIBusy(false);
       return;
     }
     try {
@@ -39088,7 +39442,7 @@ ${quotes}` : p.description,
     } catch (e) {
       this.hideProgress();
       this.setAIBusy(false);
-      new import_obsidian5.Notice(`[ThirdBrain] \uBD84\uC11D \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uBD84\uC11D \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // ── 8-2: 폴더 분석 결과 렌더링 ─────────────────────────
@@ -39184,14 +39538,14 @@ ${theme.description}
       }
       const file = await this.app.vault.create(filepath, content);
       saveBtn.textContent = this.t("btn_save_done");
-      new import_obsidian5.Notice(`${this.t("notice_analysis_saved_prefix")}${filename}`);
+      new import_obsidian6.Notice(`${this.t("notice_analysis_saved_prefix")}${filename}`);
       window.setTimeout(() => {
         void this.app.workspace.getLeaf().openFile(file);
       }, 300);
     } catch (e) {
       saveBtn.disabled = false;
       saveBtn.textContent = originalText;
-      new import_obsidian5.Notice(`${this.t("notice_analysis_save_fail")}${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`${this.t("notice_analysis_save_fail")}${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // ── UI 유틸 ──────────────────────────────────────────
@@ -39229,7 +39583,7 @@ ${theme.description}
       } catch (e) {
         saveBtn.textContent = this.t("btn_save_fail");
         saveBtn.disabled = false;
-        new import_obsidian5.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+        new import_obsidian6.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     })());
   }
@@ -39432,13 +39786,13 @@ ${theme.description}
       }
     }
     if (applied) {
-      new import_obsidian5.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uC5F4\uB9BC (${folders.length}\uAC1C \uD3F4\uB354)`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uC5F4\uB9BC (${folders.length}\uAC1C \uD3F4\uB354)`);
     } else {
       try {
         await navigator.clipboard.writeText(query);
       } catch {
       }
-      new import_obsidian5.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uAC80\uC0C9\uCC3D\uC5D0 \uBD99\uC5EC\uB123\uAE30:
+      new import_obsidian6.Notice(`[ThirdBrain] \uADF8\uB798\uD504 \uAC80\uC0C9\uCC3D\uC5D0 \uBD99\uC5EC\uB123\uAE30:
 ${query}`);
     }
   }
@@ -39446,6 +39800,14 @@ ${query}`);
   // ── TB 노드 인제스트 → 브릿지 ──────────────────────────
   // vault 파일 1개가 TB 노드일 때 인제스트 버튼을 누르면 여기로 진입
   async runBridgeFromIngest(sourceFile, targetFolder) {
+    const srcLen = (await this.app.vault.cachedRead(sourceFile).catch(() => "")).length;
+    if (!await confirmAICost(this.app, this.plugin.settings, {
+      operation: "bridge",
+      charCount: srcLen,
+      tier: "standard",
+      provider: this.plugin.settings.aiProvider
+    }))
+      return;
     this.setBridgeBusy(true);
     this.resultsEl.empty();
     this.setProgress(2, `"${sourceFile.basename}" \uBCF5\uC0AC \uC911...`);
@@ -39470,13 +39832,13 @@ ${query}`);
     } catch (e) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian5.Notice(`[ThirdBrain] \uD30C\uC77C \uBCF5\uC0AC \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uD30C\uC77C \uBCF5\uC0AC \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
     if (!movedFile) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian5.Notice("[ThirdBrain] \uC774\uB3D9\uB41C \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian6.Notice("[ThirdBrain] \uC774\uB3D9\uB41C \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     this.setProgress(3, "\uB178\uB4DC \uB85C\uB4DC \uC911...");
@@ -39501,14 +39863,14 @@ ${query}`);
     if (!movedNode) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian5.Notice("[ThirdBrain] \uB178\uB4DC \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+      new import_obsidian6.Notice("[ThirdBrain] \uB178\uB4DC \uBA54\uD0C0\uB370\uC774\uD130\uB97C \uC77D\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     const targetNodes = (await this.store.loadNodesInFolder(targetFolder)).filter((n) => n.filePath !== movedFile.path);
     if (targetNodes.length === 0) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian5.Notice(`\u2705 \uC774\uC2DD \uC644\uB8CC: ${movedFile.basename} \u2192 ${targetFolder || "\uB8E8\uD2B8"} (\uC5F0\uACB0 \uD6C4\uBCF4 \uC5C6\uC74C)`);
+      new import_obsidian6.Notice(`\u2705 \uC774\uC2DD \uC644\uB8CC: ${movedFile.basename} \u2192 ${targetFolder || "\uB8E8\uD2B8"} (\uC5F0\uACB0 \uD6C4\uBCF4 \uC5C6\uC74C)`);
       this.ingestTextarea.value = "";
       this.updateCharCount();
       return;
@@ -39548,7 +39910,7 @@ ${query}`);
     } catch (e) {
       this.hideProgress();
       this.setBridgeBusy(false);
-      new import_obsidian5.Notice(`[ThirdBrain] \uBE0C\uB9BF\uC9C0 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uBE0C\uB9BF\uC9C0 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // ── Phase 5: 폴더 브리지 실행 ──────────────────────────
@@ -39589,6 +39951,17 @@ ${query}`);
         }
       }
       this.setProgress(4, `\uC704\uC0C1 \uBD84\uC11D \uC911... (A: ${tbNodesA.length}\uAC1C, B: ${tbNodesB.length}\uAC1C)`);
+      const bridgeChars = [...tbNodesA, ...tbNodesB].reduce((s, n) => s + n.title.length + n.content.length, 0);
+      if (!await confirmAICost(this.app, this.plugin.settings, {
+        operation: "bridge",
+        charCount: bridgeChars,
+        tier: "standard",
+        provider: this.plugin.settings.aiProvider
+      })) {
+        this.hideProgress();
+        this.setBridgeBusy(false);
+        return;
+      }
       const folderAName = foldersA.map((f) => f.split("/").pop()).join(", ");
       const folderBName = foldersB.map((f) => f.split("/").pop()).join(", ");
       const result = await bridgeFolders(
@@ -39619,7 +39992,7 @@ ${query}`);
       this.hideProgress();
       this.setBridgeBusy(false);
       const msg = e instanceof Error ? e.message : String(e);
-      new import_obsidian5.Notice(`[ThirdBrain] ${this.t("save_error_prefix")}${msg}`);
+      new import_obsidian6.Notice(`[ThirdBrain] ${this.t("save_error_prefix")}${msg}`);
       this.resultsEl.createEl("div", { cls: "tb-error-msg", text: `${this.t("error_title")}: ${msg}` });
     }
   }
@@ -39636,7 +40009,130 @@ ${query}`);
     ).open();
   }
 };
-var PipelineInfoModal = class extends import_obsidian5.Modal {
+var BrainStatusModal = class extends import_obsidian6.Modal {
+  constructor(app, store, settings, onOpenWorkbench, folders) {
+    super(app);
+    this.store = store;
+    this.settings = settings;
+    this.onOpenWorkbench = onOpenWorkbench;
+    this.folders = folders;
+  }
+  get ko() {
+    return this.settings.lang === "ko";
+  }
+  async onOpen() {
+    this.contentEl.addClass("tb-mission-board");
+    await this.renderFolderList();
+  }
+  // ── Level 1: 폴더 목록 ───────────────────────────────
+  async renderFolderList() {
+    const { contentEl } = this;
+    contentEl.empty();
+    this.setTitle(this.ko ? "\u{1F9E0} \uB1CC \uC0C1\uD0DC" : "\u{1F9E0} Brain Status");
+    let status = [];
+    try {
+      status = await this.store.loadBrainStatus();
+    } catch {
+    }
+    if (status.length === 0) {
+      contentEl.createEl("div", {
+        cls: "tb-mission-empty",
+        text: this.ko ? "\u2713 \uBAA8\uB4E0 \uD3F4\uB354\uAC00 \uC815\uB9AC\uB428 \u2014 \uBBF8\uC158\xB7\uBBF8\uC5F0\uACB0 \uC5C6\uC74C" : "\u2713 All folders clear \u2014 no missions or unlinked nodes"
+      });
+      return;
+    }
+    contentEl.createEl("div", {
+      cls: "tb-mission-sub",
+      text: this.ko ? "\uD3F4\uB354\uB97C \uB20C\uB7EC \uADF8 \uC548\uC758 \uBBF8\uC158\xB7\uBBF8\uC5F0\uACB0\uC744 \uCC98\uB9AC\uD558\uC138\uC694." : "Open a folder to work on its missions and unlinked nodes."
+    });
+    for (const st of status) {
+      const name = st.sessionFolder.split("/").pop() ?? st.sessionFolder;
+      const row = contentEl.createEl("button", { cls: "tb-brain-folder-row" });
+      row.createEl("span", { cls: "tb-brain-folder-name", text: `\u{1F4C1} ${name}` });
+      const badges = row.createEl("span", { cls: "tb-brain-folder-badges" });
+      if (st.missions.length > 0) {
+        badges.createEl("span", { cls: "tb-brain-badge is-mission", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${st.missions.length}` : `\u{1F3AF} ${st.missions.length}` });
+      }
+      if (st.orphanCount > 0) {
+        badges.createEl("span", { cls: "tb-brain-badge is-orphan", text: this.ko ? `\u25C8 \uBBF8\uC5F0\uACB0 ${st.orphanCount}` : `\u25C8 ${st.orphanCount}` });
+      }
+      row.addEventListener("click", () => {
+        this.renderFolderDetail(st);
+      });
+    }
+  }
+  // ── Level 2: 폴더 상세 (미션 인라인 + 미연결 린팅 진입) ──────
+  renderFolderDetail(st) {
+    const { contentEl } = this;
+    contentEl.empty();
+    const name = st.sessionFolder.split("/").pop() ?? st.sessionFolder;
+    this.setTitle(`\u{1F9E0} ${name}`);
+    const back = contentEl.createEl("button", { cls: "tb-btn tb-content-type-back-btn", text: this.ko ? "\u2190 \uD3F4\uB354 \uBAA9\uB85D" : "\u2190 Folders" });
+    back.addEventListener("click", () => {
+      void this.renderFolderList();
+    });
+    if (st.missions.length > 0) {
+      contentEl.createEl("div", { cls: "tb-brain-section-title", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${st.missions.length}\uAC74` : `\u{1F3AF} Missions (${st.missions.length})` });
+      for (const p of st.missions)
+        this.renderMissionCard(contentEl, p, st);
+    }
+    if (st.orphanCount > 0) {
+      contentEl.createEl("div", { cls: "tb-brain-section-title", text: this.ko ? `\u25C8 \uBBF8\uC5F0\uACB0 \uBA85\uC81C ${st.orphanCount}\uAC74` : `\u25C8 Unlinked propositions (${st.orphanCount})` });
+      contentEl.createEl("div", {
+        cls: "tb-mission-sub",
+        text: this.ko ? "\uAC19\uC740 \uD3F4\uB354 \uC548\uC5D0\uC11C AI\uAC00 \uC5F0\uACB0 \uD6C4\uBCF4\uB97C \uCC3E\uC544 \uBD99\uC5EC\uC90D\uB2C8\uB2E4." : "AI finds connection candidates within this folder."
+      });
+      const linkBtn = contentEl.createEl("button", { cls: "tb-btn tb-brain-link-btn", text: this.ko ? "\uC5F0\uACB0\uD558\uAE30 (AI \uB9B0\uD305)" : "Connect (AI lint)" });
+      linkBtn.addEventListener("click", () => {
+        this.close();
+        new OrphanQueueModal(
+          this.app,
+          this.store,
+          this.settings,
+          this.folders,
+          () => {
+          },
+          st.sessionFolder
+        ).open();
+      });
+    }
+  }
+  renderMissionCard(container, p, st) {
+    const species = p.problem_species ?? "obstacle";
+    const card = container.createEl("div", { cls: `tb-problem-card is-${species}` });
+    const head = card.createEl("div", { cls: "tb-problem-card-head" });
+    head.createEl("span", { cls: `tb-problem-species is-${species}`, text: species });
+    head.createEl("span", { cls: "tb-problem-title", text: p.title });
+    const desc = ((p.content.split("\n---\n")[0] ?? "").trim().split("\n")[0] ?? "").trim();
+    if (desc)
+      card.createEl("div", { cls: "tb-problem-desc", text: desc });
+    const btnRow = card.createEl("div", { cls: "tb-problem-card-btns" });
+    const workbenchBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-workbench-btn", text: this.ko ? "\u{1F3AF} \uC791\uC5C5\uB300" : "\u{1F3AF} Workbench" });
+    workbenchBtn.addEventListener("click", () => {
+      const file = this.app.vault.getFileByPath(p.filePath);
+      if (file) {
+        this.onOpenWorkbench(file);
+        this.close();
+      }
+    });
+    const resolveBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-resolve-btn", text: this.ko ? "\uD574\uC18C" : "Resolve" });
+    resolveBtn.addEventListener("click", () => {
+      const file = this.app.vault.getFileByPath(p.filePath);
+      if (!file)
+        return;
+      void this.store.updateProblemStatus(file, "resolved", this.ko ? "\uB1CC \uC0C1\uD0DC\uC5D0\uC11C \uD574\uC18C" : "resolved via brain status").then(() => {
+        card.addClass("is-resolved");
+        resolveBtn.disabled = true;
+        workbenchBtn.disabled = true;
+        st.missions = st.missions.filter((m2) => m2.id !== p.id);
+      });
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var PipelineInfoModal = class extends import_obsidian6.Modal {
   constructor(app, lang) {
     super(app);
     this.t = getT(lang);
@@ -39658,7 +40154,7 @@ var PRESET_QUERIES = [
   { key: "modal_query_preset_hierarchy", relations: ["exemplifies", "applies_to"] },
   { key: "modal_query_preset_structural", relations: ["analogous_to", "isomorphic_to"] }
 ];
-var GraphCanvasModal = class extends import_obsidian5.Modal {
+var GraphCanvasModal = class extends import_obsidian6.Modal {
   constructor(app, nodes, activeRelations, lang) {
     super(app);
     this.nodes = nodes;
@@ -39688,7 +40184,7 @@ var GraphCanvasModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
-var GraphViewModal = class extends import_obsidian5.Modal {
+var GraphViewModal = class extends import_obsidian6.Modal {
   constructor(app, folders, onNative, onCanvas, store, settings) {
     super(app);
     this.folders = folders;
@@ -39796,7 +40292,7 @@ var GraphViewModal = class extends import_obsidian5.Modal {
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selected.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_select_folder"));
+        new import_obsidian6.Notice(this.t("notice_select_folder"));
         return;
       }
       this.close();
@@ -39870,7 +40366,7 @@ var GraphViewModal = class extends import_obsidian5.Modal {
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selected.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_select_folder"));
+        new import_obsidian6.Notice(this.t("notice_select_folder"));
         return;
       }
       void this.onCanvas(selected, new Set(this.activeRelations));
@@ -39905,7 +40401,7 @@ var GraphViewModal = class extends import_obsidian5.Modal {
     exportBtn.addEventListener("click", () => void (async () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selected.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_select_folder"));
+        new import_obsidian6.Notice(this.t("notice_select_folder"));
         return;
       }
       exportBtn.disabled = true;
@@ -39919,18 +40415,18 @@ var GraphViewModal = class extends import_obsidian5.Modal {
           maxTextLength: maxLength
         });
         if (content.trim().length === 0) {
-          new import_obsidian5.Notice(this.t("graph_export_empty"));
+          new import_obsidian6.Notice(this.t("graph_export_empty"));
         } else {
           const folderName = selected.map((f) => f.split("/").pop()).join("-");
           const dateStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
           const contentLabel = sourceCb.checked ? "_content" : "";
           const filename = `graph_${folderName}${contentLabel}_${dateStr}.md`;
           GraphExporter.downloadFile(content, filename);
-          new import_obsidian5.Notice(this.t("graph_export_success"));
+          new import_obsidian6.Notice(this.t("graph_export_success"));
         }
         this.close();
       } catch (e) {
-        new import_obsidian5.Notice(`Error: ${String(e)}`);
+        new import_obsidian6.Notice(`Error: ${String(e)}`);
       } finally {
         exportBtn.disabled = false;
         exportBtn.setText(this.t("graph_export_btn"));
@@ -39941,7 +40437,7 @@ var GraphViewModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
-var BridgeModal = class extends import_obsidian5.Modal {
+var BridgeModal = class extends import_obsidian6.Modal {
   constructor(app, folders, onRun, lang) {
     super(app);
     this.folders = folders;
@@ -40011,7 +40507,7 @@ var BridgeModal = class extends import_obsidian5.Modal {
       const a2 = colAData.getSelected();
       const b = colBData.getSelected();
       if (a2.length === 0 || b.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_select_two_folders"));
+        new import_obsidian6.Notice(this.t("notice_select_two_folders"));
         return;
       }
       this.close();
@@ -40022,7 +40518,7 @@ var BridgeModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
-var BridgeResultModal = class extends import_obsidian5.Modal {
+var BridgeResultModal = class extends import_obsidian6.Modal {
   constructor(app, result, fileMapA, fileMapB, folderAName, folderBName, store, lang, openGraph) {
     super(app);
     this.result = result;
@@ -40087,7 +40583,7 @@ var BridgeResultModal = class extends import_obsidian5.Modal {
       saveBtn.addEventListener("click", () => void (async () => {
         const toSave = states.filter((s) => s.selected).map((s) => s.edge);
         if (toSave.length === 0) {
-          new import_obsidian5.Notice(this._t("notice_no_selection"));
+          new import_obsidian6.Notice(this._t("notice_no_selection"));
           return;
         }
         bridgeLocked = true;
@@ -40095,7 +40591,7 @@ var BridgeResultModal = class extends import_obsidian5.Modal {
         saveBtn.textContent = this._t("btn_saving");
         try {
           await this.store.saveBridgeEdges(toSave, this.fileMapA, this.fileMapB);
-          new import_obsidian5.Notice(`${this._t("notice_bridge_saved_prefix")}${toSave.length}${this._t("notice_bridge_saved_suffix")}`);
+          new import_obsidian6.Notice(`${this._t("notice_bridge_saved_prefix")}${toSave.length}${this._t("notice_bridge_saved_suffix")}`);
           chipRow?.addClass("is-locked");
           saveBtn.textContent = this.lang === "ko" ? `${toSave.length}\uAC1C \uC800\uC7A5 \uC644\uB8CC` : `${toSave.length} saved`;
           this.openGraph([this.folderAName, this.folderBName]);
@@ -40103,7 +40599,7 @@ var BridgeResultModal = class extends import_obsidian5.Modal {
           bridgeLocked = false;
           saveBtn.disabled = false;
           saveBtn.textContent = this._t("btn_save_connection");
-          new import_obsidian5.Notice(`${this._t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+          new import_obsidian6.Notice(`${this._t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
         }
       })());
     }
@@ -40112,7 +40608,7 @@ var BridgeResultModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
-var ContentTypeModal = class extends import_obsidian5.Modal {
+var ContentTypeModal = class extends import_obsidian6.Modal {
   constructor(app, onSelect, lang) {
     super(app);
     this.onSelect = onSelect;
@@ -40208,7 +40704,7 @@ var ContentTypeModal = class extends import_obsidian5.Modal {
     this.resolve(null);
   }
 };
-var SaveFolderModal = class extends import_obsidian5.Modal {
+var SaveFolderModal = class extends import_obsidian6.Modal {
   constructor(app, folders, currentFolder, onChoose, lang, rootFolder = "") {
     super(app);
     this.folders = folders;
@@ -40328,7 +40824,7 @@ var SaveFolderModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
-var AnalysisTabbedModal = class extends import_obsidian5.Modal {
+var AnalysisTabbedModal = class extends import_obsidian6.Modal {
   constructor(app, folders, store, onRun, lang, settings, initialJob = null, onJobUpdate = () => {
   }, isAnythingBusy = () => false) {
     super(app);
@@ -40475,13 +40971,13 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
     analyzeStartBtn.disabled = this.isAnythingBusy();
     analyzeStartBtn.addEventListener("click", () => {
       if (this.isAnythingBusy()) {
-        new import_obsidian5.Notice(this.t("notice_ai_busy"));
+        new import_obsidian6.Notice(this.t("notice_ai_busy"));
         return;
       }
       const folder = analysisCbs.filter((c2) => c2.cb.checked)[0]?.folder ?? "";
       const mode = modeSel.value;
       if (!folder) {
-        new import_obsidian5.Notice(this.t("notice_select_folder_analysis"));
+        new import_obsidian6.Notice(this.t("notice_select_folder_analysis"));
         return;
       }
       const intent = customInput.value.trim() || selectedIntent;
@@ -40676,7 +41172,7 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
           addNodeToTensor(tensor, { ...srcNode, edges: [...srcNode.edges, newEdge] });
         } catch (err) {
           confirmBtn.disabled = false;
-          new import_obsidian5.Notice(`${this.t("notice_analysis_save_fail")}${err instanceof Error ? err.message : String(err)}`);
+          new import_obsidian6.Notice(`${this.t("notice_analysis_save_fail")}${err instanceof Error ? err.message : String(err)}`);
         }
       })());
     }
@@ -40762,7 +41258,7 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
                 if (!this.app.vault.getFolderByPath(f))
                   await this.app.vault.createFolder(f);
                 await this.app.vault.create(`${f}/${filename}`, currentText);
-                new import_obsidian5.Notice(filename);
+                new import_obsidian6.Notice(filename);
               })(targetFolder),
               this.lang,
               this.settings?.rootFolder ?? ""
@@ -40785,11 +41281,11 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
     analyzeBtn.addEventListener("click", () => {
       const selectedFolders = exprCbs.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
       if (selectedFolders.length === 0) {
-        new import_obsidian5.Notice(this.t("notice_select_folder_analysis"));
+        new import_obsidian6.Notice(this.t("notice_select_folder_analysis"));
         return;
       }
       if (!selectedMode) {
-        new import_obsidian5.Notice(this.t("expression_mode_not_selected"));
+        new import_obsidian6.Notice(this.t("expression_mode_not_selected"));
         return;
       }
       if (this.transcriptJob?.running)
@@ -40820,6 +41316,22 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
             return;
           }
           const settings = this.settings ?? { rootFolder: "ThirdBrainRoot", cliBin: "claude", maxEdgeCandidates: 3, aiProvider: "claude-cli" };
+          const analysisChars = allNodes.reduce((s, n) => s + n.title.length + n.content.length, 0);
+          if (!await confirmAICost(this.app, settings, {
+            operation: "transcript",
+            charCount: analysisChars,
+            units: 1,
+            tier: "fast",
+            provider: settings.aiProvider
+          })) {
+            this.transcriptJob = { running: false, mode };
+            this.onTranscriptJobUpdate(this.transcriptJob);
+            if (activeDocument.body.contains(resultEl)) {
+              setRunningUI(false);
+              resultEl.empty();
+            }
+            return;
+          }
           const resultText = await analyzeTranscriptNodes(allNodes, mode, settings);
           this.transcriptJob = { running: false, mode, result: resultText };
           this.onTranscriptJobUpdate(this.transcriptJob);
@@ -40827,7 +41339,7 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
             setRunningUI(false);
             showResult(resultText);
           } else {
-            new import_obsidian5.Notice(this.t("expression_analyze_btn") + " \u2713");
+            new import_obsidian6.Notice(this.t("expression_analyze_btn") + " \u2713");
           }
         } catch (err) {
           const msg = `${this.t("path_error_prefix")}${err instanceof Error ? err.message : String(err)}`;
@@ -40838,7 +41350,7 @@ var AnalysisTabbedModal = class extends import_obsidian5.Modal {
             resultEl.empty();
             resultEl.createEl("div", { cls: "tb-path-empty", text: msg });
           } else {
-            new import_obsidian5.Notice(msg, 8e3);
+            new import_obsidian6.Notice(msg, 8e3);
           }
         }
       })();
@@ -40858,7 +41370,7 @@ function getAnalysisIntents(lang) {
     { label: t("intent_decision_label"), prompt: t("intent_decision_prompt"), mode: "rich" }
   ];
 }
-var AnalysisResultModal = class extends import_obsidian5.Modal {
+var AnalysisResultModal = class extends import_obsidian6.Modal {
   constructor(app, result, folderPath, mode, intent, onSave, lang) {
     super(app);
     this.result = result;
@@ -40974,7 +41486,7 @@ function makeDraggable(modalEl, handle) {
     activeDocument.addEventListener("mouseup", onUp);
   });
 }
-var SingleNodeBridgeModal = class extends import_obsidian5.Modal {
+var SingleNodeBridgeModal = class extends import_obsidian6.Modal {
   constructor(app, movedFile, sourceTitle, candidates, targetNodes, lang) {
     super(app);
     this.movedFile = movedFile;
@@ -40994,7 +41506,7 @@ var SingleNodeBridgeModal = class extends import_obsidian5.Modal {
     const titleToFile = /* @__PURE__ */ new Map();
     for (const n of this.targetNodes) {
       const f = this.app.vault.getAbstractFileByPath(n.filePath);
-      if (f instanceof import_obsidian5.TFile)
+      if (f instanceof import_obsidian6.TFile)
         titleToFile.set(n.title, f);
     }
     const saveSingleEdge = async (c2) => {
@@ -41057,7 +41569,7 @@ var SingleNodeBridgeModal = class extends import_obsidian5.Modal {
     saveBtn.addEventListener("click", () => void (async () => {
       const toSave = states.filter((s) => s.selected);
       if (toSave.length === 0) {
-        new import_obsidian5.Notice(t("notice_no_selection"));
+        new import_obsidian6.Notice(t("notice_no_selection"));
         return;
       }
       locked = true;
@@ -41067,14 +41579,14 @@ var SingleNodeBridgeModal = class extends import_obsidian5.Modal {
       try {
         for (const { c: c2 } of toSave)
           await saveSingleEdge(c2);
-        new import_obsidian5.Notice(`${t("notice_auto_saved_prefix")}${toSave.length}${t("conn_saved_notice_suffix")}`);
+        new import_obsidian6.Notice(`${t("notice_auto_saved_prefix")}${toSave.length}${t("conn_saved_notice_suffix")}`);
         this.close();
       } catch (e) {
         locked = false;
         chipRow.removeClass("is-locked");
         saveBtn.disabled = false;
         saveBtn.textContent = t("btn_save_connection");
-        new import_obsidian5.Notice(`${t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
+        new import_obsidian6.Notice(`${t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     })());
   }
@@ -41087,7 +41599,7 @@ function conflictNodeDetail(n) {
   const quote = (n.source_span?.text ?? "").replace(/\s+/g, " ").trim();
   return { claim, quote: quote.length > 240 ? `${quote.slice(0, 240)}\u2026` : quote };
 }
-var ConflictResolutionModal = class extends import_obsidian5.Modal {
+var ConflictResolutionModal = class extends import_obsidian6.Modal {
   constructor(app, conflict, store, settings, onResolved) {
     super(app);
     this.conflict = conflict;
@@ -41190,7 +41702,7 @@ var ConflictResolutionModal = class extends import_obsidian5.Modal {
     inferBtn.addEventListener("click", () => {
       const body = contentTextarea.value.trim();
       if (!body) {
-        new import_obsidian5.Notice(ko ? "\uB0B4\uC6A9\uC744 \uBA3C\uC800 \uC785\uB825\uD574\uC8FC\uC138\uC694." : "Enter content first.");
+        new import_obsidian6.Notice(ko ? "\uB0B4\uC6A9\uC744 \uBA3C\uC800 \uC785\uB825\uD574\uC8FC\uC138\uC694." : "Enter content first.");
         return;
       }
       inferBtn.disabled = true;
@@ -41212,7 +41724,7 @@ Return only JSON: {"title":"title"}`;
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
         titleInput.value = (parsed.title ?? "").replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 30);
       }).catch(() => {
-        new import_obsidian5.Notice(ko ? "AI \uC81C\uBAA9 \uCD94\uB860 \uC2E4\uD328. \uC9C1\uC811 \uC785\uB825\uD574\uC8FC\uC138\uC694." : "Title inference failed. Enter manually.");
+        new import_obsidian6.Notice(ko ? "AI \uC81C\uBAA9 \uCD94\uB860 \uC2E4\uD328. \uC9C1\uC811 \uC785\uB825\uD574\uC8FC\uC138\uC694." : "Title inference failed. Enter manually.");
       }).finally(() => {
         inferBtn.disabled = false;
         inferBtn.textContent = ko ? "AI \uC81C\uBAA9 \uCD94\uB860" : "Infer title";
@@ -41224,7 +41736,7 @@ Return only JSON: {"title":"title"}`;
       const title = titleInput.value.trim();
       const body = contentTextarea.value.trim();
       if (!title) {
-        new import_obsidian5.Notice(ko ? "\uC81C\uBAA9\uC744 \uC785\uB825\uD558\uAC70\uB098 AI\uB85C \uCD94\uB860\uD574\uC8FC\uC138\uC694." : "Enter or infer a title first.");
+        new import_obsidian6.Notice(ko ? "\uC81C\uBAA9\uC744 \uC785\uB825\uD558\uAC70\uB098 AI\uB85C \uCD94\uB860\uD574\uC8FC\uC138\uC694." : "Enter or infer a title first.");
         return;
       }
       void this.applyAddParent(title, body);
@@ -41251,19 +41763,19 @@ Return only JSON: {"title":"title"}`;
   }
   async applyReclassify(relation, reason) {
     const nodeAFile = this.app.vault.getAbstractFileByPath(this.conflict.nodeA.filePath);
-    if (!(nodeAFile instanceof import_obsidian5.TFile)) {
-      new import_obsidian5.Notice("[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
+    if (!(nodeAFile instanceof import_obsidian6.TFile)) {
+      new import_obsidian6.Notice("[ThirdBrain] \uD30C\uC77C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.");
       return;
     }
     try {
       await this.store.replaceEdge(nodeAFile, `[[${this.conflict.nodeB.title}]]`, relation, reason);
       const folder = this.conflict.nodeA.filePath.split("/").slice(0, -1).join("/");
       void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `\uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uC7AC\uBD84\uB958\uD558\uC5EC \uD574\uC18C`);
-      new import_obsidian5.Notice(`[ThirdBrain] \uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uAD50\uCCB4\uD588\uC2B5\uB2C8\uB2E4.`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uAD50\uCCB4\uD588\uC2B5\uB2C8\uB2E4.`);
       this.close();
       this.onResolved?.(`\uC5E3\uC9C0\uB97C '${relation}'(\uC73C)\uB85C \uC7AC\uBD84\uB958`);
     } catch (e) {
-      new import_obsidian5.Notice(`[ThirdBrain] \uC5E3\uC9C0 \uAD50\uCCB4 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uC5E3\uC9C0 \uAD50\uCCB4 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   async applyAddParent(parentTitle, parentContent) {
@@ -41294,18 +41806,18 @@ Return only JSON: {"title":"title"}`;
         confidence: 1,
         axiom_basis: "\uC0AC\uC6A9\uC790 \uC9C0\uC815"
       });
-      if (nodeAFile instanceof import_obsidian5.TFile) {
+      if (nodeAFile instanceof import_obsidian6.TFile) {
         await edge(nodeAFile);
         await this.store.removeConflictEdge(nodeAFile, `[[${this.conflict.nodeB.title}]]`);
       }
-      if (nodeBFile instanceof import_obsidian5.TFile)
+      if (nodeBFile instanceof import_obsidian6.TFile)
         await edge(nodeBFile);
       void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `\uC0C1\uC704 \uC804\uC81C '${parentTitle}' \uCD94\uAC00\uB85C \uD574\uC18C`);
-      new import_obsidian5.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 '${parentTitle}' \uC0DD\uC131 \uBC0F \uC5F0\uACB0 \uC644\uB8CC`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 '${parentTitle}' \uC0DD\uC131 \uBC0F \uC5F0\uACB0 \uC644\uB8CC`);
       this.close();
       this.onResolved?.(`\uC0C1\uC704 \uC804\uC81C '${parentTitle}' \uCD94\uAC00\uB428`);
     } catch (e) {
-      new import_obsidian5.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 \uC0DD\uC131 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uC0C1\uC704 \uB178\uD2B8 \uC0DD\uC131 \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   async applyDelete(node) {
@@ -41313,18 +41825,18 @@ Return only JSON: {"title":"title"}`;
     try {
       await this.store.deleteNodeAndCleanEdges(node, folder);
       void this.store.resolveContradictionProblem(folder, this.conflict.nodeA.id, this.conflict.nodeB.id, `'${node.title}' \uD3D0\uAE30(\uAC70\uC9D3 \uD310\uBCC4)\uB85C \uD574\uC18C`);
-      new import_obsidian5.Notice(`[ThirdBrain] '${node.title}' \uC0AD\uC81C \uC644\uB8CC`);
+      new import_obsidian6.Notice(`[ThirdBrain] '${node.title}' \uC0AD\uC81C \uC644\uB8CC`);
       this.close();
       this.onResolved?.(`'${node.title}' \uD3D0\uAE30\uB428`);
     } catch (e) {
-      new import_obsidian5.Notice(`[ThirdBrain] \uC0AD\uC81C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian6.Notice(`[ThirdBrain] \uC0AD\uC81C \uC2E4\uD328: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   onClose() {
     this.contentEl.empty();
   }
 };
-var ManualConflictModal = class extends import_obsidian5.Modal {
+var ManualConflictModal = class extends import_obsidian6.Modal {
   constructor(app, store, settings, onResolved) {
     super(app);
     this.store = store;
@@ -41381,7 +41893,7 @@ var ManualConflictModal = class extends import_obsidian5.Modal {
     this.contentEl.empty();
   }
 };
-var RequireOpenAIModal = class extends import_obsidian5.Modal {
+var RequireOpenAIModal = class extends import_obsidian6.Modal {
   constructor(app, pluginId) {
     super(app);
     this.pluginId = pluginId;
@@ -41406,8 +41918,8 @@ var RequireOpenAIModal = class extends import_obsidian5.Modal {
 };
 
 // src/settings.ts
-var import_obsidian6 = require("obsidian");
-var ThirdBrainSettingTab = class extends import_obsidian6.PluginSettingTab {
+var import_obsidian7 = require("obsidian");
+var ThirdBrainSettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -41418,9 +41930,9 @@ var ThirdBrainSettingTab = class extends import_obsidian6.PluginSettingTab {
     const t = getT(this.plugin.settings.lang);
     const header = containerEl.createDiv({ cls: "tb-settings-header" });
     const logoEl = header.createEl("div", { cls: "tb-settings-logo" });
-    logoEl.appendChild((0, import_obsidian6.sanitizeHTMLToDom)(SOOTBALL_LOGO));
+    logoEl.appendChild((0, import_obsidian7.sanitizeHTMLToDom)(SOOTBALL_LOGO));
     header.createEl("div", { cls: "tb-settings-title", text: "ThirdBrain" });
-    new import_obsidian6.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
+    new import_obsidian7.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
       (dropdown) => dropdown.addOption("ko", "\uD55C\uAD6D\uC5B4").addOption("en", "English").setValue(this.plugin.settings.lang ?? "en").onChange(async (value) => {
         this.plugin.settings.lang = value;
         await this.plugin.saveSettings();
@@ -41428,44 +41940,51 @@ var ThirdBrainSettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.plugin.refreshView();
       })
     );
-    new import_obsidian6.Setting(containerEl).setName(t("settings_root_folder_name")).setDesc(t("settings_root_folder_desc")).addText(
+    const ko = this.plugin.settings.lang === "ko";
+    new import_obsidian7.Setting(containerEl).setName(ko ? "AI \uC2E4\uD589 \uC804 \uBE44\uC6A9 \uD655\uC778" : "Confirm cost before AI runs").setDesc(ko ? "\uC0DD\uC131\xB7\uBD84\uC11D\xB7\uC5F0\uACB0 \uB4F1 AI \uC791\uC5C5 \uC804\uC5D0 \uC608\uC0C1 \uD1A0\uD070\xB7\uBE44\uC6A9\xB7\uC2DC\uAC04\uC744 \uBCF4\uC5EC\uC8FC\uACE0 \uC9C4\uD589 \uC5EC\uBD80\uB97C \uD655\uC778\uD569\uB2C8\uB2E4." : "Before any AI operation, show estimated tokens, cost, and time and ask to proceed.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.showCostPreflight !== false).onChange(async (value) => {
+        this.plugin.settings.showCostPreflight = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian7.Setting(containerEl).setName(t("settings_root_folder_name")).setDesc(t("settings_root_folder_desc")).addText(
       (text) => text.setPlaceholder("ThirdBrainRoot").setValue(this.plugin.settings.rootFolder).onChange(async (value) => {
         this.plugin.settings.rootFolder = value || "ThirdBrainRoot";
         await this.plugin.saveSettings();
       })
     );
-    if (!import_obsidian6.Platform.isMobile) {
-      new import_obsidian6.Setting(containerEl).setName(t("settings_cli_name")).setDesc(t("settings_cli_desc")).addText(
+    if (!import_obsidian7.Platform.isMobile) {
+      new import_obsidian7.Setting(containerEl).setName(t("settings_cli_name")).setDesc(t("settings_cli_desc")).addText(
         (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.cliBin).onChange(async (value) => {
           this.plugin.settings.cliBin = value || "claude";
           await this.plugin.saveSettings();
         })
       );
     }
-    new import_obsidian6.Setting(containerEl).setName(t("settings_max_edge_name")).setDesc(t("settings_max_edge_desc")).addSlider(
+    new import_obsidian7.Setting(containerEl).setName(t("settings_max_edge_name")).setDesc(t("settings_max_edge_desc")).addSlider(
       (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.maxEdgeCandidates).onChange(async (value) => {
         this.plugin.settings.maxEdgeCandidates = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian6.Setting(containerEl).setName(t("settings_bridge_top_k_name")).setDesc(t("settings_bridge_top_k_desc")).addSlider(
+    new import_obsidian7.Setting(containerEl).setName(t("settings_bridge_top_k_name")).setDesc(t("settings_bridge_top_k_desc")).addSlider(
       (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.bridgeTopKPerNode ?? 3).onChange(async (value) => {
         this.plugin.settings.bridgeTopKPerNode = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian6.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown((dropdown) => {
-      if (!import_obsidian6.Platform.isMobile) {
+    new import_obsidian7.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown((dropdown) => {
+      if (!import_obsidian7.Platform.isMobile) {
         dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)");
       }
-      dropdown.addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(import_obsidian6.Platform.isMobile && this.plugin.settings.aiProvider === "claude-cli" ? "gemini" : this.plugin.settings.aiProvider).onChange(async (value) => {
+      dropdown.addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(import_obsidian7.Platform.isMobile && this.plugin.settings.aiProvider === "claude-cli" ? "gemini" : this.plugin.settings.aiProvider).onChange(async (value) => {
         this.plugin.settings.aiProvider = value;
         await this.plugin.saveSettings();
         this.display();
       });
     });
     if (this.plugin.settings.aiProvider === "claude-api") {
-      new import_obsidian6.Setting(containerEl).setName(t("settings_claude_api_key_name")).setDesc(t("settings_claude_api_key_desc")).addText(
+      new import_obsidian7.Setting(containerEl).setName(t("settings_claude_api_key_name")).setDesc(t("settings_claude_api_key_desc")).addText(
         (text) => text.setPlaceholder("sk-ant-...").setValue(this.plugin.settings.claudeApiKey || "").onChange(async (value) => {
           this.plugin.settings.claudeApiKey = value || "";
           await this.plugin.saveSettings();
@@ -41473,7 +41992,7 @@ var ThirdBrainSettingTab = class extends import_obsidian6.PluginSettingTab {
       );
     }
     if (this.plugin.settings.aiProvider === "gemini") {
-      new import_obsidian6.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
+      new import_obsidian7.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
         (text) => text.setPlaceholder("AIza...").setValue(this.plugin.settings.geminiApiKey || "").onChange(async (value) => {
           this.plugin.settings.geminiApiKey = value || "";
           await this.plugin.saveSettings();
@@ -41481,7 +42000,7 @@ var ThirdBrainSettingTab = class extends import_obsidian6.PluginSettingTab {
       );
     }
     if (this.plugin.settings.aiProvider === "openai") {
-      new import_obsidian6.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
+      new import_obsidian7.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
         (text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey || "").onChange(async (value) => {
           this.plugin.settings.openaiApiKey = value || "";
           await this.plugin.saveSettings();
@@ -41492,8 +42011,8 @@ var ThirdBrainSettingTab = class extends import_obsidian6.PluginSettingTab {
 };
 
 // src/onboarding.ts
-var import_obsidian7 = require("obsidian");
-var OnboardingModal = class extends import_obsidian7.Modal {
+var import_obsidian8 = require("obsidian");
+var OnboardingModal = class extends import_obsidian8.Modal {
   constructor(app, plugin) {
     super(app);
     this.plugin = plugin;
@@ -41538,7 +42057,7 @@ var OnboardingModal = class extends import_obsidian7.Modal {
     const cards = contentEl.createDiv({ cls: "tb-ob-cards" });
     this.renderProviderCard(cards, "gemini", "\u2726", "Gemini", t("ob_gemini_desc"));
     this.renderProviderCard(cards, "claude-api", "\u25C6", "Claude API", t("ob_claude_api_desc"));
-    if (!import_obsidian7.Platform.isMobile) {
+    if (!import_obsidian8.Platform.isMobile) {
       this.renderProviderCard(cards, "claude-cli", "\u2318", "Claude Code", t("ob_claude_cli_desc"));
     }
     this.step2El = contentEl.createDiv({ cls: "tb-ob-step2" });
@@ -41655,10 +42174,10 @@ async function isClaudeCLIAvailable(cliBin) {
 }
 
 // src/main.ts
-var ThirdBrainPlugin = class extends import_obsidian8.Plugin {
+var ThirdBrainPlugin = class extends import_obsidian9.Plugin {
   async onload() {
     await this.loadSettings();
-    (0, import_obsidian8.addIcon)("sootball", SOOTBALL_ICON);
+    (0, import_obsidian9.addIcon)("sootball", SOOTBALL_ICON);
     this.registerView(
       VIEW_TYPE,
       (leaf) => new ThirdBrainView(leaf, this)
@@ -41671,6 +42190,22 @@ var ThirdBrainPlugin = class extends import_obsidian8.Plugin {
       name: "Open panel",
       callback: () => {
         void this.activateView();
+      }
+    });
+    this.addCommand({
+      id: "open-mission-workbench",
+      name: "Open mission workbench (active problem note)",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension !== "md")
+          return false;
+        const isProblem = this.app.metadataCache.getFileCache(file)?.frontmatter?.tb_type === "problem";
+        if (!isProblem)
+          return false;
+        if (!checking) {
+          void openMissionWorkbench(this.app, new GraphStore(this.app, this.settings), this.settings, file);
+        }
+        return true;
       }
     });
     this.addSettingTab(new ThirdBrainSettingTab(this.app, this));
@@ -41693,7 +42228,7 @@ var ThirdBrainPlugin = class extends import_obsidian8.Plugin {
         await this.saveSettings();
         return;
       }
-      const cliOk = import_obsidian8.Platform.isMobile ? false : await isClaudeCLIAvailable(this.settings.cliBin);
+      const cliOk = import_obsidian9.Platform.isMobile ? false : await isClaudeCLIAvailable(this.settings.cliBin);
       if (cliOk) {
         this.settings.onboardingComplete = true;
         await this.saveSettings();

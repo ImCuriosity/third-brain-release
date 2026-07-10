@@ -845,6 +845,60 @@ export class GraphStore {
 		});
 	}
 
+	/** [문제 작업공간] 볼트 전체의 열린(open) 문제 노드 목록 — 미션 보드/배지용. */
+	async loadOpenProblems(): Promise<TBNode[]> {
+		const all = await this.loadNodesInFolder(this.settings.rootFolder || '/');
+		return all.filter(n => n.type === 'problem' && n.problem_status === 'open');
+	}
+
+	/**
+	 * [뇌 상태] 세션 폴더별로 열린 미션(문제)과 미연결 명제 수를 집계.
+	 * 미션·미연결은 글로벌 경보가 아니라 "폴더 안에서 아직 안 끝난 일" → 폴더 단위로 드릴인한다.
+	 * 미션이나 미연결이 하나라도 있는 폴더만 반환(미션 많은 순 → 미연결 많은 순).
+	 */
+	async loadBrainStatus(): Promise<BrainFolderStatus[]> {
+		const root = this.settings.rootFolder || '';
+		const all = await this.loadNodesInFolder(root || '/');
+		const NON_PROP_TYPES: TBNodeType[] = ['context', 'action', 'problem', 'summary', 'expression'];
+		const sessionOf = (folder: string): string => {
+			let rel = folder;
+			if (root && (folder === root || folder.startsWith(`${root}/`))) {
+				rel = folder.slice(root.length).replace(/^\/+/, '');
+			}
+			const first = rel.split('/')[0] ?? '';
+			return root ? (first ? `${root}/${first}` : root) : first;
+		};
+
+		const map = new Map<string, BrainFolderStatus>();
+		for (const n of all) {
+			if (n.folder.split('/').includes('raw')) continue;
+			const session = sessionOf(n.folder);
+			let st = map.get(session);
+			if (!st) { st = { sessionFolder: session, missions: [], orphanCount: 0 }; map.set(session, st); }
+			if (n.type === 'problem' && n.problem_status === 'open') {
+				st.missions.push(n);
+			} else if (!NON_PROP_TYPES.includes(n.type) && this.isUnlinkedProp(n)) {
+				st.orphanCount++;
+			}
+		}
+
+		return [...map.values()]
+			.filter(s => s.missions.length > 0 || s.orphanCount > 0)
+			.sort((a, b) => (b.missions.length - a.missions.length) || (b.orphanCount - a.orphanCount));
+	}
+
+	/** [문제 작업공간] 미션 작업 노트를 세션 `_solving/` 하위에 생성. 이미 있으면 재사용(유저의 해결 작업 보존). */
+	async createSolvingNote(problem: TBNode, content: string): Promise<TFile> {
+		const sessionRoot = problem.folder.replace(/[\\/]_problems$/, '');
+		const folder = sessionRoot ? normalizePath(`${sessionRoot}/_solving`) : '_solving';
+		await this.ensureFolder(folder);
+		const safe = sanitizeId(problem.title) || `mission-${Date.now().toString(36)}`;
+		const path = normalizePath(`${folder}/미션-${safe}.md`);
+		const existing = this.app.vault.getFileByPath(path);
+		if (existing) return existing;
+		return this.app.vault.create(path, content);
+	}
+
 	/**
 	 * 모순 → 문제 노드 조정 루프 (진실의 원천은 conflicts_with 엣지, 문제 노드는 상태 추적자).
 	 * - 엣지가 있는데 문제 노드가 없으면 → contradiction 문제 노드 생성 (라이프사이클 부여)
@@ -1156,6 +1210,89 @@ export function bestContextByRelevance<T extends CtxLike>(
 		}
 	}
 	return best;
+}
+
+// ── [문제 작업공간] 크로스폴더 해결 재료 수집 + 미션 작업 노트 조립 ──────────
+// 문제(미션)를 다른 폴더에 축적된 지식으로 풀기 위한 재료를 모은다.
+// 관련성은 기존 contextRelevanceScore(어휘 substring 겹침)를 재사용한다.
+// AI 없이 동작(Phase 1) — 콜드스타트 없음. AI 제안은 이후 단계에서 노트 섹션으로 추가.
+
+export interface ProblemMaterial {
+	node: TBNode;
+	score: number;
+}
+
+/** [뇌 상태] 세션 폴더 하나의 미해결 현황 — 열린 미션 목록 + 미연결 명제 수. */
+export interface BrainFolderStatus {
+	sessionFolder: string;
+	missions: TBNode[];
+	orphanCount: number;
+}
+
+/** 문제의 증거+제목을 쿼리로, **다른 폴더**의 claim/conclusion/action 노드를 관련성순 랭킹. */
+export function gatherProblemMaterial(
+	problem: TBNode,
+	allNodes: TBNode[],
+	topN = 8,
+): ProblemMaterial[] {
+	const evidenceIds = new Set(problem.evidence_ids ?? []);
+	const evidenceNodes = allNodes.filter(n => evidenceIds.has(n.id));
+	const signal = [
+		problem.title,
+		problem.content,
+		...evidenceNodes.map(n => `${n.title} ${n.content}`),
+	].join(' ');
+
+	// 문제의 자기 세션 폴더(_problems의 부모) 전체를 제외 → 크로스폴더만 남긴다
+	const sessionRoot = problem.folder.replace(/[\\/]_problems$/, '');
+	const inOwnSession = (f: string) => f === sessionRoot || f.startsWith(`${sessionRoot}/`);
+
+	return allNodes
+		.filter(n =>
+			n.id !== problem.id &&
+			(n.type === 'claim' || n.type === 'conclusion' || n.type === 'action') &&
+			!evidenceIds.has(n.id) &&
+			!inOwnSession(n.folder))
+		.map(n => ({ node: n, score: contextRelevanceScore(signal, { title: n.title, tags: n.tags }) }))
+		.filter(m => m.score > 0)
+		.sort((a, b) => b.score - a.score)
+		.slice(0, topN);
+}
+
+/** 미션 작업 노트(마크다운) 조립 — 문제 + 증거 + 크로스폴더 재료 + 빈 해결 작업 섹션. */
+export function buildSolvingNote(
+	problem: TBNode,
+	evidenceNodes: TBNode[],
+	material: ProblemMaterial[],
+): string {
+	const firstLine = (s: string) => ((s.split('\n---\n')[0] ?? '').trim().split('\n')[0] ?? '').trim();
+	const fm = [
+		'---',
+		`tb_solving_for: "${problem.id.replace(/"/g, '\\"')}"`,
+		'tb_type: solving',
+		`tb_created: "${new Date().toISOString()}"`,
+		'---',
+	].join('\n');
+
+	let md = `\n# 미션: ${problem.title}\n`;
+	const stmt = firstLine(problem.content);
+	if (stmt) md += `\n${stmt}\n`;
+
+	md += `\n## 문제 (증거)\n`;
+	if (evidenceNodes.length === 0) md += `- (증거 명제 없음)\n`;
+	for (const e of evidenceNodes) {
+		const link = e.raw_path ? ` ([[${e.raw_path}${e.block_id ? `#^${e.block_id}` : ''}|원문]])` : '';
+		md += `- **[[${e.id}]]** — ${firstLine(e.content)}${link}\n`;
+	}
+
+	md += `\n## 다른 폴더 재료 (자동 수집)\n`;
+	if (material.length === 0) md += `- (관련 재료 없음)\n`;
+	for (const m of material) {
+		md += `- [[${m.node.id}]] (${m.node.type}, ${Math.round(m.score * 100)}%) — ${firstLine(m.node.content)}\n`;
+	}
+
+	md += `\n## 해결 작업\n\n`;
+	return `${fm}\n${md}`;
 }
 
 /** 명제를 배정 context에 auto-link해도 되는지 최종 판정.

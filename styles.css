@@ -483,6 +483,162 @@
 	background: rgba(0, 136, 255, 0.08);
 }
 
+/* 숯검댕이 클릭 → 뇌 상태 진입 어포던스 */
+.tb-dropzone-face.is-clickable {
+	cursor: pointer;
+}
+
+/* ── 뇌 상태 모달 (폴더별 미션·미연결) ────────────────────── */
+.tb-mission-empty {
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #666);
+	padding: 12px 0;
+}
+.tb-mission-sub {
+	font-family: var(--font-monospace);
+	font-size: 12px;
+	color: var(--tb-muted, #888);
+	margin: 0 0 10px;
+}
+.tb-brain-folder-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	margin: 4px 0 0;
+	padding: 8px 12px;
+	background: transparent;
+	border: 1px solid var(--tb-border, #1e1e1e);
+	color: var(--tb-text, #ccc);
+	font-family: var(--font-monospace);
+	cursor: pointer;
+	text-align: left;
+}
+.tb-brain-folder-row:hover {
+	border-color: var(--tb-accent, #7c3aed);
+}
+.tb-brain-folder-name {
+	font-size: 13px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tb-brain-folder-badges {
+	display: flex;
+	gap: 6px;
+	flex-shrink: 0;
+}
+.tb-brain-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 84px;
+	box-sizing: border-box;
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	padding: 1px 6px;
+	border: 1px solid;
+}
+.tb-brain-badge.is-mission {
+	color: var(--tb-accent, #7c3aed);
+	border-color: var(--tb-accent, #7c3aed);
+}
+.tb-brain-badge.is-orphan {
+	color: var(--tb-info, #0088ff);
+	border-color: var(--tb-info, #0088ff);
+}
+.tb-brain-section-title {
+	font-family: var(--font-monospace);
+	font-size: 12px;
+	color: var(--tb-muted, #999);
+	margin: 14px 0 6px;
+	padding-bottom: 4px;
+	border-bottom: 1px solid var(--tb-border, #1e1e1e);
+}
+.tb-brain-link-btn {
+	margin-top: 6px;
+}
+.tb-problem-card-btns {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+/* ── AI 실행 전 비용 확인 모달 ────────────────────────────── */
+.tb-preflight-op {
+	font-family: var(--font-monospace);
+	font-size: 14px;
+	color: var(--tb-text, #ccc);
+	margin: 0 0 2px;
+}
+.tb-preflight-model {
+	font-family: var(--font-monospace);
+	font-size: 11px;
+	color: var(--tb-muted, #888);
+	margin: 0 0 12px;
+}
+.tb-preflight-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1px;
+	background: var(--tb-border, #1e1e1e);
+	border: 1px solid var(--tb-border, #1e1e1e);
+}
+.tb-preflight-cell {
+	background: var(--tb-surface, #111);
+	padding: 10px 12px;
+}
+.tb-preflight-cell-label {
+	font-family: var(--font-monospace);
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--tb-muted, #777);
+	margin-bottom: 3px;
+}
+.tb-preflight-cell-value {
+	font-family: var(--font-monospace);
+	font-size: 16px;
+	color: var(--tb-text, #ddd);
+}
+.tb-preflight-cell-value.is-accent {
+	color: var(--tb-accent, #7c3aed);
+}
+.tb-preflight-breakdown {
+	font-family: var(--font-monospace);
+	font-size: 11px;
+	color: var(--tb-muted, #888);
+	margin: 8px 0 0;
+	text-align: right;
+}
+.tb-preflight-note {
+	font-family: var(--font-monospace);
+	font-size: 11px;
+	color: var(--tb-info, #0088ff);
+	margin: 12px 0 0;
+	line-height: 1.5;
+}
+.tb-preflight-disclaimer {
+	font-family: var(--font-monospace);
+	font-size: 11px;
+	color: var(--tb-muted, #666);
+	margin: 8px 0 0;
+}
+.tb-preflight-btns {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+.tb-preflight-go {
+	background: var(--tb-accent, #7c3aed);
+	border: 1px solid var(--tb-accent, #7c3aed);
+	color: #fff;
+}
+.tb-preflight-go:hover {
+	opacity: 0.88;
+}
+
 /* ── 고립 노드 린팅 모달 ────────────────────────────────── */
 .tb-orphan-card {
 	background: var(--tb-surface, #111111);

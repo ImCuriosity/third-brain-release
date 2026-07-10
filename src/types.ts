@@ -465,6 +465,7 @@ export interface ThirdBrainSettings {
 	bridgeTopKPerNode?: number;       // 폴더 브리지 위상 필터링 - 노드당 후보 수 (기본 3)
 	onboardingComplete?: boolean;     // 최초 설정 완료 여부
 	lang?: 'en' | 'ko';              // UI 및 AI 출력 언어
+	showCostPreflight?: boolean;      // AI 실행 전 토큰·비용·시간 확인 창 표시 (기본 true)
 }
 
 export const DEFAULT_SETTINGS: ThirdBrainSettings = {
@@ -475,4 +476,5 @@ export const DEFAULT_SETTINGS: ThirdBrainSettings = {
 	bridgeTopKPerNode: 3,
 	onboardingComplete: false,
 	lang: 'en',
+	showCostPreflight: true,
 };

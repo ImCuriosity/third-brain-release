@@ -36,6 +36,20 @@ export class ThirdBrainSettingTab extends PluginSettingTab {
 				})
 			);
 
+		const ko = this.plugin.settings.lang === 'ko';
+		new Setting(containerEl)
+			.setName(ko ? 'AI 실행 전 비용 확인' : 'Confirm cost before AI runs')
+			.setDesc(ko
+				? '생성·분석·연결 등 AI 작업 전에 예상 토큰·비용·시간을 보여주고 진행 여부를 확인합니다.'
+				: 'Before any AI operation, show estimated tokens, cost, and time and ask to proceed.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showCostPreflight !== false)
+				.onChange(async (value) => {
+					this.plugin.settings.showCostPreflight = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
 		new Setting(containerEl)
 			.setName(t('settings_root_folder_name'))
 			.setDesc(t('settings_root_folder_desc'))

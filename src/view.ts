@@ -21,8 +21,8 @@ import {
 } from './engine/serial-pipeline';
 import type { FolderDigestNode, CrossConnection, SpeakerNormResult, SpeakerRoster, DetectedProblem } from './engine/serial-pipeline';
 import { callClaudeWithModel, getSessionStats, setRequestUrl } from './engine/cli-bridge';
-import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance } from './engine/graph-store';
-import type { TBFrontMatter } from './engine/graph-store';
+import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance, gatherProblemMaterial, buildSolvingNote } from './engine/graph-store';
+import type { TBFrontMatter, BrainFolderStatus } from './engine/graph-store';
 import { buildTensor, findPath, findTransitivePaths, addNodeToTensor } from './engine/adjacency-tensor';
 import { detectConflicts } from './engine/contradiction-engine';
 import { extractPdfText } from './engine/pdf-extractor';
@@ -32,6 +32,7 @@ import type { EdgeRank, GraphQuerySpec } from './engine/serial-pipeline';
 import { GraphView, EDGE_COLOR } from './components/graph-view';
 import { GraphExporter } from './engine/graph-exporter';
 import { OrphanQueueModal } from './components/vault-lint';
+import { confirmAICost } from './components/ai-preflight';
 import {
 	toRelation,
 } from './types';
@@ -58,6 +59,32 @@ import type {
 } from './types';
 
 export const VIEW_TYPE = 'thirdbrain-view';
+
+/**
+ * [문제 작업공간] 미션 작업 노트 열기 — 문제(미션)를 다른 폴더의 축적된 지식으로 풀도록,
+ * 크로스폴더 재료를 수집해 `_solving/미션-*.md` 작업 노트를 생성(있으면 재사용)하고 연다.
+ * 뷰 버튼과 커맨드(활성 문제 노트) 양쪽에서 재사용한다.
+ */
+export async function openMissionWorkbench(
+	app: App,
+	store: GraphStore,
+	settings: ThirdBrainSettings,
+	problemFile: TFile,
+): Promise<void> {
+	const problem = await store.fileToNode(problemFile);
+	if (!problem || problem.type !== 'problem') {
+		new Notice('[ThirdBrain] 문제 노드가 아닙니다');
+		return;
+	}
+	const allNodes = await store.loadNodesInFolder(settings.rootFolder || '/');
+	const evidenceIds = new Set(problem.evidence_ids ?? []);
+	const evidenceNodes = allNodes.filter(n => evidenceIds.has(n.id));
+	const material = gatherProblemMaterial(problem, allNodes);
+	const content = buildSolvingNote(problem, evidenceNodes, material);
+	const file = await store.createSolvingNote(problem, content);
+	await app.workspace.openLinkText(file.basename, '', false);
+	new Notice(`[ThirdBrain] 미션 작업대 · 크로스폴더 재료 ${material.length}개`);
+}
 
 const RELATION_KO: Record<string, string> = {
 	causes:          '유발',
@@ -111,7 +138,6 @@ export class ThirdBrainView extends ItemView {
 	private pipelineModal: PipelineInfoModal | null = null;
 	private resultsEl!: HTMLElement;
 	private conflictBadgeEl!: HTMLElement;
-	private orphanBadgeEl!: HTMLElement;
 	private badgeRefreshTimer: number | null = null;
 	private dropZoneEl!: HTMLElement;
 	private fileBtnEl!: HTMLButtonElement;
@@ -158,9 +184,8 @@ export class ThirdBrainView extends ItemView {
 		this.buildProgressBar(inputPane);
 		this.syncIngestBtnState(); // 초기 빈 상태에서 버튼 비활성
 		void this.refreshConflictBadge();
-		void this.refreshOrphanBadge();
 
-		// 노드 파일 삭제 시 배지 갱신 — 유저가 그래프를 지우면 미해소 모순/미연결 명제 카운트도 즉시 반영
+		// 노드 파일 삭제 시 배지 갱신 — 유저가 그래프를 지우면 미해소 모순 카운트도 즉시 반영
 		this.registerEvent(this.app.vault.on('delete', () => this.scheduleBadgeRefresh()));
 		this.registerEvent(this.app.vault.on('rename', () => this.scheduleBadgeRefresh()));
 
@@ -207,8 +232,20 @@ export class ThirdBrainView extends ItemView {
 		// 드롭존
 		const dropZone = panel.createEl('div', { cls: 'tb-dropzone' });
 		this.dropZoneEl = dropZone;
-		const faceEl = dropZone.createEl('div', { cls: 'tb-dropzone-face' });
+		const faceEl = dropZone.createEl('div', { cls: 'tb-dropzone-face is-clickable' });
 		faceEl.appendChild(sanitizeHTMLToDom(SOOTBALL_WAITING));
+		faceEl.setAttribute('title', this.plugin.settings.lang === 'ko'
+			? '클릭 — 뇌 상태 (폴더별 미션·미연결)'
+			: 'Click — Brain status (missions & unlinked by folder)');
+		// 숯검댕이 클릭 → 뇌 상태(폴더 단위 미션·미연결). 드래그 밥주기와 공존(클릭 이벤트만 가로챔).
+		faceEl.addEventListener('click', (e) => {
+			e.stopPropagation();
+			new BrainStatusModal(
+				this.app, this.store, this.plugin.settings,
+				(file) => { void openMissionWorkbench(this.app, this.store, this.plugin.settings, file); },
+				this.getFolderPaths(),
+			).open();
+		});
 		const dropLabel = dropZone.createEl('div', { cls: 'tb-dropzone-label', text: this.t('dropzone_label') });
 		const fileInput = dropZone.createEl('input', {
 			attr: { type: 'file', accept: '.md,.txt,.pdf,.mp3', multiple: true },
@@ -328,16 +365,6 @@ export class ThirdBrainView extends ItemView {
 			).open();
 		});
 
-		// 고립 노드 배지 (고립 명제가 있을 때만 표시)
-		this.orphanBadgeEl = parent.createEl('button', { cls: 'tb-orphan-badge' });
-		this.orphanBadgeEl.hide();
-		this.orphanBadgeEl.addEventListener('click', () => {
-			new OrphanQueueModal(
-				this.app, this.store, this.plugin.settings,
-				this.getFolderPaths(),
-				() => { void this.refreshOrphanBadge(); }
-			).open();
-		});
 	}
 
 	private async refreshConflictBadge(): Promise<void> {
@@ -356,29 +383,12 @@ export class ThirdBrainView extends ItemView {
 		}
 	}
 
-	private async refreshOrphanBadge(): Promise<void> {
-		try {
-			const count = await this.store.countOrphanPropositions();
-			if (count > 0) {
-				this.orphanBadgeEl.textContent = this.plugin.settings.lang === 'ko'
-					? `◈ 미연결 명제 ${count}건`
-					: `◈ ${count} unlinked node${count > 1 ? 's' : ''}`;
-				this.orphanBadgeEl.show();
-			} else {
-				this.orphanBadgeEl.hide();
-			}
-		} catch {
-			this.orphanBadgeEl.hide();
-		}
-	}
-
 	// vault 파일 삭제/이름변경 시 배지 갱신 — 대량 삭제 대비 디바운스
 	private scheduleBadgeRefresh(): void {
 		if (this.badgeRefreshTimer !== null) window.clearTimeout(this.badgeRefreshTimer);
 		this.badgeRefreshTimer = window.setTimeout(() => {
 			this.badgeRefreshTimer = null;
 			void this.refreshConflictBadge();
-			void this.refreshOrphanBadge();
 		}, 400);
 	}
 
@@ -484,6 +494,13 @@ export class ThirdBrainView extends ItemView {
 			new Notice(this.t('stt_notice_too_large'));
 			return;
 		}
+
+		// AI 비용 확인 게이트 — mp3 크기로 길이·전사 규모를 근사(≈1MB/분, 분당 ~900자).
+		const estMinutes = Math.max(1, Math.round(file.size / (1024 * 1024)));
+		if (!(await confirmAICost(this.app, settings, {
+			operation: 'audio', charCount: estMinutes * 900, units: 2, tier: 'fast', provider: 'openai',
+		}))) return;
+
 		this.setAIBusy(true);
 		this.setIngestBusy(true);
 		this.setSTTInputLock(true);
@@ -647,6 +664,15 @@ export class ThirdBrainView extends ItemView {
 
 		// TB 노드 감지: 텍스트 헤더에서 파일 경로 파싱 → 메모리 상태에 의존하지 않음
 		const tbMatch = this.ingestTextarea.value.match(/^\[TB 노드:(.+?)\]/);
+
+		// AI 비용 확인 게이트 — 텍스트 소비 전에 물어본다(취소 시 입력 보존).
+		// tbMatch(노드 재브릿지) 경로는 runBridgeFromIngest가 자체 게이트를 갖는다.
+		if (!tbMatch) {
+			const ok = await confirmAICost(this.app, this.plugin.settings, {
+				operation: 'pipeline', charCount: text.length, tier: 'fast', provider: this.plugin.settings.aiProvider,
+			});
+			if (!ok) return;
+		}
 
 		// 텍스트 소비 — 인제스트 시작 즉시 비움
 		const capturedSource = this.ingestSource;
@@ -890,7 +916,6 @@ export class ThirdBrainView extends ItemView {
 							this.renderConflictNotice(conflicts);
 						}
 						void this.refreshConflictBadge();
-						void this.refreshOrphanBadge();
 
 						// [Phase 10] 모순 → 문제 노드 조정 루프 (라이프사이클 부여, 진실의 원천은 엣지)
 						await this.store.reconcileContradictionProblems(targetFolder, conflicts, savedNodes)
@@ -1503,7 +1528,10 @@ export class ThirdBrainView extends ItemView {
 				cls: 'tb-problem-evidence',
 				text: `${this.t('problem_evidence_label')}${problem.evidence_ids.join(', ')}`,
 			});
-			const resolveBtn = card.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-resolve-btn', text: this.t('problem_mark_resolved') });
+			const btnRow = card.createEl('div', { cls: 'tb-problem-card-btns' });
+			const workbenchBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-workbench-btn', text: '🎯 작업대' });
+			workbenchBtn.addEventListener('click', () => { void this.openWorkbench(file); });
+			const resolveBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-resolve-btn', text: this.t('problem_mark_resolved') });
 			resolveBtn.addEventListener('click', () => {
 				void this.store.updateProblemStatus(file, 'resolved', this.t('problem_resolved_by_user')).then(() => {
 					card.addClass('is-resolved');
@@ -1511,6 +1539,11 @@ export class ThirdBrainView extends ItemView {
 				});
 			});
 		}
+	}
+
+	/** [문제 작업공간] 미션 작업 노트 열기 (뷰 버튼용). 코어는 openMissionWorkbench 재사용. */
+	private async openWorkbench(problemFile: TFile) {
+		await openMissionWorkbench(this.app, this.store, this.plugin.settings, problemFile);
 	}
 
 	private renderConflictNotice(conflicts: ConflictReport[]) {
@@ -1916,6 +1949,16 @@ export class ThirdBrainView extends ItemView {
 			return;
 		}
 
+		// AI 비용 확인 게이트 — 노드 규모를 알고 난 뒤 물어본다.
+		const analysisChars = nodes.reduce((s, n) => s + n.title.length + n.content.length, 0);
+		if (!(await confirmAICost(this.app, this.plugin.settings, {
+			operation: 'analysis', charCount: analysisChars, units: 1, tier: 'standard', provider: this.plugin.settings.aiProvider,
+		}))) {
+			this.hideProgress();
+			this.setAIBusy(false);
+			return;
+		}
+
 		try {
 			const result = await summarizeFolder(nodes, this.plugin.settings, mode, intent);
 			this.hideProgress();
@@ -2309,6 +2352,12 @@ export class ThirdBrainView extends ItemView {
 	// vault 파일 1개가 TB 노드일 때 인제스트 버튼을 누르면 여기로 진입
 
 	private async runBridgeFromIngest(sourceFile: TFile, targetFolder: string) {
+		// AI 비용 확인 게이트 — 파일 복사·연결 전에 물어본다.
+		const srcLen = (await this.app.vault.cachedRead(sourceFile).catch(() => '')).length;
+		if (!(await confirmAICost(this.app, this.plugin.settings, {
+			operation: 'bridge', charCount: srcLen, tier: 'standard', provider: this.plugin.settings.aiProvider,
+		}))) return;
+
 		this.setBridgeBusy(true);
 		this.resultsEl.empty();
 		this.setProgress(2, `"${sourceFile.basename}" 복사 중...`);
@@ -2468,6 +2517,16 @@ export class ThirdBrainView extends ItemView {
 
 			this.setProgress(4, `위상 분석 중... (A: ${tbNodesA.length}개, B: ${tbNodesB.length}개)`);
 
+			// AI 비용 확인 게이트 — 양쪽 폴더 노드 규모를 알고 난 뒤 물어본다.
+			const bridgeChars = [...tbNodesA, ...tbNodesB].reduce((s, n) => s + n.title.length + n.content.length, 0);
+			if (!(await confirmAICost(this.app, this.plugin.settings, {
+				operation: 'bridge', charCount: bridgeChars, tier: 'standard', provider: this.plugin.settings.aiProvider,
+			}))) {
+				this.hideProgress();
+				this.setBridgeBusy(false);
+				return;
+			}
+
 			// Phase 12: 새 bridgeFolders 시그니처 사용 + onProgress 콜백
 			const folderAName = foldersA.map(f => f.split('/').pop()).join(', ');
 			const folderBName = foldersB.map(f => f.split('/').pop()).join(', ');
@@ -2519,6 +2578,126 @@ export class ThirdBrainView extends ItemView {
 		).open();
 	}
 
+}
+
+// ── 뇌 상태 모달 (폴더별 미션·미연결 → 폴더 드릴인) ──────────
+// 미션·미연결은 글로벌 경보가 아니라 "폴더 안에서 아직 안 끝난 일". 숯검댕이 클릭 → 폴더 목록 → 드릴인.
+class BrainStatusModal extends Modal {
+	constructor(
+		app: App,
+		private store: GraphStore,
+		private settings: ThirdBrainSettings,
+		private onOpenWorkbench: (file: TFile) => void,
+		private folders: string[],
+	) { super(app); }
+
+	private get ko() { return this.settings.lang === 'ko'; }
+
+	async onOpen() {
+		this.contentEl.addClass('tb-mission-board');
+		await this.renderFolderList();
+	}
+
+	// ── Level 1: 폴더 목록 ───────────────────────────────
+	private async renderFolderList() {
+		const { contentEl } = this;
+		contentEl.empty();
+		this.setTitle(this.ko ? '🧠 뇌 상태' : '🧠 Brain Status');
+
+		let status: BrainFolderStatus[] = [];
+		try { status = await this.store.loadBrainStatus(); } catch { /* 로드 실패는 빈 목록 처리 */ }
+
+		if (status.length === 0) {
+			contentEl.createEl('div', {
+				cls: 'tb-mission-empty',
+				text: this.ko ? '✓ 모든 폴더가 정리됨 — 미션·미연결 없음' : '✓ All folders clear — no missions or unlinked nodes',
+			});
+			return;
+		}
+
+		contentEl.createEl('div', {
+			cls: 'tb-mission-sub',
+			text: this.ko ? '폴더를 눌러 그 안의 미션·미연결을 처리하세요.' : 'Open a folder to work on its missions and unlinked nodes.',
+		});
+
+		for (const st of status) {
+			const name = st.sessionFolder.split('/').pop() ?? st.sessionFolder;
+			const row = contentEl.createEl('button', { cls: 'tb-brain-folder-row' });
+			row.createEl('span', { cls: 'tb-brain-folder-name', text: `📁 ${name}` });
+			const badges = row.createEl('span', { cls: 'tb-brain-folder-badges' });
+			if (st.missions.length > 0) {
+				badges.createEl('span', { cls: 'tb-brain-badge is-mission', text: this.ko ? `🎯 미션 ${st.missions.length}` : `🎯 ${st.missions.length}` });
+			}
+			if (st.orphanCount > 0) {
+				badges.createEl('span', { cls: 'tb-brain-badge is-orphan', text: this.ko ? `◈ 미연결 ${st.orphanCount}` : `◈ ${st.orphanCount}` });
+			}
+			row.addEventListener('click', () => { this.renderFolderDetail(st); });
+		}
+	}
+
+	// ── Level 2: 폴더 상세 (미션 인라인 + 미연결 린팅 진입) ──────
+	private renderFolderDetail(st: BrainFolderStatus) {
+		const { contentEl } = this;
+		contentEl.empty();
+		const name = st.sessionFolder.split('/').pop() ?? st.sessionFolder;
+		this.setTitle(`🧠 ${name}`);
+
+		const back = contentEl.createEl('button', { cls: 'tb-btn tb-content-type-back-btn', text: this.ko ? '← 폴더 목록' : '← Folders' });
+		back.addEventListener('click', () => { void this.renderFolderList(); });
+
+		if (st.missions.length > 0) {
+			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `🎯 미션 ${st.missions.length}건` : `🎯 Missions (${st.missions.length})` });
+			for (const p of st.missions) this.renderMissionCard(contentEl, p, st);
+		}
+
+		if (st.orphanCount > 0) {
+			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `◈ 미연결 명제 ${st.orphanCount}건` : `◈ Unlinked propositions (${st.orphanCount})` });
+			contentEl.createEl('div', {
+				cls: 'tb-mission-sub',
+				text: this.ko ? '같은 폴더 안에서 AI가 연결 후보를 찾아 붙여줍니다.' : 'AI finds connection candidates within this folder.',
+			});
+			const linkBtn = contentEl.createEl('button', { cls: 'tb-btn tb-brain-link-btn', text: this.ko ? '연결하기 (AI 린팅)' : 'Connect (AI lint)' });
+			linkBtn.addEventListener('click', () => {
+				this.close();
+				new OrphanQueueModal(
+					this.app, this.store, this.settings, this.folders,
+					() => { /* 린팅 결과는 모달 자체가 반영 */ },
+					st.sessionFolder,
+				).open();
+			});
+		}
+	}
+
+	private renderMissionCard(container: HTMLElement, p: TBNode, st: BrainFolderStatus) {
+		const species = p.problem_species ?? 'obstacle';
+		const card = container.createEl('div', { cls: `tb-problem-card is-${species}` });
+		const head = card.createEl('div', { cls: 'tb-problem-card-head' });
+		head.createEl('span', { cls: `tb-problem-species is-${species}`, text: species });
+		head.createEl('span', { cls: 'tb-problem-title', text: p.title });
+
+		const desc = ((p.content.split('\n---\n')[0] ?? '').trim().split('\n')[0] ?? '').trim();
+		if (desc) card.createEl('div', { cls: 'tb-problem-desc', text: desc });
+
+		const btnRow = card.createEl('div', { cls: 'tb-problem-card-btns' });
+		const workbenchBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-workbench-btn', text: this.ko ? '🎯 작업대' : '🎯 Workbench' });
+		workbenchBtn.addEventListener('click', () => {
+			const file = this.app.vault.getFileByPath(p.filePath);
+			if (file) { this.onOpenWorkbench(file); this.close(); }
+		});
+		const resolveBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-resolve-btn', text: this.ko ? '해소' : 'Resolve' });
+		resolveBtn.addEventListener('click', () => {
+			const file = this.app.vault.getFileByPath(p.filePath);
+			if (!file) return;
+			void this.store.updateProblemStatus(file, 'resolved', this.ko ? '뇌 상태에서 해소' : 'resolved via brain status').then(() => {
+				card.addClass('is-resolved');
+				resolveBtn.disabled = true;
+				workbenchBtn.disabled = true;
+				st.missions = st.missions.filter(m => m.id !== p.id);
+			});
+		});
+	}
+
+	onClose() { this.contentEl.empty(); }
 }
 
 // ── 파이프라인 결과 모달 ──────────────────────────────────
@@ -3880,6 +4059,18 @@ class AnalysisTabbedModal extends Modal {
 					}
 
 					const settings = this.settings ?? { rootFolder: 'ThirdBrainRoot', cliBin: 'claude', maxEdgeCandidates: 3, aiProvider: 'claude-cli' as const };
+
+					// AI 비용 확인 게이트
+					const analysisChars = allNodes.reduce((s, n) => s + n.title.length + n.content.length, 0);
+					if (!(await confirmAICost(this.app, settings, {
+						operation: 'transcript', charCount: analysisChars, units: 1, tier: 'fast', provider: settings.aiProvider,
+					}))) {
+						this.transcriptJob = { running: false, mode };
+						this.onTranscriptJobUpdate(this.transcriptJob);
+						if (activeDocument.body.contains(resultEl)) { setRunningUI(false); resultEl.empty(); }
+						return;
+					}
+
 					const resultText = await analyzeTranscriptNodes(allNodes, mode, settings);
 
 					this.transcriptJob = { running: false, mode, result: resultText };

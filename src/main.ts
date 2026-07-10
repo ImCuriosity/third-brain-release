@@ -1,6 +1,7 @@
 import { Platform, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
 import { ThirdBrainSettings, DEFAULT_SETTINGS } from './types';
-import { ThirdBrainView, VIEW_TYPE } from './view';
+import { ThirdBrainView, VIEW_TYPE, openMissionWorkbench } from './view';
+import { GraphStore } from './engine/graph-store';
 import { ThirdBrainSettingTab } from './settings';
 import { SOOTBALL_ICON } from './sootball';
 import { OnboardingModal, isClaudeCLIAvailable } from './onboarding';
@@ -25,6 +26,22 @@ export default class ThirdBrainPlugin extends Plugin {
 			id: 'open',
 			name: 'Open panel',
 			callback: () => { void this.activateView(); },
+		});
+
+		// [문제 작업공간] 활성 파일이 문제 노드일 때만 노출 — 미션 작업 노트를 연다
+		this.addCommand({
+			id: 'open-mission-workbench',
+			name: 'Open mission workbench (active problem note)',
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || file.extension !== 'md') return false;
+				const isProblem = this.app.metadataCache.getFileCache(file)?.frontmatter?.tb_type === 'problem';
+				if (!isProblem) return false;
+				if (!checking) {
+					void openMissionWorkbench(this.app, new GraphStore(this.app, this.settings), this.settings, file);
+				}
+				return true;
+			},
 		});
 
 		this.addSettingTab(new ThirdBrainSettingTab(this.app, this));

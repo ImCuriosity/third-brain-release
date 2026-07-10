@@ -4,6 +4,7 @@ import { findOrphanConnections } from '../engine/serial-pipeline';
 import type { OrphanConnectionResult } from '../engine/serial-pipeline';
 import type { TBNode, ThirdBrainSettings } from '../types';
 import { getT } from '../i18n';
+import { confirmAICost } from './ai-preflight';
 
 const MAX_ORPHANS = 10;
 
@@ -13,7 +14,8 @@ export class OrphanQueueModal extends Modal {
 		private store: GraphStore,
 		private settings: ThirdBrainSettings,
 		private folders: string[],
-		private onResolved: () => void
+		private onResolved: () => void,
+		private initialFolder?: string
 	) {
 		super(app);
 	}
@@ -22,7 +24,9 @@ export class OrphanQueueModal extends Modal {
 	private get t() { return getT(this.settings.lang); }
 
 	onOpen() {
-		this.renderFolderSelect();
+		// 뇌 상태에서 특정 폴더로 바로 진입한 경우 폴더 선택을 건너뛴다.
+		if (this.initialFolder) { void this.renderLintResults(this.initialFolder); }
+		else { this.renderFolderSelect(); }
 	}
 
 	// ── Phase 1: 폴더 선택 ───────────────────────────────────
@@ -113,15 +117,32 @@ export class OrphanQueueModal extends Modal {
 
 		const backBtn = contentEl.createEl('button', {
 			cls: 'tb-btn tb-content-type-back-btn',
-			text: this.isKo ? '← 폴더 선택' : '← Back',
+			text: this.initialFolder ? (this.isKo ? '← 닫기' : '← Close') : (this.isKo ? '← 폴더 선택' : '← Back'),
 		});
-		backBtn.addEventListener('click', () => { this.renderFolderSelect(); });
+		backBtn.addEventListener('click', () => {
+			if (this.initialFolder) { this.close(); }
+			else { this.renderFolderSelect(); }
+		});
 
 		if (orphans.length === 0) {
 			contentEl.createEl('div', {
 				cls: 'tb-manual-conflict-empty',
 				text: this.isKo ? '✓ 이 폴더에 고립 명제 없음' : '✓ No isolated propositions in this folder',
 			});
+			return;
+		}
+
+		// AI 비용 확인 게이트 — 고립 1개당 AI 1회 호출(후보는 고립마다 재전송).
+		const orphanChars = orphans.reduce((s, n) => s + n.title.length + n.content.length, 0);
+		const candChars = candidates.reduce((s, n) => s + n.title.length + n.content.length, 0);
+		if (!(await confirmAICost(this.app, this.settings, {
+			operation: 'orphan-lint',
+			charCount: orphanChars + candChars * orphans.length,
+			units: orphans.length,
+			tier: 'fast',
+			provider: this.settings.aiProvider,
+		}))) {
+			this.close();
 			return;
 		}
 
