@@ -302,6 +302,24 @@ export class GraphStore {
 	}
 
 	/**
+	 * 나이브 요약을 summaries/ 폴더에 저장하고 원본(raw) 파일로 위키링크를 건다.
+	 * 그래프 노드가 아닌 일반 마크다운 — tb_id·tb_edges 없음, 축·공리 게이트 대상 아님.
+	 */
+	async saveNaiveSummary(title: string, summary: string, rawFile: TFile): Promise<TFile> {
+		const summaryFolder = normalizePath(`${this.settings.rootFolder}/summaries`);
+		await this.ensureFolder(summaryFolder);
+
+		const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+		const safeTitle = title.replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, '_').slice(0, 40) || 'summary';
+		const filePath = await this.resolveConflict(normalizePath(`${summaryFolder}/${date}_${safeTitle}.md`));
+
+		const rawWikilink = rawFile.path.replace(/\.md$/, '');
+		const body = `# ${title}\n\n${summary}\n\n---\n[[${rawWikilink}]]`;
+
+		return this.app.vault.create(filePath, body);
+	}
+
+	/**
 	 * raw/ 파일의 이름을 변경한다. YYYYMMDD 프리픽스는 유지하고 basename만 교체.
 	 * extractContexts() 완료 후 의미 있는 제목으로 개명할 때 사용.
 	 */
@@ -870,11 +888,14 @@ export class GraphStore {
 		};
 
 		const map = new Map<string, BrainFolderStatus>();
+		const statusOf = (session: string): BrainFolderStatus => {
+			let st = map.get(session);
+			if (!st) { st = { sessionFolder: session, missions: [], orphanCount: 0, conflicts: [] }; map.set(session, st); }
+			return st;
+		};
 		for (const n of all) {
 			if (n.folder.split('/').includes('raw')) continue;
-			const session = sessionOf(n.folder);
-			let st = map.get(session);
-			if (!st) { st = { sessionFolder: session, missions: [], orphanCount: 0 }; map.set(session, st); }
+			const st = statusOf(sessionOf(n.folder));
 			if (n.type === 'problem' && n.problem_status === 'open') {
 				st.missions.push(n);
 			} else if (!NON_PROP_TYPES.includes(n.type) && this.isUnlinkedProp(n)) {
@@ -882,9 +903,91 @@ export class GraphStore {
 			}
 		}
 
+		// 미해소 모순도 폴더 단위로 귀속 (nodeA의 세션 폴더 기준)
+		for (const c of detectConflicts(all)) {
+			statusOf(sessionOf(c.nodeA.folder)).conflicts.push(c);
+		}
+
 		return [...map.values()]
-			.filter(s => s.missions.length > 0 || s.orphanCount > 0)
-			.sort((a, b) => (b.missions.length - a.missions.length) || (b.orphanCount - a.orphanCount));
+			.filter(s => s.missions.length > 0 || s.orphanCount > 0 || s.conflicts.length > 0)
+			.sort((a, b) =>
+				(b.conflicts.length - a.conflicts.length) ||
+				(b.missions.length - a.missions.length) ||
+				(b.orphanCount - a.orphanCount));
+	}
+
+	/**
+	 * [그래프 삭제] 선택 폴더의 그래프 전체 삭제 대상 수집.
+	 * 폴더 하위 전체(md — _problems/_solving/_actions 포함) + 노드가 참조하는 raw 원본
+	 * + 그 raw를 링크하는 summaries 요약본까지. 실제 삭제는 호출자가 확인 후 수행.
+	 */
+	async collectGraphDeletionTargets(folders: string[]): Promise<TFile[]> {
+		const targets = new Map<string, TFile>();
+		const rawBasenames = new Set<string>();
+
+		for (const folder of folders) {
+			// 폴더 하위 md 전부 (재귀) — TB 노드 여부와 무관하게 세션 폴더 통째
+			const prefix = folder.endsWith('/') ? folder : `${folder}/`;
+			for (const f of this.app.vault.getMarkdownFiles()) {
+				if (f.path.startsWith(prefix)) targets.set(f.path, f);
+			}
+			// 노드의 tb_raw_path → raw 원본
+			const nodes = await this.loadNodesInFolder(folder);
+			for (const n of nodes) {
+				if (!n.raw_path) continue;
+				const rawFile = this.app.metadataCache.getFirstLinkpathDest(n.raw_path, '');
+				if (rawFile) {
+					targets.set(rawFile.path, rawFile);
+					rawBasenames.add(rawFile.basename);
+				}
+			}
+		}
+
+		// summaries/ 에서 해당 raw를 링크하는 요약본
+		if (rawBasenames.size > 0) {
+			const summariesDir = normalizePath(`${this.settings.rootFolder}/summaries`);
+			for (const f of this.app.vault.getMarkdownFiles()) {
+				if (!f.path.startsWith(`${summariesDir}/`)) continue;
+				const content = await this.app.vault.cachedRead(f);
+				for (const base of rawBasenames) {
+					if (content.includes(`[[`) && content.includes(base)) {
+						targets.set(f.path, f);
+						break;
+					}
+				}
+			}
+		}
+
+		return [...targets.values()];
+	}
+
+	/** [그래프 삭제] 수집된 대상을 휴지통으로 이동 (영구삭제 아님 — 복구 가능).
+	 *  선택 폴더는 서브폴더(_problems/_solving/_actions 등)까지 통째로 휴지통에 들어간다. */
+	async deleteGraphTargets(files: TFile[], folders: string[]): Promise<number> {
+		const inSelected = (path: string) =>
+			folders.some(f => path.startsWith(f.endsWith('/') ? f : `${f}/`));
+		let deleted = 0;
+
+		// 1) 폴더 밖 대상(raw 원본·summaries 요약본)만 개별 삭제
+		for (const f of files) {
+			if (inSelected(f.path)) continue;
+			try {
+				await this.app.fileManager.trashFile(f);
+				deleted++;
+			} catch { /* 개별 실패는 계속 진행 */ }
+		}
+
+		// 2) 선택 폴더는 통째로 휴지통 — 내부 파일·서브폴더가 함께 이동 (trashFile은 TAbstractFile 수용)
+		for (const folder of folders) {
+			const tf = this.app.vault.getFolderByPath(folder);
+			if (!tf) continue;
+			const innerCount = files.filter(x => x.path.startsWith(folder.endsWith('/') ? folder : `${folder}/`)).length;
+			try {
+				await this.app.fileManager.trashFile(tf);
+				deleted += innerCount;
+			} catch { /* 폴더 삭제 실패는 무시 — 파일은 다음 시도에서 개별 처리 가능 */ }
+		}
+		return deleted;
 	}
 
 	/** [문제 작업공간] 미션 작업 노트를 세션 `_solving/` 하위에 생성. 이미 있으면 재사용(유저의 해결 작업 보존). */
@@ -1222,42 +1325,16 @@ export interface ProblemMaterial {
 	score: number;
 }
 
-/** [뇌 상태] 세션 폴더 하나의 미해결 현황 — 열린 미션 목록 + 미연결 명제 수. */
+/** [뇌 상태] 세션 폴더 하나의 미해결 현황 — 열린 미션 목록 + 미연결 명제 수 + 미해소 모순. */
 export interface BrainFolderStatus {
 	sessionFolder: string;
 	missions: TBNode[];
 	orphanCount: number;
+	conflicts: ConflictReport[];
 }
 
-/** 문제의 증거+제목을 쿼리로, **다른 폴더**의 claim/conclusion/action 노드를 관련성순 랭킹. */
-export function gatherProblemMaterial(
-	problem: TBNode,
-	allNodes: TBNode[],
-	topN = 8,
-): ProblemMaterial[] {
-	const evidenceIds = new Set(problem.evidence_ids ?? []);
-	const evidenceNodes = allNodes.filter(n => evidenceIds.has(n.id));
-	const signal = [
-		problem.title,
-		problem.content,
-		...evidenceNodes.map(n => `${n.title} ${n.content}`),
-	].join(' ');
-
-	// 문제의 자기 세션 폴더(_problems의 부모) 전체를 제외 → 크로스폴더만 남긴다
-	const sessionRoot = problem.folder.replace(/[\\/]_problems$/, '');
-	const inOwnSession = (f: string) => f === sessionRoot || f.startsWith(`${sessionRoot}/`);
-
-	return allNodes
-		.filter(n =>
-			n.id !== problem.id &&
-			(n.type === 'claim' || n.type === 'conclusion' || n.type === 'action') &&
-			!evidenceIds.has(n.id) &&
-			!inOwnSession(n.folder))
-		.map(n => ({ node: n, score: contextRelevanceScore(signal, { title: n.title, tags: n.tags }) }))
-		.filter(m => m.score > 0)
-		.sort((a, b) => b.score - a.score)
-		.slice(0, topN);
-}
+// (구 작업대의 gatherProblemMaterial은 v0.3.5에서 제거 — 크로스폴더 재료 수집은
+//  미션 컨트롤의 서브그래프 참여가 대체한다)
 
 /** 미션 작업 노트(마크다운) 조립 — 문제 + 증거 + 크로스폴더 재료 + 빈 해결 작업 섹션. */
 export function buildSolvingNote(

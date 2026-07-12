@@ -21,13 +21,14 @@ import {
 } from './engine/serial-pipeline';
 import type { FolderDigestNode, CrossConnection, SpeakerNormResult, SpeakerRoster, DetectedProblem } from './engine/serial-pipeline';
 import { callClaudeWithModel, getSessionStats, setRequestUrl } from './engine/cli-bridge';
-import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance, gatherProblemMaterial, buildSolvingNote } from './engine/graph-store';
+import { GraphStore, isMisassignedContext, shouldLinkContext, bestContextByRelevance, contextRelevanceScore } from './engine/graph-store';
 import type { TBFrontMatter, BrainFolderStatus } from './engine/graph-store';
 import { buildTensor, findPath, findTransitivePaths, addNodeToTensor } from './engine/adjacency-tensor';
 import { detectConflicts } from './engine/contradiction-engine';
 import { extractPdfText } from './engine/pdf-extractor';
 import { transcribeAudioFile } from './engine/audio-transcriber';
-import { extractActions, linkActionsToPropositions, rankEdgeRelations, parseGraphQuery, analyzeTranscriptNodes, type TranscriptAnalysisMode } from './engine/serial-pipeline';
+import { MissionControlModal, ProblemDetailModal } from './components/workbench';
+import { extractActions, linkActionsToPropositions, rankEdgeRelations, parseGraphQuery, analyzeTranscriptNodes, generateNaiveSummary, type TranscriptAnalysisMode } from './engine/serial-pipeline';
 import type { EdgeRank, GraphQuerySpec } from './engine/serial-pipeline';
 import { GraphView, EDGE_COLOR } from './components/graph-view';
 import { GraphExporter } from './engine/graph-exporter';
@@ -60,30 +61,9 @@ import type {
 
 export const VIEW_TYPE = 'thirdbrain-view';
 
-/**
- * [문제 작업공간] 미션 작업 노트 열기 — 문제(미션)를 다른 폴더의 축적된 지식으로 풀도록,
- * 크로스폴더 재료를 수집해 `_solving/미션-*.md` 작업 노트를 생성(있으면 재사용)하고 연다.
- * 뷰 버튼과 커맨드(활성 문제 노트) 양쪽에서 재사용한다.
- */
-export async function openMissionWorkbench(
-	app: App,
-	store: GraphStore,
-	settings: ThirdBrainSettings,
-	problemFile: TFile,
-): Promise<void> {
-	const problem = await store.fileToNode(problemFile);
-	if (!problem || problem.type !== 'problem') {
-		new Notice('[ThirdBrain] 문제 노드가 아닙니다');
-		return;
-	}
-	const allNodes = await store.loadNodesInFolder(settings.rootFolder || '/');
-	const evidenceIds = new Set(problem.evidence_ids ?? []);
-	const evidenceNodes = allNodes.filter(n => evidenceIds.has(n.id));
-	const material = gatherProblemMaterial(problem, allNodes);
-	const content = buildSolvingNote(problem, evidenceNodes, material);
-	const file = await store.createSolvingNote(problem, content);
-	await app.workspace.openLinkText(file.basename, '', false);
-	new Notice(`[ThirdBrain] 미션 작업대 · 크로스폴더 재료 ${material.length}개`);
+/** 문제 노트 파일 → 세션 폴더 경로 (`{session}/_problems/문제.md` → `{session}`) */
+export function sessionFolderOfProblem(problemFile: TFile): string {
+	return (problemFile.parent?.path ?? '').replace(/\/?_problems$/, '');
 }
 
 const RELATION_KO: Record<string, string> = {
@@ -116,6 +96,25 @@ function shortText(s: string, max = 26): string {
 	return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
+/** [v0.3.5] 액션 실질 중복 판정 — from_problem 액션과 회의 액션 레이어가 서로 모른 채
+ *  같은 일을 두 번 만드는 것을 막는다. 제목 토큰 겹침(양방향 최대) 또는 동기 명제 겹침으로 판단. */
+function isSimilarAction(
+	aTitle: string, aMotivs: string[],
+	bTitle: string, bMotivs: string[],
+): boolean {
+	const titleScore = Math.max(
+		contextRelevanceScore(aTitle, { title: bTitle }),
+		contextRelevanceScore(bTitle, { title: aTitle }),
+	);
+	if (titleScore >= 0.5) return true;
+	if (aMotivs.length > 0 && bMotivs.length > 0) {
+		const setB = new Set(bMotivs);
+		const inter = aMotivs.filter(m => setB.has(m)).length;
+		if (inter / Math.min(aMotivs.length, bMotivs.length) >= 0.67 && titleScore >= 0.25) return true;
+	}
+	return false;
+}
+
 export class ThirdBrainView extends ItemView {
 	private plugin: ThirdBrainPlugin;
 	private store!: GraphStore;
@@ -137,7 +136,7 @@ export class ThirdBrainView extends ItemView {
 	private stepLogEl!: HTMLElement;
 	private pipelineModal: PipelineInfoModal | null = null;
 	private resultsEl!: HTMLElement;
-	private conflictBadgeEl!: HTMLElement;
+	private conflictBubbleEl!: HTMLElement;
 	private badgeRefreshTimer: number | null = null;
 	private dropZoneEl!: HTMLElement;
 	private fileBtnEl!: HTMLButtonElement;
@@ -183,7 +182,7 @@ export class ThirdBrainView extends ItemView {
 		this.buildIngestPanel(inputPane);
 		this.buildProgressBar(inputPane);
 		this.syncIngestBtnState(); // 초기 빈 상태에서 버튼 비활성
-		void this.refreshConflictBadge();
+		void this.refreshConflictBubble();
 
 		// 노드 파일 삭제 시 배지 갱신 — 유저가 그래프를 지우면 미해소 모순 카운트도 즉시 반영
 		this.registerEvent(this.app.vault.on('delete', () => this.scheduleBadgeRefresh()));
@@ -235,16 +234,30 @@ export class ThirdBrainView extends ItemView {
 		const faceEl = dropZone.createEl('div', { cls: 'tb-dropzone-face is-clickable' });
 		faceEl.appendChild(sanitizeHTMLToDom(SOOTBALL_WAITING));
 		faceEl.setAttribute('title', this.plugin.settings.lang === 'ko'
-			? '클릭 — 뇌 상태 (폴더별 미션·미연결)'
-			: 'Click — Brain status (missions & unlinked by folder)');
-		// 숯검댕이 클릭 → 뇌 상태(폴더 단위 미션·미연결). 드래그 밥주기와 공존(클릭 이벤트만 가로챔).
-		faceEl.addEventListener('click', (e) => {
-			e.stopPropagation();
+			? '클릭 — 뇌 상태 (폴더별 미션·미연결·모순)'
+			: 'Click — Brain status (missions, unlinked & conflicts by folder)');
+		const openBrainStatus = () => {
 			new BrainStatusModal(
 				this.app, this.store, this.plugin.settings,
-				(file) => { void openMissionWorkbench(this.app, this.store, this.plugin.settings, file); },
+				// 작업대 = 미션 컨트롤 (해당 폴더·미션으로 바로 진입)
+				(folder, missionId) => { this.openMissionControl({ folder, missionId }); },
 				this.getFolderPaths(),
 			).open();
+		};
+		// 숯검댕이 클릭 → 뇌 상태(폴더 단위 미션·미연결·모순). 드래그 밥주기와 공존(클릭 이벤트만 가로챔).
+		faceEl.addEventListener('click', (e) => {
+			e.stopPropagation();
+			openBrainStatus();
+		});
+		// 모순 경고 말풍선 — faceEl은 드래그 시 empty()되므로 형제 요소로 둔다
+		this.conflictBubbleEl = dropZone.createEl('div', { cls: 'tb-conflict-bubble', text: '!' });
+		this.conflictBubbleEl.setAttribute('title', this.plugin.settings.lang === 'ko'
+			? '미해소 모순 있음 — 클릭해서 확인'
+			: 'Unresolved conflicts — click to review');
+		this.conflictBubbleEl.hide();
+		this.conflictBubbleEl.addEventListener('click', (e) => {
+			e.stopPropagation();
+			openBrainStatus();
 		});
 		const dropLabel = dropZone.createEl('div', { cls: 'tb-dropzone-label', text: this.t('dropzone_label') });
 		const fileInput = dropZone.createEl('input', {
@@ -347,39 +360,34 @@ export class ThirdBrainView extends ItemView {
 			).open();
 		});
 
+		// [v0.3.5] 🎯 미션 컨트롤 — 폴더 RAG 작업대 (기존 A↔B 브릿지는 Level 1 보조 버튼으로 이동)
 		this.bridgeBtn = actions.createEl('button', { cls: 'tb-btn-secondary', text: this.t('btn_bridge') });
-		this.bridgeBtn.addEventListener('click', () => {
-			new BridgeModal(this.app, this.getFolderPaths(), (a, b) => { void this.runBridgeWithFolders(a, b); }, this.plugin.settings.lang).open();
-		});
+		this.bridgeBtn.addEventListener('click', () => { this.openMissionControl(); });
 
 
 		this.fileCountEl = actions.createEl('div', { cls: 'tb-file-count', text: this.vaultCountText() });
-
-		// 미해소 모순 배지 (모순이 있을 때만 표시)
-		this.conflictBadgeEl = parent.createEl('button', { cls: 'tb-conflict-badge' });
-		this.conflictBadgeEl.hide();
-		this.conflictBadgeEl.addEventListener('click', () => {
-			new ManualConflictModal(
-				this.app, this.store, this.plugin.settings,
-				() => { void this.refreshConflictBadge(); }
-			).open();
-		});
-
 	}
 
-	private async refreshConflictBadge(): Promise<void> {
+	/** 🎯 미션 컨트롤 열기 — initial을 주면 해당 폴더·미션 작업대로 바로 진입 (구 작업대 대체) */
+	private openMissionControl(initial?: { folder: string; missionId?: string }) {
+		new MissionControlModal(this.app, this.store, this.plugin.settings, {
+			getFolderPaths: () => this.getFolderPaths(),
+			onOpenBridge: () => {
+				new BridgeModal(this.app, this.getFolderPaths(), (a, b) => { void this.runBridgeWithFolders(a, b); }, this.plugin.settings.lang).open();
+			},
+			setAIBusy: (on) => this.setAIBusy(on),
+			isBusy: () => this._busyAI || this._busyIngest || this._busyBridge,
+		}, initial).open();
+	}
+
+	// 모순 존재 시 숯검댕이 말풍선 "!" 표시 — 해소는 뇌 상태(폴더별)에서
+	private async refreshConflictBubble(): Promise<void> {
 		try {
 			const conflicts = await this.store.scanConflicts();
-			if (conflicts.length > 0) {
-				this.conflictBadgeEl.textContent = this.plugin.settings.lang === 'ko'
-					? `⚠ 미해소 모순 ${conflicts.length}건`
-					: `⚠ ${conflicts.length} unresolved conflict${conflicts.length > 1 ? 's' : ''}`;
-				this.conflictBadgeEl.show();
-			} else {
-				this.conflictBadgeEl.hide();
-			}
+			if (conflicts.length > 0) this.conflictBubbleEl.show();
+			else this.conflictBubbleEl.hide();
 		} catch {
-			this.conflictBadgeEl.hide();
+			this.conflictBubbleEl.hide();
 		}
 	}
 
@@ -388,7 +396,7 @@ export class ThirdBrainView extends ItemView {
 		if (this.badgeRefreshTimer !== null) window.clearTimeout(this.badgeRefreshTimer);
 		this.badgeRefreshTimer = window.setTimeout(() => {
 			this.badgeRefreshTimer = null;
-			void this.refreshConflictBadge();
+			void this.refreshConflictBubble();
 		}, 400);
 	}
 
@@ -755,6 +763,15 @@ export class ThirdBrainView extends ItemView {
 				if (allRawLinks.length > 0) {
 					await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
 				}
+
+				// 나이브 요약: 그래프화와 별개로 원문 전체를 훑어 커버리지를 보완 (실패해도 파이프라인은 유지)
+				try {
+					this.setProgress(10, this.t('progress_naive_summary'));
+					const { title, summary } = await generateNaiveSummary(text, this.plugin.settings);
+					if (summary) await this.store.saveNaiveSummary(title, summary, rawFile);
+				} catch {
+					// 나이브 요약 실패는 무시 — 핵심 그래프화 결과에 영향 없음
+				}
 			}
 		} catch {
 			// 파이프라인 오류는 downstream에서 이미 Notice 처리됨 — 여기선 삼킴
@@ -915,7 +932,7 @@ export class ThirdBrainView extends ItemView {
 						if (conflicts.length > 0) {
 							this.renderConflictNotice(conflicts);
 						}
-						void this.refreshConflictBadge();
+						void this.refreshConflictBubble();
 
 						// [Phase 10] 모순 → 문제 노드 조정 루프 (라이프사이클 부여, 진실의 원천은 엣지)
 						await this.store.reconcileContradictionProblems(targetFolder, conflicts, savedNodes)
@@ -1389,6 +1406,29 @@ export class ThirdBrainView extends ItemView {
 			if (actions.length === 0) return;
 			actions = await linkActionsToPropositions(actions, propositions, this.plugin.settings);
 
+			// [v0.3.5] 실질 중복 게이트 — 같은 폴더에 이미 저장된 액션(from_problem·이전 청크)과
+			// 겹치는 후보는 생성을 생략한다. 동기 명제는 basename으로 비교(motivation_ids는 저장 시 basename화됨).
+			const actionsDir = `${folder}/_actions/`;
+			const existingActions = this.app.vault.getMarkdownFiles()
+				.filter(f => f.path.startsWith(actionsDir))
+				.map(f => {
+					const fm = this.app.metadataCache.getFileCache(f)?.frontmatter as TBFrontMatter | undefined;
+					return {
+						title: (typeof fm?.tb_title === 'string' ? fm.tb_title : undefined) ?? f.basename,
+						motivs: Array.isArray(fm?.tb_action_motivation_ids) ? fm.tb_action_motivation_ids : [],
+					};
+				});
+			if (existingActions.length > 0) {
+				const motivBasenames = (ids: string[]) => ids
+					.map(id => propFileMap.get(id)?.basename ?? id);
+				actions = actions.filter(a => {
+					const dup = existingActions.find(e =>
+						isSimilarAction(a.title, motivBasenames(a.motivation_ids ?? []), e.title, e.motivs));
+					return !dup;
+				});
+				if (actions.length === 0) return;
+			}
+
 			const propById = new Map(propositions.map(p => [p.id, p]));
 			const savedActions: ActionNode[] = [];
 
@@ -1487,7 +1527,19 @@ export class ThirdBrainView extends ItemView {
 				saved.push({ file, problem: p });
 
 				// 문제 해결 액션 — 액션 레이어를 켠 경우만 (기존 UX 게이트 존중)
-				if (includeActionLayer && p.suggested_action) {
+				// [v0.3.5] 이전 청크의 회의 액션과 실질 중복이면 생성 생략 (역방향 중복 방지)
+				const actionsDir = `${folder}/_actions/`;
+				const dupWithExisting = includeActionLayer && p.suggested_action
+					? this.app.vault.getMarkdownFiles()
+						.filter(f => f.path.startsWith(actionsDir))
+						.some(f => {
+							const fm = this.app.metadataCache.getFileCache(f)?.frontmatter as TBFrontMatter | undefined;
+							const title = (typeof fm?.tb_title === 'string' ? fm.tb_title : undefined) ?? f.basename;
+							const motivs = Array.isArray(fm?.tb_action_motivation_ids) ? fm.tb_action_motivation_ids : [];
+							return isSimilarAction(p.suggested_action!.title, p.evidence_ids, title, motivs);
+						})
+					: false;
+				if (includeActionLayer && p.suggested_action && !dupWithExisting) {
 					await this.store.createActionNode({
 						id: `act-prob-${Date.now().toString(36)}`,
 						title: p.suggested_action.title,
@@ -1530,7 +1582,9 @@ export class ThirdBrainView extends ItemView {
 			});
 			const btnRow = card.createEl('div', { cls: 'tb-problem-card-btns' });
 			const workbenchBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-workbench-btn', text: '🎯 작업대' });
-			workbenchBtn.addEventListener('click', () => { void this.openWorkbench(file); });
+			workbenchBtn.addEventListener('click', () => {
+				this.openMissionControl({ folder: sessionFolderOfProblem(file), missionId: file.basename });
+			});
 			const resolveBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-resolve-btn', text: this.t('problem_mark_resolved') });
 			resolveBtn.addEventListener('click', () => {
 				void this.store.updateProblemStatus(file, 'resolved', this.t('problem_resolved_by_user')).then(() => {
@@ -1539,11 +1593,6 @@ export class ThirdBrainView extends ItemView {
 				});
 			});
 		}
-	}
-
-	/** [문제 작업공간] 미션 작업 노트 열기 (뷰 버튼용). 코어는 openMissionWorkbench 재사용. */
-	private async openWorkbench(problemFile: TFile) {
-		await openMissionWorkbench(this.app, this.store, this.plugin.settings, problemFile);
 	}
 
 	private renderConflictNotice(conflicts: ConflictReport[]) {
@@ -2587,7 +2636,7 @@ class BrainStatusModal extends Modal {
 		app: App,
 		private store: GraphStore,
 		private settings: ThirdBrainSettings,
-		private onOpenWorkbench: (file: TFile) => void,
+		private onOpenWorkbench: (folder: string, missionId: string) => void,
 		private folders: string[],
 	) { super(app); }
 
@@ -2610,14 +2659,14 @@ class BrainStatusModal extends Modal {
 		if (status.length === 0) {
 			contentEl.createEl('div', {
 				cls: 'tb-mission-empty',
-				text: this.ko ? '✓ 모든 폴더가 정리됨 — 미션·미연결 없음' : '✓ All folders clear — no missions or unlinked nodes',
+				text: this.ko ? '✓ 모든 폴더가 정리됨 — 미션·미연결·모순 없음' : '✓ All folders clear — no missions, unlinked nodes or conflicts',
 			});
 			return;
 		}
 
 		contentEl.createEl('div', {
 			cls: 'tb-mission-sub',
-			text: this.ko ? '폴더를 눌러 그 안의 미션·미연결을 처리하세요.' : 'Open a folder to work on its missions and unlinked nodes.',
+			text: this.ko ? '폴더를 눌러 그 안의 미션·미연결·모순을 처리하세요.' : 'Open a folder to work on its missions, unlinked nodes and conflicts.',
 		});
 
 		for (const st of status) {
@@ -2625,6 +2674,9 @@ class BrainStatusModal extends Modal {
 			const row = contentEl.createEl('button', { cls: 'tb-brain-folder-row' });
 			row.createEl('span', { cls: 'tb-brain-folder-name', text: `📁 ${name}` });
 			const badges = row.createEl('span', { cls: 'tb-brain-folder-badges' });
+			if (st.conflicts.length > 0) {
+				badges.createEl('span', { cls: 'tb-brain-badge is-conflict', text: this.ko ? `⚠ 모순 ${st.conflicts.length}` : `⚠ ${st.conflicts.length}` });
+			}
 			if (st.missions.length > 0) {
 				badges.createEl('span', { cls: 'tb-brain-badge is-mission', text: this.ko ? `🎯 미션 ${st.missions.length}` : `🎯 ${st.missions.length}` });
 			}
@@ -2644,6 +2696,11 @@ class BrainStatusModal extends Modal {
 
 		const back = contentEl.createEl('button', { cls: 'tb-btn tb-content-type-back-btn', text: this.ko ? '← 폴더 목록' : '← Folders' });
 		back.addEventListener('click', () => { void this.renderFolderList(); });
+
+		if (st.conflicts.length > 0) {
+			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `⚠ 미해소 모순 ${st.conflicts.length}건` : `⚠ Unresolved conflicts (${st.conflicts.length})` });
+			for (const c of st.conflicts) this.renderConflictCard(contentEl, c, st);
+		}
 
 		if (st.missions.length > 0) {
 			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `🎯 미션 ${st.missions.length}건` : `🎯 Missions (${st.missions.length})` });
@@ -2668,6 +2725,23 @@ class BrainStatusModal extends Modal {
 		}
 	}
 
+	private renderConflictCard(container: HTMLElement, c: ConflictReport, st: BrainFolderStatus) {
+		const card = container.createEl('div', { cls: 'tb-conflict-notice-row' });
+		card.createEl('span', { cls: 'tb-conflict-notice-a', text: c.nodeA.title });
+		card.createEl('span', { cls: 'tb-conflict-notice-vs', text: '⟷' });
+		card.createEl('span', { cls: 'tb-conflict-notice-b', text: c.nodeB.title });
+		const btn = card.createEl('button', { cls: 'tb-btn tb-conflict-resolve-btn', text: this.ko ? '해소하기' : 'Resolve' });
+		const resolvedMsg = card.createEl('span', { cls: 'tb-conflict-resolved-msg' });
+		btn.addEventListener('click', () => {
+			new ConflictResolutionModal(this.app, c, this.store, this.settings, (msg) => {
+				btn.remove();
+				resolvedMsg.textContent = `✓ ${msg}`;
+				resolvedMsg.addClass('is-visible');
+				st.conflicts = st.conflicts.filter(x => x !== c);
+			}).open();
+		});
+	}
+
 	private renderMissionCard(container: HTMLElement, p: TBNode, st: BrainFolderStatus) {
 		const species = p.problem_species ?? 'obstacle';
 		const card = container.createEl('div', { cls: `tb-problem-card is-${species}` });
@@ -2681,9 +2755,12 @@ class BrainStatusModal extends Modal {
 		const btnRow = card.createEl('div', { cls: 'tb-problem-card-btns' });
 		const workbenchBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-workbench-btn', text: this.ko ? '🎯 작업대' : '🎯 Workbench' });
 		workbenchBtn.addEventListener('click', () => {
-			const file = this.app.vault.getFileByPath(p.filePath);
-			if (file) { this.onOpenWorkbench(file); this.close(); }
+			this.close();
+			this.onOpenWorkbench(st.sessionFolder, p.id);
 		});
+		// 미션 내용 보기 — 제목·한 줄 요약만으로는 판단이 어려우므로 상세(서술+증거 원문) 열람
+		const detailBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm', text: this.ko ? '내용' : 'Details' });
+		detailBtn.addEventListener('click', () => { new ProblemDetailModal(this.app, p).open(); });
 		const resolveBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-resolve-btn', text: this.ko ? '해소' : 'Resolve' });
 		resolveBtn.addEventListener('click', () => {
 			const file = this.app.vault.getFileByPath(p.filePath);
@@ -2842,29 +2919,35 @@ class GraphViewModal extends Modal {
 		const tabNative = tabBar.createEl('button', { cls: 'tb-tab is-active', text: this.t('modal_query_open_native') });
 		const tabCanvas = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('modal_query_open_canvas') });
 		const tabDownload = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('modal_query_open_download') });
+		const tabDelete = tabBar.createEl('button', { cls: 'tb-tab tb-tab-danger', text: this.t('modal_query_open_delete') });
 
 		const paneNative = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
 		const paneCanvas = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
 		const paneDownload = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
+		const paneDelete = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
 		paneCanvas.hide();
 		paneDownload.hide();
+		paneDelete.hide();
 
-		const setActiveTab = (active: HTMLElement, ...hidden: HTMLElement[]) => {
-			tabNative.removeClass('is-active'); tabCanvas.removeClass('is-active'); tabDownload.removeClass('is-active');
-			paneNative.hide(); paneCanvas.hide(); paneDownload.hide();
+		const setActiveTab = (active: HTMLElement) => {
+			tabNative.removeClass('is-active'); tabCanvas.removeClass('is-active'); tabDownload.removeClass('is-active'); tabDelete.removeClass('is-active');
+			paneNative.hide(); paneCanvas.hide(); paneDownload.hide(); paneDelete.hide();
 			if (active === paneNative) tabNative.addClass('is-active');
 			else if (active === paneCanvas) tabCanvas.addClass('is-active');
 			else if (active === paneDownload) tabDownload.addClass('is-active');
+			else if (active === paneDelete) tabDelete.addClass('is-active');
 			active.show();
 		};
 
 		tabNative.addEventListener('click', () => setActiveTab(paneNative));
 		tabCanvas.addEventListener('click', () => setActiveTab(paneCanvas));
 		tabDownload.addEventListener('click', () => setActiveTab(paneDownload));
+		tabDelete.addEventListener('click', () => setActiveTab(paneDelete));
 
 		this.buildNativePane(paneNative);
 		this.buildCanvasPane(paneCanvas);
 		this.buildDownloadPane(paneDownload);
+		this.buildDeletePane(paneDelete);
 	}
 
 	private buildNativePane(container: HTMLElement) {
@@ -3043,6 +3126,67 @@ class GraphViewModal extends Modal {
 				exportBtn.disabled = false;
 				exportBtn.setText(this.t('graph_export_btn'));
 			}
+		})());
+	}
+
+	// ── [v0.3.5] 그래프 삭제 탭 — 폴더 선택 → 대상 집계 → 확인 → 휴지통 ──
+	private buildDeletePane(container: HTMLElement) {
+		const ko = this.lang !== 'en';
+		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_delete_sub') });
+
+		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		const checkboxes = this.buildFolderList(container);
+
+		const previewEl = container.createEl('div', { cls: 'tb-delete-preview' });
+		let pendingTargets: TFile[] = [];
+		let pendingFolders: string[] = [];
+
+		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const scanBtn = footer.createEl('button', { cls: 'tb-btn', text: ko ? '삭제 대상 확인' : 'Scan targets' });
+		const deleteBtn = footer.createEl('button', { cls: 'tb-btn tb-btn-danger', text: ko ? '휴지통으로 이동' : 'Move to trash' });
+		deleteBtn.disabled = true;
+
+		scanBtn.addEventListener('click', () => void (async () => {
+			const selected = checkboxes.filter(c => c.cb.checked).map(c => c.folder);
+			if (selected.length === 0) { new Notice(this.t('notice_select_folder')); return; }
+			scanBtn.disabled = true;
+			previewEl.empty();
+			previewEl.createEl('div', { cls: 'tb-mission-sub', text: ko ? '집계 중…' : 'Scanning…' });
+			try {
+				pendingTargets = await this.store.collectGraphDeletionTargets(selected);
+				pendingFolders = selected;
+				previewEl.empty();
+				if (pendingTargets.length === 0) {
+					previewEl.createEl('div', { cls: 'tb-mission-sub', text: ko ? '삭제할 파일이 없습니다.' : 'Nothing to delete.' });
+					deleteBtn.disabled = true;
+					return;
+				}
+				previewEl.createEl('div', {
+					cls: 'tb-delete-count',
+					text: ko
+						? `⚠ 폴더 통째 + ${pendingTargets.length}개 파일이 휴지통으로 이동됩니다 (노드·raw 원본·요약 포함, 복구 가능)`
+						: `⚠ Folder itself + ${pendingTargets.length} files will be trashed (nodes, raw originals & summaries — recoverable)`,
+				});
+				const list = previewEl.createEl('div', { cls: 'tb-delete-list' });
+				for (const f of pendingTargets.slice(0, 12)) {
+					list.createEl('div', { cls: 'tb-delete-item', text: f.path });
+				}
+				if (pendingTargets.length > 12) {
+					list.createEl('div', { cls: 'tb-delete-item', text: `… +${pendingTargets.length - 12}` });
+				}
+				deleteBtn.disabled = false;
+			} finally {
+				scanBtn.disabled = false;
+			}
+		})());
+
+		deleteBtn.addEventListener('click', () => void (async () => {
+			if (pendingTargets.length === 0) return;
+			deleteBtn.disabled = true;
+			scanBtn.disabled = true;
+			const n = await this.store.deleteGraphTargets(pendingTargets, pendingFolders);
+			new Notice(ko ? `[ThirdBrain] ${n}개 파일을 휴지통으로 이동했습니다.` : `[ThirdBrain] Moved ${n} files to trash.`);
+			this.close();
 		})());
 	}
 
@@ -4631,75 +4775,6 @@ class ConflictResolutionModal extends Modal {
 			this.onResolved?.(`'${node.title}' 폐기됨`);
 		} catch (e) {
 			new Notice(`[ThirdBrain] 삭제 실패: ${e instanceof Error ? e.message : String(e)}`);
-		}
-	}
-
-	onClose() { this.contentEl.empty(); }
-}
-
-// ── 모순 수동 해결 모달 ────────────────────────────────────
-
-class ManualConflictModal extends Modal {
-	constructor(
-		app: App,
-		private store: GraphStore,
-		private settings: ThirdBrainSettings,
-		private onResolved: () => void,
-	) {
-		super(app);
-	}
-
-	private get t() { return getT(this.settings.lang); }
-
-	async onOpen() {
-		const { contentEl } = this;
-		contentEl.empty();
-		contentEl.addClass('tb-popup-content', 'tb-manual-conflict-modal');
-		this.setTitle(this.settings.lang === 'ko' ? '미해소 모순 목록' : 'Unresolved Conflicts');
-
-		const loading = contentEl.createEl('div', { text: this.settings.lang === 'ko' ? '스캔 중...' : 'Scanning…' });
-
-		let conflicts: ConflictReport[];
-		try {
-			conflicts = await this.store.scanConflicts();
-		} catch {
-			loading.textContent = this.settings.lang === 'ko' ? '스캔 실패' : 'Scan failed';
-			return;
-		}
-		loading.remove();
-
-		if (conflicts.length === 0) {
-			contentEl.createEl('div', {
-				cls: 'tb-manual-conflict-empty',
-				text: this.settings.lang === 'ko' ? '✓ 미해소 모순 없음' : '✓ No unresolved conflicts',
-			});
-			return;
-		}
-
-		contentEl.createEl('div', {
-			cls: 'tb-manual-conflict-count',
-			text: this.settings.lang === 'ko'
-				? `${conflicts.length}건의 미해소 모순이 있습니다.`
-				: `${conflicts.length} unresolved conflict${conflicts.length > 1 ? 's' : ''} found.`,
-		});
-
-		const list = contentEl.createEl('div', { cls: 'tb-manual-conflict-list' });
-
-		for (const c of conflicts) {
-			const card = list.createEl('div', { cls: 'tb-conflict-notice-row' });
-			card.createEl('span', { cls: 'tb-conflict-notice-a', text: c.nodeA.title });
-			card.createEl('span', { cls: 'tb-conflict-notice-vs', text: '⟷' });
-			card.createEl('span', { cls: 'tb-conflict-notice-b', text: c.nodeB.title });
-			const btn = card.createEl('button', { cls: 'tb-btn tb-conflict-resolve-btn', text: this.t('conflict_btn_resolve') });
-			const resolvedMsg = card.createEl('span', { cls: 'tb-conflict-resolved-msg' });
-			btn.addEventListener('click', () => {
-				new ConflictResolutionModal(this.app, c, this.store, this.settings, (msg) => {
-					btn.remove();
-					resolvedMsg.textContent = `✓ ${msg}`;
-					resolvedMsg.addClass('is-visible');
-					this.onResolved();
-				}).open();
-			});
 		}
 	}
 

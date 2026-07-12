@@ -20,6 +20,7 @@ const OP_LABEL: Record<AIOperationKind, { ko: string; en: string }> = {
 	'orphan-lint':    { ko: '고립 노드 린팅', en: 'Orphan node linting' },
 	'transcript':     { ko: '전사본 분석', en: 'Transcript analysis' },
 	'audio':          { ko: '음성 전사', en: 'Audio transcription' },
+	'workbench':      { ko: '작업대 — 폴더 그라운딩 Q&A', en: 'Workbench — folder-grounded Q&A' },
 };
 
 class AICostPreflightModal extends Modal {

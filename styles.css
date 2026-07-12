@@ -152,6 +152,7 @@
 
 /* ── 드롭존 ──────────────────────────────────────────────── */
 .tb-dropzone {
+	position: relative; /* 모순 말풍선(.tb-conflict-bubble) 기준점 */
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -448,22 +449,43 @@
 	grid-column: span 2;
 }
 
-/* ── 미해소 모순 배지 ─────────────────────────────────────── */
-.tb-conflict-badge {
-	display: block;
-	width: 100%;
-	margin: 6px 0 0;
-	padding: 6px 12px;
-	background: transparent;
-	border: 1px solid var(--tb-warning, #ff4500);
-	color: var(--tb-warning, #ff4500);
+/* ── 모순 경고 말풍선 (숯검댕이 옆) ────────────────────────── */
+.tb-conflict-bubble {
+	position: absolute;
+	top: 6px;
+	left: calc(50% + 26px);
+	min-width: 18px;
+	padding: 1px 6px;
+	background: var(--tb-bg, #fff);
+	border: 1.5px solid var(--tb-warn, #ef4444);
+	border-radius: 8px;
+	color: var(--tb-warn, #ef4444);
 	font-size: 12px;
+	font-weight: 700;
 	font-family: var(--font-monospace);
+	text-align: center;
+	line-height: 1.4;
 	cursor: pointer;
-	text-align: left;
+	animation: tb-bubble-pulse 1.6s ease-in-out infinite;
+	z-index: 2;
 }
-.tb-conflict-badge:hover {
-	background: rgba(255, 69, 0, 0.08);
+/* 말꼬리 — 좌하단(숯검댕이 방향) 45° 다이아몬드.
+   흰 배경이 말풍선 하단 테두리를 덮어 이음새 없이 연결된다 */
+.tb-conflict-bubble::after {
+	content: '';
+	position: absolute;
+	left: 4px;
+	bottom: -4.5px;
+	width: 7px;
+	height: 7px;
+	background: var(--tb-bg, #fff);
+	border-right: 1.5px solid var(--tb-warn, #ef4444);
+	border-bottom: 1.5px solid var(--tb-warn, #ef4444);
+	transform: rotate(45deg);
+}
+@keyframes tb-bubble-pulse {
+	0%, 100% { transform: translateY(0); }
+	50%      { transform: translateY(-2px); }
 }
 
 .tb-orphan-badge {
@@ -538,6 +560,10 @@
 	font-family: var(--font-monospace);
 	padding: 1px 6px;
 	border: 1px solid;
+}
+.tb-brain-badge.is-conflict {
+	color: var(--tb-warn, #ef4444);
+	border-color: var(--tb-warn, #ef4444);
 }
 .tb-brain-badge.is-mission {
 	color: var(--tb-accent, #7c3aed);
@@ -796,10 +822,12 @@
 }
 
 /* ── 스탭 로그 (토큰 / 시간) ─────────────────────────────── */
+/* 주의: 파이프라인 모달은 .tb-root 밖(modal-container)에 붙으므로 --tb-* 변수가 죽는다.
+   step log는 모달·패널 양쪽에서 쓰이므로 var() 폴백값을 반드시 동봉한다. */
 .tb-step-log {
 	display: flex;
 	flex-direction: column;
-	border-top: 1px solid var(--tb-border);
+	border-top: 1px solid var(--tb-border, #e5e7eb);
 	flex-shrink: 0;
 }
 .tb-step-log:empty { display: none; }
@@ -808,24 +836,25 @@
 	display: flex;
 	align-items: center;
 	padding: 3px 14px;
-	font-family: var(--tb-mono);
+	font-family: var(--tb-mono, 'Cascadia Code', 'Fira Code', 'Consolas', monospace);
 	font-size: 10px;
-	border-bottom: 1px solid var(--tb-border);
-	background: var(--tb-surface);
+	line-height: 1.6;
+	border-bottom: 1px solid var(--tb-border, #e5e7eb);
+	background: var(--tb-surface, #f9fafb);
 }
 .tb-step-row:last-child { border-bottom: none; }
 
 .tb-step-name {
 	flex: 0 0 90px;
 	font-size: 10px;
-	color: var(--tb-primary);
+	color: var(--tb-primary, #7c3aed);
 	font-weight: 600;
 }
 .tb-step-time {
 	flex: 0 0 40px;
 	font-size: 10px;
 	text-align: right;
-	color: var(--tb-muted);
+	color: var(--tb-muted, #6b7280);
 	padding-right: 10px;
 }
 .tb-step-in  { flex: 0 0 75px; font-size: 10px; color: #3a9; }
@@ -4349,4 +4378,236 @@
 
 .tb-problem-resolve-btn {
 	font-size: 11px;
+}
+
+/* ── [v0.3.5] 미션 컨트롤 — 폴더 RAG 작업대 ─────────────────
+   주의: 모달은 .tb-root 밖(modal-container)에 붙으므로 var() 폴백값 필수 */
+.tb-workbench-modal {
+	width: min(760px, 94vw);
+}
+.tb-workbench-body {
+	display: flex;
+	flex-direction: column;
+	max-height: 78vh;
+}
+.tb-workbench-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 4px 0 8px;
+	border-bottom: 1px solid var(--tb-border, #e5e7eb);
+	flex-shrink: 0;
+}
+.tb-workbench-ground-info {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #6b7280);
+}
+.tb-workbench-tokens {
+	margin-left: auto;
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #6b7280);
+}
+
+.tb-workbench-chips,
+.tb-workbench-missions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 0 0;
+	flex-shrink: 0;
+}
+.tb-workbench-chips:empty,
+.tb-workbench-missions:empty { display: none; }
+.tb-workbench-chips-label {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #6b7280);
+}
+.tb-workbench-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	padding: 2px 4px 2px 8px;
+	border: 1px solid var(--tb-primary2, #3b82f6);
+	color: var(--tb-primary2, #3b82f6);
+	border-radius: 2px;
+}
+.tb-workbench-chip-x {
+	background: none;
+	border: none;
+	color: inherit;
+	font-size: 10px;
+	cursor: pointer;
+	padding: 0 2px;
+}
+.tb-workbench-mission-chip {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	padding: 2px 8px;
+	background: none;
+	border: 1px solid var(--tb-accent, #7c3aed);
+	color: var(--tb-accent, #7c3aed);
+	border-radius: 2px;
+	cursor: pointer;
+}
+.tb-workbench-mission-chip.is-active {
+	background: var(--tb-accent, #7c3aed);
+	color: #fff;
+}
+
+.tb-workbench-chat {
+	flex: 1;
+	min-height: 220px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px 2px;
+}
+.tb-workbench-hint {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #6b7280);
+	padding: 8px;
+	border: 1px dashed var(--tb-border, #e5e7eb);
+	border-radius: 2px;
+}
+.tb-workbench-turn {
+	font-size: 13px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-width: 92%;
+	padding: 7px 10px;
+	border-radius: 2px;
+}
+.tb-workbench-turn.is-q {
+	align-self: flex-end;
+	background: var(--tb-surface2, #f3f4f6);
+	border: 1px solid var(--tb-border, #e5e7eb);
+}
+.tb-workbench-turn.is-a {
+	align-self: flex-start;
+	background: var(--tb-surface, #f9fafb);
+	border: 1px solid var(--tb-border, #e5e7eb);
+	border-left: 2px solid var(--tb-accent, #7c3aed);
+}
+.tb-workbench-sysline {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #6b7280);
+	text-align: center;
+}
+.tb-workbench-sysline.is-error { color: var(--tb-warn, #ef4444); }
+
+.tb-workbench-cite {
+	color: var(--tb-accent, #7c3aed);
+	cursor: pointer;
+	text-decoration: none;
+}
+.tb-workbench-cite:hover { text-decoration: underline; }
+.tb-workbench-cite.is-invalid {
+	color: var(--tb-warn, #ef4444);
+	text-decoration: line-through;
+	cursor: help;
+}
+.tb-workbench-invalid-note {
+	margin-top: 6px;
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-warn, #ef4444);
+}
+
+.tb-workbench-input-row {
+	display: flex;
+	gap: 6px;
+	padding-top: 8px;
+	border-top: 1px solid var(--tb-border, #e5e7eb);
+	flex-shrink: 0;
+}
+.tb-workbench-input {
+	flex: 1;
+	resize: none;
+	font-size: 13px;
+	padding: 7px 9px;
+	border: 1px solid var(--tb-border, #e5e7eb);
+	border-radius: 2px;
+	background: var(--tb-bg, #fff);
+	color: var(--tb-text, #111827);
+}
+.tb-workbench-send { flex-shrink: 0; }
+
+.tb-workbench-footer {
+	display: flex;
+	gap: 6px;
+	padding-top: 6px;
+	flex-shrink: 0;
+}
+.tb-workbench-l1-footer {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid var(--tb-border, #e5e7eb);
+}
+
+/* ── [v0.3.5] 그래프 삭제 탭 ───────────────────────────────── */
+.tb-tab-danger { color: var(--tb-warn, #ef4444); }
+.tb-delete-preview { padding: 8px 0; }
+.tb-delete-count {
+	font-size: 12px;
+	font-family: var(--font-monospace);
+	color: var(--tb-warn, #ef4444);
+	margin-bottom: 6px;
+}
+.tb-delete-list {
+	max-height: 180px;
+	overflow-y: auto;
+	border: 1px solid var(--tb-border, #e5e7eb);
+	border-radius: 2px;
+	padding: 6px 8px;
+}
+.tb-delete-item {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--tb-muted, #6b7280);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── [v0.3.5] 미션 칩 그룹 + 미션 상세 모달 ─────────────────── */
+.tb-workbench-mission-group {
+	display: inline-flex;
+	align-items: stretch;
+}
+.tb-workbench-mission-group .tb-workbench-mission-chip {
+	border-radius: 2px 0 0 2px;
+	border-right: none;
+}
+.tb-workbench-mission-info {
+	font-size: 10px;
+	padding: 2px 5px;
+	background: none;
+	border: 1px solid var(--tb-accent, #7c3aed);
+	color: var(--tb-accent, #7c3aed);
+	border-radius: 0 2px 2px 0;
+	cursor: pointer;
+}
+.tb-workbench-mission-info:hover {
+	background: var(--tb-accent, #7c3aed);
+	color: #fff;
+}
+
+.tb-problem-detail-modal { width: min(640px, 92vw); }
+.tb-problem-detail-body { max-height: 74vh; overflow-y: auto; }
+.tb-problem-detail-content {
+	margin-top: 10px;
+	font-size: 13px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	word-break: break-word;
 }

@@ -66,6 +66,28 @@ export class GraphExporter {
 		return `${markdownPart}\n\n---\n\n## Full Data (JSON)\n\`\`\`json\n${JSON.stringify(jsonPart, null, 2)}\n\`\`\``;
 	}
 
+	/**
+	 * [작업대] LLM 그라운딩용 마크다운-only 직렬화 (JSON 파트 없음).
+	 * 이미 로드된 노드를 받으므로 질문별 retrieval로 축소된 서브셋도 그대로 직렬화할 수 있다.
+	 */
+	async exportForGrounding(
+		label: string,
+		nodes: TBNode[],
+		store: GraphStore,
+		options: ExportOptions,
+	): Promise<string> {
+		if (nodes.length === 0) return `# Graph: ${label}\n(노드 없음)`;
+		const edges = await this.collectEdges(store, nodes);
+		const stats = {
+			totalNodes: nodes.length,
+			totalEdges: edges.length,
+			density: nodes.length > 1 ? edges.length / (nodes.length * (nodes.length - 1)) : 0,
+			nodeTypes: this.countByType(nodes),
+			edgeTypes: this.countByRelation(edges),
+		};
+		return this.buildMarkdown([label], stats, nodes, edges, options);
+	}
+
 	private async collectEdges(store: GraphStore, nodes: TBNode[]): Promise<EdgeSummary[]> {
 		const edges: EdgeSummary[] = [];
 		// Obsidian은 wikilink를 파일명(basename = id)으로 resolve → title이 아닌 id로 인덱싱해야

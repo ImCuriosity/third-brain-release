@@ -13,7 +13,8 @@ export type AIOperationKind =
 	| 'graph-analysis'  // 그래프 분석 (전 노드 요약)
 	| 'orphan-lint'     // 고립 노드 린팅 (고립당 1회)
 	| 'transcript'      // 전사본 분석
-	| 'audio';          // 음성 전사
+	| 'audio'           // 음성 전사
+	| 'workbench';      // 작업대 채팅 (폴더 그라운딩 Q&A — 세션 첫 질문에만 게이트)
 
 // 1M 토큰당 USD (입력/출력) — 근사 공개 가격 기준. provider별 tier 매핑.
 const PRICING: Record<AIProvider, Record<ModelTier, { in: number; out: number }>> = {
@@ -50,6 +51,7 @@ const PROFILES: Record<AIOperationKind, OperationProfile> = {
 	'orphan-lint':    { passMultiplier: 1.5, outputRatio: 0.20, charsPerCall: 2000 },
 	'transcript':     { passMultiplier: 1.1, outputRatio: 0.50, charsPerCall: 8000 },
 	'audio':          { passMultiplier: 1.0, outputRatio: 0.30, charsPerCall: 100000 },
+	'workbench':      { passMultiplier: 1.0, outputRatio: 0.25, charsPerCall: 30000 },
 };
 
 export interface AIOperationRequest {
