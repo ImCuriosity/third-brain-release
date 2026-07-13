@@ -10,7 +10,8 @@
 
 import { App, Modal, Notice, TFile, normalizePath } from 'obsidian';
 import type { GraphStore } from '../engine/graph-store';
-import { contextRelevanceScore, buildSolvingNote } from '../engine/graph-store';
+import { buildSolvingNote } from '../engine/graph-store';
+import { contextRelevanceScore } from '../engine/context-relevance';
 import type { TBNode, ThirdBrainSettings, ProblemSpecies } from '../types';
 import { GraphExporter } from '../engine/graph-exporter';
 import { callClaudeWithModel, getSessionStats } from '../engine/cli-bridge';

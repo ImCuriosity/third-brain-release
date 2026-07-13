@@ -37,75 +37,35 @@ import {
 	filterCandidatePairs,
 	formatCandidatesForPrompt,
 } from './topology-engine';
+import {
+	SYSTEM_DISTILL,
+	SYSTEM_SPEAKER_ROSTER,
+	SYSTEM_NORMALIZE_SPEAKERS,
+	SYSTEM_CONTEXT,
+	SYSTEM_INSIGHT,
+	SYSTEM_PROP_BASE,
+	SYSTEM_PROP_DOCUMENT_ADDON,
+	SYSTEM_PROP_LECTURE_ADDON,
+	SYSTEM_PROP_MEETING_ADDON,
+	SYSTEM_PROP_DIALOGUE_ADDONS,
+	SYSTEM_EDGES,
+	SYSTEM_CONTRASTS,
+	SYSTEM_ACTIONS,
+	SYSTEM_PROBLEMS,
+	SYSTEM_BRIDGE,
+	SYSTEM_SUMMARY,
+	SYSTEM_CLASSIFY,
+	SYSTEM_TRANSPLANT_EDGES,
+	SYSTEM_CROSS,
+} from './prompts';
+import { splitIntoParagraphs, shortHash, splitIntoChunks, repairJson, parseJson } from './text-utils';
 
 export const DISTILL_THRESHOLD = 10000;  // 하위 호환 — 더 이상 메인 플로우에서 사용 안 함
 export const CHUNK_SIZE = 5000;           // 청크별 풀파이프라인 분할 기준 (cmd.exe 8191자 한계 대응)
 
-// ── 공유 프롬프트 블록 (PROMPT-ARCHITECTURE.md 참조) ──────────
-//  논리 엣지를 만드는 모든 프롬프트가 관계 어휘를 이 원본 하나에서 가져간다.
-//  관계 정의를 고칠 일이 생기면 여기 한 곳만 수정 → 5개 프롬프트에 동시 반영.
-//  · AXIOM_RELATIONS : 10관계 온톨로지 (5개 프롬프트 전부 공유)
-//  · AXIOM_BLOCK     : AXIOM_RELATIONS + 필드/임계값 규칙 (p-id·0.75 체계인 EDGES·CONTRASTS 전용)
-//  · SELFCHECK_BLOCK : supports 편중 방지 자기검토 꼬리 (5개 프롬프트 전부 공유)
-
-const AXIOM_RELATIONS = `★ 4축 10관계 공리 (이 10종 외 절대 사용 금지)
-
-Axis 1 인과·전제
-  causes          : A가 B를 야기·초래 (A 없으면 B 없음)
-  precedes        : A가 B보다 시간·순서상 먼저 (인과는 불명, 선후만)
-  precondition_of : A가 성립해야 B가 가능 (B의 전제 조건)
-Axis 2 진리·증명
-  supports        : A가 B의 근거·증거 (A가 참이면 B가 더 그럴듯)
-  conflicts_with  : A와 B가 동시에 참일 수 없음 (논리적 모순)
-  contrasts_with  : A와 B가 동시에 참이나 방향·평가가 반대 (양면성)
-Axis 3 계층·적용
-  exemplifies     : A가 B의 구체적 사례·실례
-  applies_to      : A(원리·방법)를 B(대상·상황)에 적용
-Axis 4 위상 교차
-  analogous_to    : 다른 도메인인데 구조·목적이 같음 (근사 유사)
-  isomorphic_to   : 구조가 거의 동일 (강한 구조 대응)
-
-★ 판별 규칙
-- 동시 참 불가 → conflicts_with / 동시 참이나 평가 반대 → contrasts_with
-- conflicts_with·contrasts_with는 두 명제가 **같은 대상·같은 사안**을 서술할 때만 후보다. 서로 다른 화제의 두 명제(예: "인력이 벅차면 협력이 필요하다" ↔ "안내문에 필수라고 나와있는지 확인하겠다")는 단어가 겹쳐도(비용·돈·시간 등) 모순도 대조도 아니다 — 연결하지 마라.
-- 질문·문의·확인 예정을 서술한 명제(예: "~인지 물었다", "~충분하냐는 질문이 제기되었다", "~확인해보겠다고 했다")는 진리값이 없다 — conflicts_with의 어느 쪽에도 세우지 마라. 질문에 대한 부정 답변도 모순이 아니라 답변이다.
-- conflicts_with는 "A가 참인 세계에서 B가 참일 수 없다"가 문자 그대로 성립할 때만 쓴다. 아래는 전부 모순이 **아니다**:
-  · 이해·입장의 대립 (예: "고객은 비용이 부담이다" ↔ "우리는 비용 효과성을 강조해야 한다" — 둘 다 참일 수 있는 긴장) → contrasts_with
-  · 문제 지적 ↔ 해결 제안 (예: "기존 방식은 단점이 있다" ↔ "시스템을 바꿔야 한다" — 같은 방향의 주장) → causes·supports를 검토하라
-  · 트레이드오프·자원 경쟁 (예: "비용이 든다" ↔ "구독 계약을 했다") → contrasts_with 또는 연결하지 마라
-- 같은 사건·사실을 표현만 달리 서술한 두 명제(근접 중복)는 conflicts_with·causes가 아니라 isomorphic_to. 서로 모순도 인과도 아니다.
-- "같은 주제·분야다"는 supports 근거 아님 — A가 B의 구체적 증거일 때만 supports
-- 인과 분명 → causes / 선후만 분명 → precedes
-
-★ 원칙
-- 억지 연결 금지. 고립 허용 — 빈칸 채우려 약한 엣지 만들지 마라.
-- 명확히 성립하는 관계만 포함하라.`;
-
-const AXIOM_BLOCK = `${AXIOM_RELATIONS}
-
-★ 엣지 필수 필드
-- relation    : 위 10종 중 정확히 하나
-- reason      : 연결 근거 한 문장
-- axiom_basis : 이 관계를 고른 논리 근거(원문 인용 또는 이유). 빈 문자열 금지
-- confidence  : 0.0~1.0. 0.75 미만은 저장 안 됨`;
-
-const SELFCHECK_BLOCK = `★ 출력 전 자기검토 (필수)
-- 만든 엣지 목록을 다시 보라.
-- conflicts_with 엣지마다 최종 자문하라: "A가 참이어도 B가 참일 수 있는가?" 그렇다면 contrasts_with로 바꾸거나 삭제하라. 모순은 시스템이 유저에게 해소를 강제하는 경보다 — 거짓 경보는 최악의 오염이다.
-- supports + precondition_of 합이 전체의 60% 초과 → 과잉. 재검토하여 causes·contrasts_with·analogous_to 등 다른 축을 보강하라.
-- 중복 엣지·자기 자신으로의 엣지가 없는지 확인하라.`;
 
 // ── 0차: 대용량 입력 핵심 압축 ───────────────────────────
 
-const SYSTEM_DISTILL = `당신은 'Third-Brain'의 핵심 정제 엔진입니다.
-입력 텍스트에서 '지식 그래프화에 필요한 핵심'만 남기고 압축합니다.
-
-남길 것: 핵심 주장·사실·결정·인과/전제/결론·대조·핵심 고유명사·수치.
-버릴 것: 중복, 수사, 잡담, 인사말, 서식 군더더기, 부수적 디테일.
-분량: 원문의 약 1/4~1/3 수준으로 과감히 줄인다.
-구조: 서로 다른 의미 단위(주제/안건/사건/장)가 여럿이면 소제목(## )으로 구분하고, 각 단위 아래 핵심을 간결한 불릿으로.
-의미를 왜곡하거나 없는 내용을 지어내지 말 것.
-모두 한국어. JSON만 반환(코드블록 없이): {"core":"압축된 마크다운 내용"}`;
 
 export async function distillText(
 	rawText: string,
@@ -147,17 +107,6 @@ export interface SpeakerRoster {
 	cues: string;                     // 화자 구분 핵심 단서 (청크별 적용 일관성용)
 }
 
-const SYSTEM_SPEAKER_ROSTER = `당신은 대화/회의 전사본의 발화자 명단을 식별하는 엔진입니다.
-전체 텍스트를 읽고 등장하는 모든 발화자를 일관된 레이블로 정리하세요. 텍스트를 다시 쓰지 마세요 — 명단만 출력.
-
-★ 식별 규칙:
-- 현장 발화자: 발화 패턴("저는/제가", ":" 구분자, 이름 호칭)으로 식별 → 화자1, 화자2, ...
-  실명이 언급되면: 화자_이름 (예: 화자_김팀장)
-- 현장 부재 인물(지시 대상): "그 사람", "그분", "걔" 등 → 외부인A, 외부인B, ... / 실명 있으면 외부인_이름
-- 같은 인물은 반드시 같은 레이블. 현장 화자와 현장 부재 인물 절대 혼용 금지.
-
-JSON만 반환(코드블록 없이):
-{"speakers":{"화자1":"","화자2":"","외부인A":"홍대표"},"cues":"각 화자를 구분하는 핵심 단서 1~3줄"}`;
 
 /**
  * [비용] STT(Plaud 등)가 이미 붙인 발화자 라벨을 정규식으로 감지 — 있으면 LLM 없이 결정적으로 명단 구성.
@@ -223,34 +172,6 @@ export async function identifySpeakerRoster(
 	return { speakers: {}, cues: '' };
 }
 
-const SYSTEM_NORMALIZE_SPEAKERS = `당신은 대화/회의 전사본 정규화 엔진입니다.
-텍스트 내 모든 발화자를 일관되게 식별하고 대명사·생략 주어를 치환합니다.
-
-★ 식별 규칙:
-- 현장 발화자: 발화 패턴("저는/나는/제가", ":" 구분자, 이름 호칭)으로 식별 → 화자1, 화자2, ...
-  실명이 언급된 경우: 화자_이름 (예: 화자_김팀장)
-- 현장 부재 인물: "그 사람", "걔", "그분" 등 지시어 대상 → 외부인A, 외부인B, ...
-  실명이 언급된 경우: 외부인_이름 (예: 외부인_홍대표)
-
-★ 대명사 치환:
-- "나/저/우리" → 해당 화자 레이블
-- "너/당신" → 대화 상대 화자 레이블
-- "그/그녀/걔/그 사람/그분" → 문맥상 지시 대상 (현장 부재이면 외부인X)
-- "이거/그거/그것/해당 건" → 직전 단락에서 언급된 주제로 치환
-- 주어 생략 → 해당 화자 또는 직전 문맥 주어로 복원
-
-★ 핵심 규칙:
-- 같은 인물은 반드시 같은 레이블 (일관성 최우선)
-- 화자 수 불명확 시 1명으로 처리 후 추가 발화 발견 시 추가
-- 현장 화자와 현장 부재 인물 절대 혼용 금지
-
-★ 구조 보존 (재작성이지 요약이 아니다):
-- 원문의 발화 단락 구조를 그대로 보존하라. 발화와 발화 사이의 빈 줄을 유지하고, 여러 발화를 한 단락으로 병합하지 마라.
-- 내용을 요약·생략하지 마라. 원문의 모든 발화가 출력에 남아야 한다.
-- 타임스탬프가 있으면 각 발화 앞에 그대로 유지하라.
-
-JSON만 반환(코드블록 없이):
-{"normalized_text":"정규화된 텍스트","speakers":{"화자1":"","화자2":"","외부인A":"홍대표"}}`;
 
 export async function normalizeSpeakers(
 	rawText: string,
@@ -287,25 +208,6 @@ export async function normalizeSpeakers(
 
 // ── 1차: 문맥 레이어 추출 ────────────────────────────────
 
-const SYSTEM_CONTEXT = `당신은 'Third-Brain'의 토픽 분절 엔진입니다.
-Raw 텍스트를 "무엇에 관한 덩어리인가"를 기준으로 굵은 의미 단위(토픽)로 나눕니다.
-
-★ 토픽이란
-- 형식(제목·번호·불릿)이 아니라 **내용의 주제**로 나눈다. 헤딩이 없어도,
-  번호목록·발화여도 주제가 바뀌면 거기가 경계다.
-- **굵게 묶어라.** 세부 항목 하나하나가 아니라 같은 주제 영역의 항목들을 한 토픽으로 모은다.
-  예) 여러 AI 모델 출시 소식 → "AI 모델 경쟁" 하나로 / 투자·IPO·데이터센터 → "AI 자본·인프라" 하나로
-
-★ 목표 개수: 대략 4~7개
-- 전체를 1개로 묶지 말 것. 낱개로 잘게 쪼개지도 말 것.
-- 주제 전환(주제·관점·시간·범주 변화)이 실제로 일어나는 지점에서만 나눈다.
-
-각 토픽:
-- title: 주제를 대표하는 간결한 명사구 (1~10단어)
-- date: 본문 날짜 또는 오늘
-- summary: 그 토픽에 속한 내용의 핵심 요약 (3~10줄, 마크다운)
-- tags: 분류 태그 2~6개 (# 없이)
-- keywords: 핵심 키워드 3~10개`;
 
 export async function extractContexts(text: string, settings: ThirdBrainSettings): Promise<ContextLayer[]> {
 	const today = new Date().toISOString().split('T')[0];
@@ -403,16 +305,6 @@ function assignContextId(c: Omit<ContextLayer, 'id'>, index: number): ContextLay
 
 // ── 1.5차: 핵심 인사이트 추출 ────────────────────────────
 
-const SYSTEM_INSIGHT = `당신은 'Third-Brain'의 핵심 인사이트 추출 엔진입니다.
-여러 문맥 단위를 관통하는 핵심 통찰 2~4개를 추출합니다.
-
-인사이트 기준:
-- 단일 문맥에 국한되지 않고 전체 내용을 꿰뚫는 핵심 발견.
-- "이 내용의 핵심이 무엇인가?"에 대한 답.
-- 단순 요약·주제 레이블이 아닌, 발견적(aha-moment) 주장.
-- 나머지 명제들이 이것을 향해 수렴하거나 이것에서 파생될 수 있어야 한다.
-
-모두 한국어. JSON만 반환(코드블록 없이).`;
 
 export async function extractInsights(contexts: ContextLayer[], settings: ThirdBrainSettings): Promise<Insight[]> {
 	const contextBlock = contexts
@@ -449,61 +341,6 @@ const ALLOWED_ROLES: readonly PropositionRole[] = [
 
 // ── 2차 명제 추출 프롬프트 — 유형별 변형 ─────────────────
 
-const SYSTEM_PROP_BASE = `당신은 'Third-Brain'의 명제 추출 엔진입니다.
-주어진 단락 하나에서 핵심 명제를 최대 3개까지 추출합니다.
-
-공통 규칙:
-- 검증 가능한 주장·사실·판단·결정을 추출하라 (최대 3개).
-- 불릿·목록도 각 항목이 주장이면 개별 명제로 추출한다.
-- 단순 인사말·날짜·장소·서식만이면 {"propositions": []} 반환.
-- id: p1~p3 | title: 8~20자 명사구 | text: 완결된 한 문장
-- role: claim | premise | conclusion | example | contrast | application
-- proposition_type: "fact" (검증 가능한 수치·사건·관측) | "claim" (해석·판단·주장·의견) — 기본값 claim
-- context: 아래 토픽 목록에서 이 명제가 속한 토픽 제목을 고른다(가장 가까운 것). [소속 섹션] 힌트가 있으면 우선 참고. 정말 어느 토픽과도 무관할 때만 빈 문자열("")
-- is_core_concept: 소속 토픽의 중심 논지(다른 명제들이 기대는 뼈대)이면 true. 원문에 그런 논지 문장이 실제로 있을 때만. 전부 false여도 된다
-
-★ source_span 필드는 작성하지 마라 — 시스템이 이 단락 자체를 출처로 기록한다.`;
-
-const SYSTEM_PROP_DOCUMENT_ADDON = `
-★ 정보/문서 품질 기준 (위반 시 해당 명제 제외):
-- 반드시 특정 주체(회사명/기술명/인물명)와 구체 동작·수치를 포함할 것
-- "AI 발전 가속화", "다양한 활용의 필요성", "업계 구조 변화" 같은 메타-범주 레이블은 명제가 아님
-- 주어/목적어 생략 시 [소속 섹션] 제목에서 추론하여 완전한 문장으로 복원하라
-- 복원 불가 시 해당 명제 제외`;
-
-const SYSTEM_PROP_LECTURE_ADDON = `
-★ 강의 텍스트 규칙:
-- 강의자의 주장/설명은 1인 화자 텍스트로 처리 (별도 귀속 없이 추출)
-- role 우선순위: 'claim' (강의자 주장), 'example' (예시 사례), 'premise' (배경 원리)
-- 개념 정의 패턴 "X는 Y이다/Y를 의미한다" 적극 추출
-- 주어 생략 시 직전 문맥의 주제 개념을 주어로 귀속하라`;
-
-const SYSTEM_PROP_MEETING_ADDON = `
-★ 회의 텍스트 규칙:
-- 화자 레이블(화자1/화자2/외부인A 등)이 있으면 귀속 필수: "화자1이 X를 주장했다"
-- 결정·합의 사항 우선 추출 → role: 'conclusion'
-- 입장 충돌 추출 → role: 'contrast'
-- "우리가 결정한", "합의됨", "확정" 패턴 → role: 'conclusion'
-- 모호한 "그거", "이거"가 남아있으면 복원 불가 명제로 제외`;
-
-const SYSTEM_PROP_DIALOGUE_ADDONS: Record<DialogueSubtype, string> = {
-	english_conversation: `
-★ 영어회화 텍스트 규칙:
-- 화자 레이블이 있으면 귀속 필수
-- 언어 표현·문법 패턴·의사소통 전략 추출에 집중
-- role: 'example'(표현 예시) 또는 'claim'(언어 사용 주장)
-- 주제보다 어떻게 표현했는지에 집중하라`,
-	phone_call: `
-★ 통화 텍스트 규칙:
-- 화자 레이블이 있으면 귀속 필수
-- 요청, 약속, 결정 추출에 집중 → role: 'conclusion'(약속/결정) 또는 'claim'(요청)
-- 의례적 인사·날씨 등 내용 없는 발화는 제외`,
-	interview: `
-★ 인터뷰 텍스트 규칙:
-- 화자 레이블이 있으면 귀속 필수
-- 주장, 평가, 입장 추출에 집중 → role: 'claim'(주장) / 'contrast'(반론/대조)
-- 질문보다 답변에서 명제를 추출하라`,
-};
 
 function buildPropSystemPrompt(contentType: ContentType, dialogueSubtype?: DialogueSubtype): string {
 	switch (contentType) {
@@ -518,38 +355,6 @@ function buildPropSystemPrompt(contentType: ContentType, dialogueSubtype?: Dialo
  * rawText를 단락 단위로 분리한다.
  * 반환값의 offset은 rawText 내 해당 단락의 시작 위치 (trim 후 첫 글자 기준).
  */
-export function splitIntoParagraphs(text: string, minLen = 50): { text: string; offset: number }[] {
-	const result: { text: string; offset: number }[] = [];
-	const re = /\n{2,}/g;
-	let lastIndex = 0;
-	let match: RegExpExecArray | null;
-
-	while ((match = re.exec(text)) !== null) {
-		const segment = text.slice(lastIndex, match.index);
-		const trimmed = segment.trim();
-		if (trimmed.length >= minLen) {
-			const leadingWS = segment.length - segment.trimStart().length;
-			result.push({ text: trimmed, offset: lastIndex + leadingWS });
-		}
-		lastIndex = match.index + match[0].length;
-	}
-	const last = text.slice(lastIndex);
-	const lastTrimmed = last.trim();
-	if (lastTrimmed.length >= minLen) {
-		const leadingWS = last.length - last.trimStart().length;
-		result.push({ text: lastTrimmed, offset: lastIndex + leadingWS });
-	}
-	return result;
-}
-
-function shortHash(text: string): string {
-	let h = 5381;
-	for (let i = 0; i < Math.min(text.length, 300); i++) {
-		h = ((h << 5) + h) ^ text.charCodeAt(i);
-		h |= 0;
-	}
-	return Math.abs(h).toString(36).slice(0, 6).padStart(6, '0');
-}
 
 // CLI 동시 호출 수. claude -p는 호출마다 에이전트 런타임을 콜드스타트하므로
 // 순차(1)면 콜드스타트가 직렬로 쌓여 느리고, 무제한이면 프로세스가 폭주한다. 중간값으로 겹쳐 처리.
@@ -749,20 +554,6 @@ export async function extractPropositions(
 
 // ── 2.5차: 엣지 추출 (명제 간 크로스-컨텍스트) ──────────
 
-const SYSTEM_EDGES = `당신은 'Third-Brain'의 논리 엣지 추출 엔진입니다.
-명제들 사이의 의미있는 연결을 찾아 방향 엣지를 추출합니다.
-
-${AXIOM_BLOCK}
-
-★ source·target
-- 명제 ID(p1, p2, ...). 같은 ### 그룹 내 연결과 다른 그룹 간 교차 연결을 모두 탐색하라.
-
-★ 크로스-섹션 연결 제한 (반드시 준수)
-- 같은 [섹션] 내 연결: 10종 모두 허용
-- 다른 [섹션] 간 연결: causes | contrasts_with | analogous_to | isomorphic_to | conflicts_with 만 허용
-  → supports / precondition_of 크로스-섹션 금지 (주제 유사성은 논리 지지 근거가 아님)
-
-${SELFCHECK_BLOCK}`;
 
 // ── conflicts_with 오발 억제 게이트 (모순 판별 전용) ─────────────────────────
 // AXIOM 프롬프트의 같은-사안 게이트가 놓친 잔여 모순 오발을 코드 레벨에서 차단한다.
@@ -953,29 +744,6 @@ export async function extractEdges(
 
 // ── 2.6차: 대조·유사성 전용 스캔 (Layer 3) ───────────────
 
-const SYSTEM_CONTRASTS = `당신은 'Third-Brain'의 대조·유사성 탐지 엔진입니다.
-명제 목록에서 일반 엣지 추출이 놓치기 쉬운 관계를 집중 탐색합니다.
-
-${AXIOM_RELATIONS}
-
-★ 이 패스의 집중 대상 (아래 2종 위주, 크로스-섹션 적극 권장)
-1. contrasts_with: 같은 대상·기술·현상을 서로 반대 방향으로 평가하는 명제 쌍
-   예) "바이브코딩이 생산성을 높인다" ↔ "바이브코딩이 코드 품질을 낮춘다"
-   (동시에 참일 수 있어야 함 — 논리적 모순이면 conflicts_with)
-2. analogous_to: 서로 다른 도메인에서 같은 목적·구조를 가진 명제 쌍
-   예) "OpenAI가 자체 칩으로 Nvidia 의존 탈피" ↔ "IBM이 1nm 칩으로 반도체 자립"
-
-★ 규칙
-- 이미 다른 엣지로 연결된 쌍도 포함 가능 (보완 관계)
-- 크로스-섹션 연결 적극 권장 (이것이 이 패스의 목적)
-- confidence 0.75 미만은 제외. axiom_basis 빈 문자열 금지.
-- **같은-사안 게이트 (contrasts_with 전용)**: 대조는 두 명제가 **같은 대상·같은 질문**을 서로 다르게 평가할 때만 성립한다.
-  "문제", "비용", "테스트", "확인" 같은 범용 명사가 겹친다는 이유로 서로 다른 사안을 묶지 마라.
-  예) "프리미엄 기능 가격 문제" ↔ "기기 파편화 테스트 미비" → 가격과 QA는 다른 사안 → 후보 아님.
-  (analogous_to는 반대로 다른 도메인 간 구조적 닮음이 목적이므로 이 게이트를 적용하지 않는다.)
-
-JSON만 반환(코드블록 없이):
-{"edges":[{"source":"p1","target":"p3","relation":"contrasts_with","reason":"...","axiom_basis":"...","confidence":0.82}]}`;
 
 export async function findContrastsAnalogies(
 	allPropositions: Proposition[],
@@ -1039,28 +807,6 @@ export async function findContrastsAnalogies(
 
 // ── Phase 8-2: 액션 추출 v2 ──────────────────────────────────
 
-const SYSTEM_ACTIONS = `당신은 'Third-Brain'의 액션 도출 엔진입니다.
-여러 토픽과 각 토픽에 속한 명제들이 주어집니다. **토픽별로** 명제들을 종합하여, 그 토픽의 명제들이 집합적으로 요구하는 "해야 할 일 / 결정 / 행동"을 도출하라.
-
-★ 원칙
-- 토픽 경계를 넘어 명제를 엮지 마라 — 한 액션의 근거 명제는 전부 같은 토픽 소속이어야 한다.
-- 여러 명제를 엮은 복합 액션을 우선하라. 명제 하나를 그대로 to-do로 재진술하지 마라.
-- 없는 것을 지어내는 종합 금지: 각 액션은 실제로 주어진 명제들에서 도출돼야 한다.
-- owner(담당자)와 deadline(기한)은 명제에 **명시적으로 나타난 경우에만** 채워라. 없으면 빈 문자열. 추측 절대 금지.
-- 사실 서술·설명은 액션이 아니다(명제 그래프가 처리). 실행 가능한 행동만.
-- 도출할 액션이 없는 토픽은 건너뛰어라. 전부 없으면 빈 배열.
-
-JSON만 반환(코드블록 없이):
-{"actions":[
-  {
-    "title":"액션 제목 (동사로 시작, 30자 이내)",
-    "content":"구체적 실행 내용",
-    "owner":"담당자 (명시적일 때만, 없으면 \\"\\")",
-    "deadline":"기한 ISO 8601 (명시적일 때만, 없으면 \\"\\")",
-    "link_type":"implements | investigates",
-    "motivation_prop_titles":["근거가 된 명제 제목들 (1개 이상 필수)"]
-  }
-]}`;
 
 type RawAction = {
 	title?: string;
@@ -1168,28 +914,6 @@ export interface DetectedProblem {
 	suggested_action?: { title: string; content: string; link_type: ActionLinkType };
 }
 
-const SYSTEM_PROBLEMS = `당신은 'Third-Brain'의 문제 발견 엔진입니다.
-한 폴더의 명제들이 주어집니다. 명제들 사이의 **긴장** — 의도(원함·약속·필요)를 서술하는 명제와 현실(상태·제약·한계)을 서술하는 명제가 부딪히는 지점 — 을 찾아 "해결해야 할 문제"로 정리하라.
-
-★ 문제 종 (이 3종만):
-- obstacle (장애): 하려는 것의 전제가 깨져 있거나 부재함
-- gap (공백): 판단·실행에 필요한 정보가 미검증이거나 불명확함
-- risk (리스크): 현재 흐름이 나쁜 결과로 향할 가능성이 명제에 드러남
-
-★ 다루지 않는 것:
-- 두 명제가 동시에 참일 수 없는 논리적 모순 → 전담 기계가 있다. 만들지 마라.
-- 지시사항 그 자체 → 액션 레이어가 처리한다. "시켜서 하는 일"은 문제가 아니다.
-- **이미 해소된 긴장** → 명제에 해결책이 이미 실행·확보되었다고 서술되어 있으면(예: "컨설팅으로 인증을 받아냈다", "장부 대조를 완료했다", "체크리스트를 받아놨고 서류 절반 완료") 그것은 열린 문제가 아니라 해결 사례다. 과거에 풀었던 문제의 회고 공유도 마찬가지다. 지금 열려 있는 긴장만 문제다.
-
-★ 엄격 규칙:
-- 각 문제는 evidence_titles에 근거 명제 제목을 1개 이상 반드시 인용. 목록에 없는 근거 금지.
-- 억지 문제 생성 금지. 긴장이 없으면 빈 배열이 정답이다.
-- "이미 열린 문제" 목록과 실질적으로 같은 문제는 다시 만들지 마라.
-- suggested_action: 그 문제를 직접 다루는 실행 가능한 행동 1개 (마땅치 않으면 생략).
-
-JSON만 반환(코드블록 없이):
-{"problems":[{"title":"문제 제목 (30자 이내)","description":"긴장의 구체적 서술 (어떤 의도가 어떤 현실과 부딪히는가)","species":"obstacle | gap | risk","evidence_titles":["근거 명제 제목"],"suggested_action":{"title":"동사로 시작 (30자 이내)","content":"구체적 실행 내용","link_type":"implements | investigates"}}]}
-문제가 없으면 {"problems":[]}.`;
 
 type RawProblem = {
 	title?: string;
@@ -1347,24 +1071,6 @@ export async function generateEdgeCandidates(
 
 // ── Phase 5: 폴더 브리지 ─────────────────────────────────
 
-const SYSTEM_BRIDGE = `당신은 'Third-Brain'의 폴더 브리지 엔진입니다.
-두 개의 독립적인 지식 폴더(사일로)의 노드 목록을 받아, 폴더 간 숨어 있는 연결을 최대한 풍부하게 도출합니다.
-사용자가 칩으로 최종 확정하므로, 가능성 있는 연결은 적극적으로 포함하세요.
-
-${AXIOM_RELATIONS}
-
-★ 분석 방법
-1. 폴더 A의 각 노드와 폴더 B의 각 노드 사이의 관계를 빠짐없이 탐색하라.
-2. 직접 연결(동일 주제, 인과, 지지/반박)과 간접 연결(구조적 동형성, 유사 패턴, 맥락 공유)을 모두 찾아라.
-3. 두 폴더를 교차할 때만 발생하는 인사이트를 insight로 도출하라.
-
-★ 출력 규칙
-- edges: 최대 10개, 연관도 높은 순. relation은 위 10종 중 하나.
-- axiom_basis: 두 노드 내용에서 관계를 성립시키는 구절을 그대로 인용 (필수).
-  근거 구절을 찾을 수 없으면 그 연결은 만들지 마라 — 억지 연결 금지.
-- insight: 두 폴더 교차 시 나오는 새로운 통찰 2~3문장.
-
-${SELFCHECK_BLOCK}`;
 
 export async function bridgeFolders(
 	nodesA: TBNode[],
@@ -1440,35 +1146,6 @@ export async function bridgeFolders(
 
 // ── 뷰어: 폴더 핵심 서브그래프 요약 (풍부한 분석) ──────
 
-const SYSTEM_SUMMARY = `당신은 지식 그래프에서 실제 인사이트를 추출하는 분석가입니다.
-입력은 명제(노드)들과 그 사이의 논리 관계(엣지)로 구성된 다이제스트입니다.
-각 노드는 하나의 주장·사실·개념이고, 엣지는 인과·지지·모순·예시·유비 같은 명확한 논리 관계입니다.
-
-## 출력 필드
-
-**synthesis** (3~5문장)
-- 노드와 관계를 바탕으로 "이 지식 덩어리가 말하는 바"를 직접 진술하라.
-- [사용자 분석 목적]이 있으면 그 질문에 정면으로 답하라. "A이기 때문에 B다", "X가 Y를 가능하게 한다"처럼 인과 구조로 서술하라.
-- 막연한 표현("다양한", "중요한", "살펴볼 필요가") 금지. 노드 이름을 직접 인용하라.
-
-**overview** (2문장)
-- 이 명제 집합이 다루는 핵심 주제를 한 줄로, 그 주제가 왜 중요한지 한 줄로.
-
-**themes** (묶음)
-- 관계가 밀집된 명제군을 묶어 패턴에 이름을 붙여라.
-- description: "A → B → C 인과 사슬이 존재한다", "X와 Y가 충돌하는 지점이 있다"처럼 구체적으로.
-
-**highlights** (주요 발견)
-- 각 항목은 반드시 "노드A [관계] 노드B → 그것이 의미하는 바" 형식으로 작성하라.
-- "~을 확인할 수 있다", "~가 드러난다" 같은 수동 표현 금지. 직접 단언하라.
-
-**link_contexts** (연결 맥락)
-- 각 항목: source, target, relation, context(이 관계가 성립하는 구체적 이유 1~2문장)
-
-## 절대 금지
-- "이 폴더는", "데이터가", "노드들이" 같은 메타 언어로 시작하는 문장
-- 내용 없이 구조만 설명하는 문장 ("A와 B가 연결되어 있습니다")
-- 모든 메타 코멘트 ("분석이 어렵습니다", "더 많은 데이터가 필요합니다")`;
 
 export async function summarizeSubgraph(
 	digest: string,
@@ -1568,28 +1245,6 @@ export async function summarizeFolder(
 
 // ── 노드 이식: 단일 .md 분류 ─────────────────────────────
 
-const SYSTEM_CLASSIFY = `당신은 ThirdBrain의 노드 분류 엔진입니다.
-사용자가 작성한 마크다운 노트를 읽고 ThirdBrain 노드 속성을 결정합니다.
-
-type 선택 기준:
-- claim: 명확한 주장/관점/의견
-- premise: 전제/배경 사실
-- conclusion: 결론/판단
-- example: 구체적 사례/예시
-- contrast: 대조/반박
-- application: 적용/실천 방안
-- insight: 여러 개념을 관통하는 핵심 발견
-- summary: 문맥 요약/개요
-- action: 해야 할 일/태스크
-
-규칙:
-- title: 노트 핵심을 담은 짧은 명사구 (40자 이내, 한국어)
-- tags: 핵심 키워드 3~6개 (소문자 영문 또는 한국어)
-- summary: 노트 전체 내용을 2~3문장으로 요약 (한국어)
-- 없는 내용 지어내지 말 것
-
-JSON만 반환(코드블록 없이):
-{"title":"...","type":"claim","tags":["a","b"],"summary":"..."}`;
 
 export async function classifyNode(
 	content: string,
@@ -1612,22 +1267,6 @@ export async function classifyNode(
 
 // ── 이식 시 대상 폴더 연결 추천 ──────────────────────────
 
-const SYSTEM_TRANSPLANT_EDGES = `당신은 ThirdBrain의 연결 추천 엔진입니다.
-새로 이식할 노트와 기존 노드들 사이의 연결 후보를 추천합니다.
-사용자가 칩을 눌러 최종 확정하므로, 가능성 있는 연결은 적극적으로 포함하세요.
-
-${AXIOM_RELATIONS}
-
-★ 규칙
-- 직접 연결(인과·지지·반박)뿐 아니라 간접 연결(유사 구조·맥락 공유)도 포함
-- 기존 노드의 "연결 노드" 힌트를 활용해 의미 클러스터 파악
-- 최대 6개, 연관도 높은 순. relation은 위 10종 중 하나.
-- confidence: 직접·강한 연결=0.9+, 간접·맥락 공유=0.5~0.7
-
-${SELFCHECK_BLOCK}
-
-JSON만 반환(코드블록 없이):
-{"edges":[{"target_title":"기존노드제목","relation":"supports","confidence":0.85,"reason":"연결 근거 — 구체적으로 어떤 개념이 왜 연결되는지"}]}`;
 
 export async function recommendTransplantEdges(
 	newContent: string,
@@ -1707,24 +1346,6 @@ Return JSON only (no code blocks):
 
 // ── 저장 후 Cross-Connection: 새 명제 ↔ 기존 폴더 노드 ────
 
-const SYSTEM_CROSS = `당신은 ThirdBrain의 연결 탐색 엔진입니다.
-새로 저장된 명제들과 폴더 안 기존 노드들 사이의 연결 후보를 찾습니다.
-사용자가 칩으로 최종 확정하므로, 가능성 있는 연결은 적극적으로 포함하세요.
-
-${AXIOM_RELATIONS}
-
-★ 규칙
-- 직접 연결(인과·지지·반박)과 간접 연결(유사 구조·맥락 공유) 모두 포함
-- 각 새 명제와 각 기존 노드를 짝지어 검토
-- 최대 8개, 연관도 높은 순. relation은 위 10종 중 하나.
-- confidence: 직접·강한 연결=0.9+, 간접·맥락 공유=0.5~0.7
-- axiom_basis: 두 노드 내용에서 관계를 성립시키는 구절을 그대로 인용 (필수).
-  내용에서 근거 구절을 찾을 수 없으면 그 연결은 만들지 마라 — 억지 연결 금지, 연결이 없으면 빈 배열.
-
-${SELFCHECK_BLOCK}
-
-JSON만 반환(코드블록 없이):
-{"connections":[{"new_title":"새명제제목","existing_title":"기존노드제목","relation":"supports","confidence":0.85,"reason":"연결 근거 구체적으로","axiom_basis":"두 노드 내용에서 인용한 근거 구절"}]}`;
 
 export interface CrossConnection {
 	new_title: string;
@@ -1788,69 +1409,6 @@ export async function findCrossConnections(
 
 // ── 유틸 ─────────────────────────────────────────────────
 
-export function splitIntoChunks(text: string, maxChars: number): string[] {
-	if (text.length <= maxChars) return [text];
-
-	const paragraphs = text.split(/\n{2,}/);
-	const chunks: string[] = [];
-	let current = '';
-
-	for (const para of paragraphs) {
-		if (para.length > maxChars) {
-			if (current) { chunks.push(current.trim()); current = ''; }
-			for (let i = 0; i < para.length; i += maxChars) chunks.push(para.slice(i, i + maxChars));
-			continue;
-		}
-		if (current.length + para.length + 2 > maxChars) {
-			if (current) chunks.push(current.trim());
-			current = para;
-		} else {
-			current = current ? `${current}\n\n${para}` : para;
-		}
-	}
-	if (current.trim()) chunks.push(current.trim());
-	return chunks.length > 0 ? chunks : [text.slice(0, maxChars)];
-}
-
-function repairJson(raw: string): string {
-	let s = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-	// 선행 설명문 제거 — 첫 { 또는 [ 앞의 텍스트 제거
-	const firstBrace = Math.min(
-		s.indexOf('{') === -1 ? Infinity : s.indexOf('{'),
-		s.indexOf('[') === -1 ? Infinity : s.indexOf('[')
-	);
-	if (firstBrace > 0 && firstBrace !== Infinity) s = s.slice(firstBrace);
-
-	const stack: string[] = [];
-	let inStr = false;
-	let escaped = false;
-
-	for (const ch of s) {
-		if (escaped) { escaped = false; continue; }
-		if (ch === '\\' && inStr) { escaped = true; continue; }
-		if (ch === '"') { inStr = !inStr; continue; }
-		if (inStr) continue;
-		if (ch === '{') stack.push('}');
-		else if (ch === '[') stack.push(']');
-		else if (ch === '}' || ch === ']') {
-			if (stack[stack.length - 1] === ch) stack.pop();
-		}
-	}
-	s = s.replace(/,\s*$/, '');
-	return s + stack.reverse().join('');
-}
-
-function parseJson<T>(raw: unknown, fallback: T): T {
-	if (raw !== null && typeof raw === 'object') return raw as T;
-	if (typeof raw !== 'string') return fallback;
-	// CLI가 마크다운 코드펜스로 감싸서 반환하는 경우 제거
-	const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-	try {
-		return JSON.parse(repairJson(stripped)) as T;
-	} catch {
-		return fallback;
-	}
-}
 
 // ── 저장 시 통합 (Context 레벨 필터링) ─────────────────────
 
