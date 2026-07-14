@@ -1579,7 +1579,7 @@ var SYSTEM_PROP_MEETING_ADDON = `
 \u2605 \uD68C\uC758 \uD14D\uC2A4\uD2B8 \uADDC\uCE59:
 - \uD654\uC790 \uB808\uC774\uBE14(\uD654\uC7901/\uD654\uC7902/\uC678\uBD80\uC778A \uB4F1)\uC774 \uC788\uC73C\uBA74 \uADC0\uC18D \uD544\uC218: "\uD654\uC7901\uC774 X\uB97C \uC8FC\uC7A5\uD588\uB2E4"
 - \uACB0\uC815\xB7\uD569\uC758 \uC0AC\uD56D \uC6B0\uC120 \uCD94\uCD9C \u2192 role: 'conclusion'
-- \uC785\uC7A5 \uCDA9\uB3CC \uCD94\uCD9C \u2192 role: 'contrast'
+- \uAC19\uC740 \uC0AC\uC2E4\xB7\uC218\uCE58\xB7\uC548\uAC74\uC5D0 \uB300\uD574 \uD654\uC790\uB4E4\uC758 \uC8FC\uC7A5\uC774 \uB2E4\uB974\uBA74(\uC608: "\uC608\uC0B0\uC774 300\uC774\uB2E4" vs "\uC608\uC0B0\uC774 500\uC774\uB2E4") \uC808\uB300 \uD558\uB098\uB85C \uC694\uC57D\xB7\uD569\uC131\uD558\uC9C0 \uB9C8\uB77C \u2014 \uAC01 \uD654\uC790\uC758 \uC8FC\uC7A5\uC744 \uD654\uC790\uBCC4\uB85C \uBCC4\uAC1C\uC758 \uBA85\uC81C\uB85C \uAC01\uAC01 \uCD94\uCD9C\uD558\uB77C(role: 'contrast'). "\uC758\uACAC \uCC28\uC774\uAC00 \uC788\uC5C8\uB2E4" \uAC19\uC740 \uC694\uC57D \uBA85\uC81C \uD558\uB098\uB85C \uBB49\uCE58\uBA74 \uB450 \uC8FC\uC7A5\uC774 \uB3C5\uB9BD \uBA85\uC81C\uB85C \uC874\uC7AC\uD558\uC9C0 \uC54A\uC544 \uC2DC\uC2A4\uD15C\uC774 \uBAA8\uC21C(conflicts_with)\uC744 \uAC10\uC9C0\uD560 \uC218 \uC5C6\uAC8C \uB41C\uB2E4 \u2014 \uBC18\uB4DC\uC2DC \uC591\uCABD\uC744 \uAC01\uC790\uC758 \uBA85\uC81C\uB85C \uB0A8\uACA8\uB77C.
 - "\uC6B0\uB9AC\uAC00 \uACB0\uC815\uD55C", "\uD569\uC758\uB428", "\uD655\uC815" \uD328\uD134 \u2192 role: 'conclusion'
 - \uBAA8\uD638\uD55C "\uADF8\uAC70", "\uC774\uAC70"\uAC00 \uB0A8\uC544\uC788\uC73C\uBA74 \uBCF5\uC6D0 \uBD88\uAC00 \uBA85\uC81C\uB85C \uC81C\uC678`;
 var SYSTEM_PROP_DIALOGUE_ADDONS = {
@@ -1784,8 +1784,16 @@ function splitIntoChunks(text, maxChars) {
         chunks.push(current.trim());
         current = "";
       }
-      for (let i = 0; i < para.length; i += maxChars)
-        chunks.push(para.slice(i, i + maxChars));
+      let rest = para;
+      while (rest.length > maxChars) {
+        let cut = rest.lastIndexOf("\n", maxChars);
+        if (cut < maxChars * 0.3)
+          cut = maxChars;
+        chunks.push(rest.slice(0, cut).trim());
+        rest = rest.slice(cut);
+      }
+      if (rest.trim())
+        chunks.push(rest.trim());
       continue;
     }
     if (current.length + para.length + 2 > maxChars) {
@@ -1801,6 +1809,47 @@ ${para}` : para;
   if (current.trim())
     chunks.push(current.trim());
   return chunks.length > 0 ? chunks : [text.slice(0, maxChars)];
+}
+function reflowTranscript(text, maxGroupChars = 200) {
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0)
+    return text.trim();
+  const groups = [];
+  let cur = [];
+  let curLen = 0;
+  const flush = () => {
+    if (cur.length > 0) {
+      groups.push(cur);
+      cur = [];
+      curLen = 0;
+    }
+  };
+  const isLabelLike = (line) => line.length <= 20 && !/[.!?다요죠까]$/.test(line);
+  for (const line of lines) {
+    if (/^#+\s/.test(line)) {
+      flush();
+      groups.push([line]);
+      continue;
+    }
+    const prevWasLabel = cur.length > 0 && isLabelLike(cur[cur.length - 1]);
+    if (cur.length > 0 && !prevWasLabel && curLen + line.length + 1 > maxGroupChars && curLen >= 50) {
+      flush();
+    }
+    cur.push(line);
+    curLen += line.length + 1;
+  }
+  flush();
+  const isHeadingGroup = (g) => g.length === 1 && /^#+\s/.test(g[0]);
+  if (groups.length >= 2) {
+    const last = groups[groups.length - 1];
+    const prev = groups[groups.length - 2];
+    const lastLen = last.reduce((s, l) => s + l.length, 0);
+    if (lastLen < 50 && !isHeadingGroup(last) && !isHeadingGroup(prev)) {
+      const tail = groups.pop();
+      groups[groups.length - 1].push(...tail);
+    }
+  }
+  return groups.map((g) => g.join("\n")).join("\n\n");
 }
 function repairJson(raw) {
   let s = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
@@ -2325,14 +2374,12 @@ ${contextBlock}
     });
     const propById = new Map(allPropositions.map((p) => [p.id, p]));
     const conflictFiltered = structurallyValid.filter((e) => {
-      if (e.relation !== "conflicts_with")
+      if (e.relation !== "conflicts_with" && e.relation !== "contrasts_with")
         return true;
       const a2 = propById.get(e.source);
       const b = propById.get(e.target);
       if (!a2 || !b)
         return true;
-      if (a2.block_id && b.block_id && a2.block_id === b.block_id)
-        return false;
       if (isMoneyVocabFalseConflict(a2.text, b.text))
         return false;
       return true;
@@ -2414,6 +2461,12 @@ ${propList}
         const rel = toRelation(String(e.relation));
         if (rel !== "contrasts_with" && rel !== "analogous_to" && rel !== "isomorphic_to")
           continue;
+        if (rel === "contrasts_with") {
+          const srcProp = allPropositions.find((p) => p.id === source);
+          const tgtProp = allPropositions.find((p) => p.id === target);
+          if (srcProp && tgtProp && isMoneyVocabFalseConflict(srcProp.text, tgtProp.text))
+            continue;
+        }
         const key = [source, target].sort().join("\u2194");
         if (seen.has(key))
           continue;
@@ -3311,17 +3364,22 @@ ${summary}
    */
   async insertBlockIds(rawFile, items) {
     if (items.length === 0)
-      return;
+      return { matched: 0, missed: 0 };
     let content = await this.app.vault.read(rawFile);
     const paraEnd = (src, from) => {
       const next = src.indexOf("\n\n", from);
       return next !== -1 ? next : src.length;
     };
+    let matched = 0;
+    let missed = 0;
     const insertions = /* @__PURE__ */ new Map();
     for (const { blockId, spanText } of items) {
       const trimmed = spanText.trim();
-      if (!trimmed || !content.includes(trimmed))
+      if (!trimmed || !content.includes(trimmed)) {
+        missed++;
         continue;
+      }
+      matched++;
       const pos = content.indexOf(trimmed);
       const end = paraEnd(content, pos + trimmed.length);
       const near = content.slice(Math.max(0, end - 30), end);
@@ -3336,6 +3394,7 @@ ${summary}
       result = result.slice(0, pos) + ` ^${bid}` + result.slice(pos);
     }
     await this.app.vault.modify(rawFile, result);
+    return { matched, missed };
   }
   /**
    * raw 원본 파일에 명제 출처 주석을 삽입한다.
@@ -3545,6 +3604,11 @@ ${summary}
     });
     return movedFile;
   }
+  /** YAML 큰따옴표 문자열로 안전하게 이스케이프. 개행이 raw로 섞이면 quoted scalar가 깨져
+   *  프론트매터 파싱 자체가 실패하므로(모든 필드가 함께 죽음), 개행류는 공백으로 치환한다. */
+  yamlQuote(s) {
+    return s.replace(/"/g, '\\"').replace(/[\r\n]+/g, " ").trim();
+  }
   buildFrontmatter(node) {
     const edges = node.edges ?? [];
     const edgesJson = JSON.stringify(edges);
@@ -3554,7 +3618,7 @@ ${summary}
     const linksStr = linkTargets.length > 0 ? "\n" + linkTargets.map((t) => `  - "${t}"`).join("\n") : " []";
     const lines = [
       "---",
-      `tb_title: "${node.title.replace(/"/g, '\\"')}"`,
+      `tb_title: "${this.yamlQuote(node.title)}"`,
       `tb_id: "${node.id}"`,
       `tb_type: ${node.type}`,
       `tb_created: "${node.created}"`,
@@ -3572,9 +3636,9 @@ ${summary}
     if (node.block_id)
       lines.push(`tb_block_id: "${node.block_id}"`);
     if (node.heading_path)
-      lines.push(`tb_heading_path: "${node.heading_path.replace(/"/g, '\\"')}"`);
+      lines.push(`tb_heading_path: "${this.yamlQuote(node.heading_path)}"`);
     if (node.raw_path)
-      lines.push(`tb_raw_path: "${node.raw_path.replace(/"/g, '\\"')}"`);
+      lines.push(`tb_raw_path: "${this.yamlQuote(node.raw_path)}"`);
     if (node.topic)
       lines.push(`tb_topic: "[[${node.topic}]]"`);
     const hasConflict = edges.some((e) => e.label === "conflicts_with" && e.confirmed);
@@ -41233,6 +41297,7 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     }
     const allRawLinks = [];
     const allBlockIdSpans = [];
+    const canonicalParts = [];
     try {
       let speakerRoster;
       if (contentType === "meeting" || contentType === "dialogue") {
@@ -41249,6 +41314,8 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
           if (res) {
             allRawLinks.push(...res.rawLinks);
             allBlockIdSpans.push(...res.blockIdSpans);
+            if (res.canonicalText)
+              canonicalParts.push(res.canonicalText);
           }
         }
       } else {
@@ -41256,12 +41323,20 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
         if (res) {
           allRawLinks.push(...res.rawLinks);
           allBlockIdSpans.push(...res.blockIdSpans);
+          if (res.canonicalText)
+            canonicalParts.push(res.canonicalText);
         }
       }
       if (rawFile) {
-        if (allBlockIdSpans.length > 0) {
-          await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {
+        if (canonicalParts.length > 0) {
+          await this.app.vault.modify(rawFile, canonicalParts.join("\n\n") + "\n").catch(() => {
           });
+        }
+        if (allBlockIdSpans.length > 0) {
+          const anchorStats = await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => null);
+          if (anchorStats && anchorStats.missed > 0) {
+            new import_obsidian13.Notice(this.plugin.settings.lang === "ko" ? `[ThirdBrain] \uC6D0\uBB38 \uC575\uCEE4 ${anchorStats.matched}/${anchorStats.matched + anchorStats.missed} \uB9E4\uCE6D \u2014 ${anchorStats.missed}\uAC74 \uBBF8\uB9E4\uCE6D` : `[ThirdBrain] Source anchors ${anchorStats.matched}/${anchorStats.matched + anchorStats.missed} matched \u2014 ${anchorStats.missed} missed`, 8e3);
+          }
         }
         if (allRawLinks.length > 0) {
           await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {
@@ -41304,13 +41379,14 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     };
     let workingText = text;
     let _speakerNorm = null;
-    if (contentType === "meeting" || contentType === "dialogue") {
+    const isTranscript = contentType === "meeting" || contentType === "dialogue";
+    if (isTranscript) {
       this.setProgress(1, this.t("progress_normalize"));
       _speakerNorm = await timed(
         this.t("step_normalize"),
         () => normalizeSpeakers(text, this.plugin.settings, speakerRoster)
       );
-      workingText = _speakerNorm.text;
+      workingText = reflowTranscript(_speakerNorm.text);
     }
     try {
       let contexts;
@@ -41422,7 +41498,7 @@ ${diagMsg}`
           window.setTimeout(() => {
             void this.openNativeGraph([targetFolder]);
           }, 300);
-          return { rawLinks, blockIdSpans };
+          return { rawLinks, blockIdSpans, canonicalText: isTranscript ? workingText : void 0 };
         } catch (err) {
           this.hideProgress();
           new import_obsidian13.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);

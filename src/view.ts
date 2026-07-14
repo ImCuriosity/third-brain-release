@@ -19,7 +19,7 @@ import {
 	findCrossConnections,
 } from './engine/serial-pipeline';
 import type { FolderDigestNode, CrossConnection, SpeakerNormResult, SpeakerRoster, DetectedProblem } from './engine/serial-pipeline';
-import { splitIntoChunks } from './engine/text-utils';
+import { splitIntoChunks, reflowTranscript } from './engine/text-utils';
 import { getSessionStats, setRequestUrl } from './engine/cli-bridge';
 import { GraphStore } from './engine/graph-store';
 import { isMisassignedContext, shouldLinkContext, bestContextByRelevance, contextRelevanceScore } from './engine/context-relevance';
@@ -699,6 +699,7 @@ export class ThirdBrainView extends ItemView {
 		type RawLink = { file: TFile; sourceSpan?: { text: string; offset: number } };
 		const allRawLinks: RawLink[] = [];
 		const allBlockIdSpans: Array<{ blockId: string; spanText: string }> = [];
+		const canonicalParts: string[] = []; // 전사본: 청크별 정규화·재정형 텍스트 (raw 정본 교체용)
 
 		try {
 			// 화자 정체성은 청크 경계를 넘어 일관돼야 한다 → 청킹 전에 전체 텍스트로 화자 명단을 1회 확정.
@@ -716,17 +717,37 @@ export class ThirdBrainView extends ItemView {
 					this.setProgress(1, `(${i + 1}/${chunks.length}) ${this.t('progress_chunk')}`);
 					const isLast = i === chunks.length - 1;
 					const res = await this.runPipeline(chunks[i], undefined, selectedFolder, `청크 ${i + 1}/${chunks.length}`, includeActionLayer, rawFile, i === 0 && needsAutoTitle, isLast, meetingType, contentType, dialogueSubtype, speakerRoster);
-					if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
+					if (res) {
+						allRawLinks.push(...res.rawLinks);
+						allBlockIdSpans.push(...res.blockIdSpans);
+						if (res.canonicalText) canonicalParts.push(res.canonicalText);
+					}
 				}
 			} else {
 				const res = await this.runPipeline(text, undefined, selectedFolder, undefined, includeActionLayer, rawFile, needsAutoTitle, true, meetingType, contentType, dialogueSubtype, speakerRoster);
-				if (res) { allRawLinks.push(...res.rawLinks); allBlockIdSpans.push(...res.blockIdSpans); }
+				if (res) {
+					allRawLinks.push(...res.rawLinks);
+					allBlockIdSpans.push(...res.blockIdSpans);
+					if (res.canonicalText) canonicalParts.push(res.canonicalText);
+				}
 			}
 
 			// 모든 청크의 rawLinks를 한 번에 원본 파일에 기록 (청크별 덮어쓰기 방지)
 			if (rawFile) {
+				// [철학 §5] 전사본은 정규화·재정형본이 raw 정본 — 원본을 교체해야
+				// source_span 문자열 검색(앵커·📌 인용)이 정확히 그 발화 그룹에 붙는다.
+				// (익명화된 정본이 닻이 되므로 PII가 남지 않는 효과도 겸함)
+				if (canonicalParts.length > 0) {
+					await this.app.vault.modify(rawFile, canonicalParts.join('\n\n') + '\n').catch(() => {});
+				}
 				if (allBlockIdSpans.length > 0) {
-					await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => {});
+					const anchorStats = await this.store.insertBlockIds(rawFile, allBlockIdSpans).catch(() => null);
+					// 앵커 미매칭 가시화 — 그라운딩 품질 계측 (미매칭 0이 정상)
+					if (anchorStats && anchorStats.missed > 0) {
+						new Notice(this.plugin.settings.lang === 'ko'
+							? `[ThirdBrain] 원문 앵커 ${anchorStats.matched}/${anchorStats.matched + anchorStats.missed} 매칭 — ${anchorStats.missed}건 미매칭`
+							: `[ThirdBrain] Source anchors ${anchorStats.matched}/${anchorStats.matched + anchorStats.missed} matched — ${anchorStats.missed} missed`, 8000);
+					}
 				}
 				if (allRawLinks.length > 0) {
 					await this.store.appendLinksToRawFile(rawFile, allRawLinks).catch(() => {});
@@ -795,11 +816,14 @@ export class ThirdBrainView extends ItemView {
 		// 0.5차: 화자 정규화 (회의/대화 전용) — 청킹 전에 확정한 전역 로스터를 주입해 라벨 일관성 보장
 		let workingText = text;
 		let _speakerNorm: SpeakerNormResult | null = null;
-		if (contentType === 'meeting' || contentType === 'dialogue') {
+		const isTranscript = contentType === 'meeting' || contentType === 'dialogue';
+		if (isTranscript) {
 			this.setProgress(1, this.t('progress_normalize'));
 			_speakerNorm = await timed(this.t('step_normalize'),
 				() => normalizeSpeakers(text, this.plugin.settings, speakerRoster));
-			workingText = _speakerNorm.text;
+			// 재정형: 발화 그룹(빈 줄 구분)으로 재조립 — 명제 단락·raw 정본·^tb 앵커 경계를 일치시킨다.
+			// 이 workingText가 runIngest에서 raw 정본으로 저장된다 (철학 §5: 정규화본이 물리적 닻).
+			workingText = reflowTranscript(_speakerNorm.text);
 		}
 
 		try {
@@ -938,7 +962,8 @@ export class ThirdBrainView extends ItemView {
 						void this.openNativeGraph([targetFolder]);
 					}, 300);
 
-					return { rawLinks, blockIdSpans };
+					// 전사본은 정규화·재정형된 workingText가 정본 — runIngest가 raw 파일을 이것으로 교체
+					return { rawLinks, blockIdSpans, canonicalText: isTranscript ? workingText : undefined };
 				} catch (err) {
 					this.hideProgress();
 					new Notice(`${this.t('save_error_ingest_prefix')}${err instanceof Error ? err.message : String(err)}`);

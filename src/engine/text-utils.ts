@@ -43,7 +43,16 @@ export function splitIntoChunks(text: string, maxChars: number): string[] {
 	for (const para of paragraphs) {
 		if (para.length > maxChars) {
 			if (current) { chunks.push(current.trim()); current = ''; }
-			for (let i = 0; i < para.length; i += maxChars) chunks.push(para.slice(i, i + maxChars));
+			// 초과 단락은 문장 중간이 아니라 마지막 개행(발화 경계)에서 절단.
+			// 개행이 너무 앞쪽(30% 미만)이면 기존 하드컷 유지 — 무한루프·초미니 청크 방지.
+			let rest = para;
+			while (rest.length > maxChars) {
+				let cut = rest.lastIndexOf('\n', maxChars);
+				if (cut < maxChars * 0.3) cut = maxChars;
+				chunks.push(rest.slice(0, cut).trim());
+				rest = rest.slice(cut);
+			}
+			if (rest.trim()) chunks.push(rest.trim());
 			continue;
 		}
 		if (current.length + para.length + 2 > maxChars) {
@@ -55,6 +64,73 @@ export function splitIntoChunks(text: string, maxChars: number): string[] {
 	}
 	if (current.trim()) chunks.push(current.trim());
 	return chunks.length > 0 ? chunks : [text.slice(0, maxChars)];
+}
+
+/**
+ * 전사본 재정형 — 발화(개행) 단위를 보존하면서 연속 발화를 그룹(≤maxGroupChars)으로 묶고,
+ * 그룹 사이를 빈 줄(\n\n)로 구분한다. 단어는 그대로, 공백 구조만 바꾼다.
+ *
+ * 목적: 빈 줄 없는 STT 전사본은 청크 전체(≤5,000자)가 단락 하나로 붙어
+ * source_span·블록 앵커가 거대 덩어리를 가리키게 된다. 재정형하면
+ * "명제 추출 단락 = raw 정본의 Obsidian 블록 = ^tb 앵커 위치"가 한 몸이 된다.
+ *
+ * 그룹 크기(350자 ≈ 발화 2~4턴)는 SYSTEM_PROP_BASE의 "단락 하나당 명제 최대 3개" 상한과
+ * 맞물린다 — 그룹이 크면(예: 800자, 발화 6턴 이상) 한 단락 안에 서로 다른 주장이 여럿
+ * 몰려도 여전히 3개까지만 뽑혀 값 있는 명제가 소리 없이 소실된다(실측: 논쟁 6턴짜리 회의에서
+ * 화자 한쪽의 핵심 수치 주장이 통째로 누락됨). 그룹을 작게 쪼개 단락 수를 늘리면
+ * 단락당 캡은 유지하면서 총 슬롯(3×단락 수)이 늘어 소실을 줄인다.
+ *
+ * - 그룹은 50자 미만으로 flush하지 않는다(약간의 초과 허용) — 명제 추출 최소 단락(50자) 미달 소실 방지
+ * - 꼬리 그룹이 50자 미만이면 직전 그룹에 병합
+ */
+export function reflowTranscript(text: string, maxGroupChars = 200): string {
+	const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
+	if (lines.length === 0) return text.trim();
+
+	const groups: string[][] = [];
+	let cur: string[] = [];
+	let curLen = 0;
+	const flush = () => {
+		if (cur.length > 0) { groups.push(cur); cur = []; curLen = 0; }
+	};
+	// "00:00:05 김민수" 같은 화자 라벨 줄(짧고 문장종결어미로 안 끝남) 판정.
+	// 라벨 줄 바로 뒤에서 그룹을 끊으면 다음 그룹이 화자 없는 내용으로 시작해
+	// "화자 귀속 필수" 규칙이 깨지고, 대사 하나가 두 단락으로 잘려 문맥이 끊긴다.
+	const isLabelLike = (line: string): boolean =>
+		line.length <= 20 && !/[.!?다요죠까]$/.test(line);
+
+	for (const line of lines) {
+		// 마크다운 헤딩(#)은 항상 독립 그룹 — extractPropositions의 헤딩 감지가
+		// "문단 = 헤딩 전용 한 줄"을 전제하므로, 발화와 섞이면 그룹 전체(개행 포함)가
+		// 헤딩 텍스트로 오인되어 heading_path에 raw 개행이 박히고 frontmatter YAML이 깨진다.
+		if (/^#+\s/.test(line)) {
+			flush();
+			groups.push([line]);
+			continue;
+		}
+		const prevWasLabel = cur.length > 0 && isLabelLike(cur[cur.length - 1]);
+		if (cur.length > 0 && !prevWasLabel && curLen + line.length + 1 > maxGroupChars && curLen >= 50) {
+			flush();
+		}
+		cur.push(line);
+		curLen += line.length + 1;
+	}
+	flush();
+
+	// 꼬리 그룹 병합 — 마지막 짧은 발화가 단락 최소치 미달로 소실되지 않게.
+	// 헤딩 그룹은 병합 대상·목적지 어느 쪽으로도 섞지 않는다(위 헤딩 오인 버그 재발 방지).
+	const isHeadingGroup = (g: string[]) => g.length === 1 && /^#+\s/.test(g[0]);
+	if (groups.length >= 2) {
+		const last = groups[groups.length - 1];
+		const prev = groups[groups.length - 2];
+		const lastLen = last.reduce((s, l) => s + l.length, 0);
+		if (lastLen < 50 && !isHeadingGroup(last) && !isHeadingGroup(prev)) {
+			const tail = groups.pop()!;
+			groups[groups.length - 1].push(...tail);
+		}
+	}
+
+	return groups.map(g => g.join('\n')).join('\n\n');
 }
 
 export function repairJson(raw: string): string {

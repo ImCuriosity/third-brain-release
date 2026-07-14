@@ -347,8 +347,8 @@ export class GraphStore {
 	async insertBlockIds(
 		rawFile: TFile,
 		items: Array<{ blockId: string; spanText: string }>
-	): Promise<void> {
-		if (items.length === 0) return;
+	): Promise<{ matched: number; missed: number }> {
+		if (items.length === 0) return { matched: 0, missed: 0 };
 		let content = await this.app.vault.read(rawFile);
 
 		const paraEnd = (src: string, from: number): number => {
@@ -356,10 +356,13 @@ export class GraphStore {
 			return next !== -1 ? next : src.length;
 		};
 
+		let matched = 0;
+		let missed = 0;
 		const insertions = new Map<number, string>();
 		for (const { blockId, spanText } of items) {
 			const trimmed = spanText.trim();
-			if (!trimmed || !content.includes(trimmed)) continue;
+			if (!trimmed || !content.includes(trimmed)) { missed++; continue; }
+			matched++;
 			const pos = content.indexOf(trimmed);
 			const end = paraEnd(content, pos + trimmed.length);
 			const near = content.slice(Math.max(0, end - 30), end);
@@ -376,6 +379,7 @@ export class GraphStore {
 		}
 
 		await this.app.vault.modify(rawFile, result);
+		return { matched, missed };
 	}
 
 	/**
@@ -662,6 +666,12 @@ export class GraphStore {
 		return movedFile;
 	}
 
+	/** YAML 큰따옴표 문자열로 안전하게 이스케이프. 개행이 raw로 섞이면 quoted scalar가 깨져
+	 *  프론트매터 파싱 자체가 실패하므로(모든 필드가 함께 죽음), 개행류는 공백으로 치환한다. */
+	private yamlQuote(s: string): string {
+		return s.replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ').trim();
+	}
+
 	private buildFrontmatter(node: Omit<TBNode, 'filePath'>): string {
 		const edges = node.edges ?? [];
 		const edgesJson = JSON.stringify(edges);
@@ -679,7 +689,7 @@ export class GraphStore {
 
 		const lines = [
 			'---',
-			`tb_title: "${node.title.replace(/"/g, '\\"')}"`,
+			`tb_title: "${this.yamlQuote(node.title)}"`,
 			`tb_id: "${node.id}"`,
 			`tb_type: ${node.type}`,
 			`tb_created: "${node.created}"`,
@@ -693,8 +703,8 @@ export class GraphStore {
 		}
 		if (node.proposition_type === 'fact') lines.push('tb_proposition_type: fact');
 		if (node.block_id) lines.push(`tb_block_id: "${node.block_id}"`);
-		if (node.heading_path) lines.push(`tb_heading_path: "${node.heading_path.replace(/"/g, '\\"')}"`);
-		if (node.raw_path) lines.push(`tb_raw_path: "${node.raw_path.replace(/"/g, '\\"')}"`);
+		if (node.heading_path) lines.push(`tb_heading_path: "${this.yamlQuote(node.heading_path)}"`);
+		if (node.raw_path) lines.push(`tb_raw_path: "${this.yamlQuote(node.raw_path)}"`);
 		if (node.topic) lines.push(`tb_topic: "[[${node.topic}]]"`);
 		// Phase 2-4: conflicts_with 엣지가 있으면 tb_conflict 마킹
 		const hasConflict = edges.some(e => e.label === 'conflicts_with' && e.confirmed);

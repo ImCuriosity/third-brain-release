@@ -686,17 +686,21 @@ export async function extractEdges(
 				return true;
 			});
 
-		// conflicts_with 오발 억제 (모순 판별 전용) — 다른 관계는 그대로 통과
-		//  ① 같은 원문 블록(block_id)에서 추출된 명제쌍: 한 발화를 쪼갠 두 명제는 모순이 아니다
-		//  ② 화폐 어휘만 겹치고 실제 사안은 무관한 쌍: 금액 어휘 오발
+		// conflicts_with·contrasts_with 오발 억제 — AXIOM_RELATIONS가 이 둘을 "같은 대상·같은
+		// 사안일 때만 후보"라는 동일 규칙으로 묶으므로 게이트도 둘 다에 적용한다. 다른 관계는 그대로 통과.
+		// 화폐 어휘만 겹치고 실제 사안은 무관한 쌍(예: 서버비용 ↔ 마케팅예산)을 걸러낸다.
+		//
+		// 주의: "같은 원문 블록 출처면 차단"(구 게이트①)은 폐기했다 — 전사본 재정형(reflowTranscript)
+		// 도입 이후 블록 하나가 여러 화자의 여러 발화를 묶을 수 있어, "같은 발화를 쪼갠 두 명제라 모순
+		// 아니다"라는 전제가 깨졌다. 오히려 진짜 대립 쌍(예: 예산 300 vs 500)이 같은 블록에서 나오는
+		// 경우가 흔해져 이 게이트가 정답 엣지를 걸러버리는 위험이 더 커졌다.
 		const propById = new Map(allPropositions.map(p => [p.id, p]));
 		const conflictFiltered = structurallyValid.filter(e => {
-			if (e.relation !== 'conflicts_with') return true;
+			if (e.relation !== 'conflicts_with' && e.relation !== 'contrasts_with') return true;
 			const a = propById.get(e.source);
 			const b = propById.get(e.target);
 			if (!a || !b) return true;
-			if (a.block_id && b.block_id && a.block_id === b.block_id) return false; // ①
-			if (isMoneyVocabFalseConflict(a.text, b.text)) return false;             // ②
+			if (isMoneyVocabFalseConflict(a.text, b.text)) return false;
 			return true;
 		});
 
@@ -790,6 +794,13 @@ export async function findContrastsAnalogies(
 			try {
 				const rel = toRelation(String(e.relation));
 				if (rel !== 'contrasts_with' && rel !== 'analogous_to' && rel !== 'isomorphic_to') continue;
+				// extractEdges와 동일한 화폐 어휘 오발 게이트를 contrasts_with에도 적용
+				// (같은-블록 차단은 폐기 — reflowTranscript 도입 이후 전제가 깨짐, extractEdges 주석 참조)
+				if (rel === 'contrasts_with') {
+					const srcProp = allPropositions.find(p => p.id === source);
+					const tgtProp = allPropositions.find(p => p.id === target);
+					if (srcProp && tgtProp && isMoneyVocabFalseConflict(srcProp.text, tgtProp.text)) continue;
+				}
 				// 이 단계는 대칭 관계만 생성 → 순서 무관 키로 A↔B 역방향 중복 제거
 				const key = [source, target].sort().join('↔');
 				if (seen.has(key)) continue;
