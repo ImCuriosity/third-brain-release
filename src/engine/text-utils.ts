@@ -66,6 +66,15 @@ export function splitIntoChunks(text: string, maxChars: number): string[] {
 	return chunks.length > 0 ? chunks : [text.slice(0, maxChars)];
 }
 
+// 국내 전화번호(휴대폰/유선, +82 표기 포함) 결정적 마스킹 — LLM 정규화 프롬프트는
+// 이름은 일관되게 익명화하지만 숫자열 마스킹은 누락시킬 수 있어(실측: 010-1234-5678 원문 그대로 통과),
+// 정규화본이 raw/ 정본으로 영구 저장되는 지점에서 코드 레벨 정규식으로 이중 방어한다.
+const PHONE_PATTERN = /(?:\+?82[-.\s]?0?|0)\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
+
+export function redactPhoneNumbers(text: string): string {
+	return text.replace(PHONE_PATTERN, '[전화번호 비공개]');
+}
+
 /**
  * 전사본 재정형 — 발화(개행) 단위를 보존하면서 연속 발화를 그룹(≤maxGroupChars)으로 묶고,
  * 그룹 사이를 빈 줄(\n\n)로 구분한다. 단어는 그대로, 공백 구조만 바꾼다.
@@ -119,12 +128,17 @@ export function reflowTranscript(text: string, maxGroupChars = 200): string {
 
 	// 꼬리 그룹 병합 — 마지막 짧은 발화가 단락 최소치 미달로 소실되지 않게.
 	// 헤딩 그룹은 병합 대상·목적지 어느 쪽으로도 섞지 않는다(위 헤딩 오인 버그 재발 방지).
+	// 병합 후 크기가 maxGroupChars를 넘으면 병합하지 않는다 — 직전 그룹이 이미 라벨-쌍
+	// 보호로 상한 근처까지 찬 상태에서 꼬리까지 얹으면 발화 4턴 이상이 한 단락에 몰려
+	// SYSTEM_PROP_BASE의 "단락당 명제 최대 3개" 상한에 걸려 꼬리 발화가 소리 없이 소실된다
+	// (실측: 짧은 회의 4턴 중 마지막 화자의 커밋먼트가 통째로 누락).
 	const isHeadingGroup = (g: string[]) => g.length === 1 && /^#+\s/.test(g[0]);
 	if (groups.length >= 2) {
 		const last = groups[groups.length - 1];
 		const prev = groups[groups.length - 2];
 		const lastLen = last.reduce((s, l) => s + l.length, 0);
-		if (lastLen < 50 && !isHeadingGroup(last) && !isHeadingGroup(prev)) {
+		const prevLen = prev.reduce((s, l) => s + l.length, 0);
+		if (lastLen < 50 && !isHeadingGroup(last) && !isHeadingGroup(prev) && prevLen + lastLen <= maxGroupChars) {
 			const tail = groups.pop()!;
 			groups[groups.length - 1].push(...tail);
 		}

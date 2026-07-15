@@ -1810,6 +1810,10 @@ ${para}` : para;
     chunks.push(current.trim());
   return chunks.length > 0 ? chunks : [text.slice(0, maxChars)];
 }
+var PHONE_PATTERN = /(?:\+?82[-.\s]?0?|0)\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
+function redactPhoneNumbers(text) {
+  return text.replace(PHONE_PATTERN, "[\uC804\uD654\uBC88\uD638 \uBE44\uACF5\uAC1C]");
+}
 function reflowTranscript(text, maxGroupChars = 200) {
   const lines = text.split(/\n+/).map((l) => l.trim()).filter((l) => l.length > 0);
   if (lines.length === 0)
@@ -1844,7 +1848,8 @@ function reflowTranscript(text, maxGroupChars = 200) {
     const last = groups[groups.length - 1];
     const prev = groups[groups.length - 2];
     const lastLen = last.reduce((s, l) => s + l.length, 0);
-    if (lastLen < 50 && !isHeadingGroup(last) && !isHeadingGroup(prev)) {
+    const prevLen = prev.reduce((s, l) => s + l.length, 0);
+    if (lastLen < 50 && !isHeadingGroup(last) && !isHeadingGroup(prev) && prevLen + lastLen <= maxGroupChars) {
       const tail = groups.pop();
       groups[groups.length - 1].push(...tail);
     }
@@ -1985,14 +1990,14 @@ ${rawText.slice(0, 12e3)}`;
     if (typeof parsed.normalized_text === "string" && parsed.normalized_text.trim().length > 50) {
       const parsedSpeakers = typeof parsed.speakers === "object" && parsed.speakers !== null ? parsed.speakers : {};
       return {
-        text: parsed.normalized_text.trim(),
+        text: redactPhoneNumbers(parsed.normalized_text.trim()),
         // 전역 로스터를 우선 유지 (청크가 명단을 축소/변형하지 않도록)
         speakers: roster && Object.keys(roster.speakers).length > 0 ? roster.speakers : parsedSpeakers
       };
     }
   } catch {
   }
-  return { text: rawText, speakers: roster?.speakers ?? {} };
+  return { text: redactPhoneNumbers(rawText), speakers: roster?.speakers ?? {} };
 }
 async function extractContexts(text, settings) {
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -2129,6 +2134,7 @@ async function mapWithConcurrency(items, limit, fn, primeFirst = false) {
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
   return results;
 }
+var MIN_PARAGRAPH_CHARS = 20;
 async function extractPropositions(contexts, rawText, settings, contentType = "document", dialogueSubtype) {
   const paragraphs = [];
   {
@@ -2152,7 +2158,7 @@ async function extractPropositions(contexts, rawText, settings, contentType = "d
         } else {
           headings[2] = headingText;
         }
-      } else if (trimmed.length >= 50) {
+      } else if (trimmed.length >= MIN_PARAGRAPH_CHARS) {
         const lws = seg.length - seg.trimStart().length;
         const sectionHint = headings[2] || headings[1] || headings[0];
         const headingPath = headings.filter(Boolean).join(" > ");
@@ -2162,7 +2168,7 @@ async function extractPropositions(contexts, rawText, settings, contentType = "d
     }
     const lastSeg = rawText.slice(lastIdx);
     const lastTrimmed = lastSeg.trim();
-    if (!lastTrimmed.startsWith("#") && lastTrimmed.length >= 50) {
+    if (!lastTrimmed.startsWith("#") && lastTrimmed.length >= MIN_PARAGRAPH_CHARS) {
       const lws = lastSeg.length - lastSeg.trimStart().length;
       const sectionHint = headings[2] || headings[1] || headings[0];
       const headingPath = headings.filter(Boolean).join(" > ");
@@ -2333,7 +2339,7 @@ ${contextBlock}
 
 ` + edgeSchema;
   try {
-    const raw = await callClaudeWithModel(
+    const raw = await withRetry(() => callClaudeWithModel(
       prompt,
       settings.cliBin,
       "standard",
@@ -2341,7 +2347,7 @@ ${contextBlock}
       settings.claudeApiKey,
       settings.geminiApiKey,
       settings.openaiApiKey
-    );
+    ));
     const parsed = parseJson(raw, { edges: [] });
     const pIndexMap = /* @__PURE__ */ new Map();
     allPropositions.forEach((p, idx) => {

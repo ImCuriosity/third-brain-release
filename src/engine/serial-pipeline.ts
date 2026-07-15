@@ -58,7 +58,7 @@ import {
 	SYSTEM_TRANSPLANT_EDGES,
 	SYSTEM_CROSS,
 } from './prompts';
-import { splitIntoParagraphs, shortHash, splitIntoChunks, repairJson, parseJson } from './text-utils';
+import { splitIntoParagraphs, shortHash, splitIntoChunks, repairJson, parseJson, redactPhoneNumbers } from './text-utils';
 
 export const DISTILL_THRESHOLD = 10000;  // 하위 호환 — 더 이상 메인 플로우에서 사용 안 함
 export const CHUNK_SIZE = 5000;           // 청크별 풀파이프라인 분할 기준 (cmd.exe 8191자 한계 대응)
@@ -197,13 +197,13 @@ export async function normalizeSpeakers(
 		if (typeof parsed.normalized_text === 'string' && parsed.normalized_text.trim().length > 50) {
 			const parsedSpeakers = (typeof parsed.speakers === 'object' && parsed.speakers !== null) ? parsed.speakers : {};
 			return {
-				text: parsed.normalized_text.trim(),
+				text: redactPhoneNumbers(parsed.normalized_text.trim()),
 				// 전역 로스터를 우선 유지 (청크가 명단을 축소/변형하지 않도록)
 				speakers: roster && Object.keys(roster.speakers).length > 0 ? roster.speakers : parsedSpeakers,
 			};
 		}
 	} catch { /* 정규화 실패 시 원본 그대로 사용 */ }
-	return { text: rawText, speakers: roster?.speakers ?? {} };
+	return { text: redactPhoneNumbers(rawText), speakers: roster?.speakers ?? {} };
 }
 
 // ── 1차: 문맥 레이어 추출 ────────────────────────────────
@@ -398,6 +398,12 @@ async function mapWithConcurrency<T, R>(
 	return results;
 }
 
+// 단락 최소 길이 — 50자였던 과거 값은 "제가 다음 주 금요일까지 초안을 만들어볼게요" 같은
+// 실제 커밋먼트·짧은 사실 문장(40자대)까지 통째로 드롭시켰다(실측: 액션 담당자 귀속 오류의
+// 근본 원인). 순수 잡음(인사말·타임스탬프 단독) 배제는 이미 SYSTEM_PROP_BASE 프롬프트가
+// "{"propositions": []}" 반환으로 처리하므로, 코드 레벨 하한은 최소한으로만 유지한다.
+const MIN_PARAGRAPH_CHARS = 20;
+
 export async function extractPropositions(
 	contexts: ContextLayer[],
 	rawText: string,
@@ -422,7 +428,7 @@ export async function extractPropositions(
 				if (level === 1) { headings[0] = headingText; headings[1] = ''; headings[2] = ''; }
 				else if (level === 2) { headings[1] = headingText; headings[2] = ''; }
 				else { headings[2] = headingText; }
-			} else if (trimmed.length >= 50) {
+			} else if (trimmed.length >= MIN_PARAGRAPH_CHARS) {
 				const lws = seg.length - seg.trimStart().length;
 				const sectionHint = headings[2] || headings[1] || headings[0];
 				const headingPath = headings.filter(Boolean).join(' > ');
@@ -432,7 +438,7 @@ export async function extractPropositions(
 		}
 		const lastSeg = rawText.slice(lastIdx);
 		const lastTrimmed = lastSeg.trim();
-		if (!lastTrimmed.startsWith('#') && lastTrimmed.length >= 50) {
+		if (!lastTrimmed.startsWith('#') && lastTrimmed.length >= MIN_PARAGRAPH_CHARS) {
 			const lws = lastSeg.length - lastSeg.trimStart().length;
 			const sectionHint = headings[2] || headings[1] || headings[0];
 			const headingPath = headings.filter(Boolean).join(' > ');
@@ -640,15 +646,18 @@ export async function extractEdges(
 
 	type RawEdge = { source: string; target: string; relation: string; reason: string; axiom_basis?: string; confidence?: number };
 	try {
-		const raw = await callClaudeWithModel(
+		// [일관성] 다른 모든 추출 콜(명제·액션·대조 등)은 withRetry로 감싸져 있으나 이 콜만 단발이었다 —
+		// 일시적 CLI 실패 시 catch가 빈 배열로 조용히 폴백하면서 문서 전체의 논리 엣지가 통째로 소실됐다
+		// (실측: 명제 20개 규모 문서에서 재현). 다른 콜과 동일하게 재시도로 통일한다.
+		const raw = await withRetry(() => callClaudeWithModel(
 			prompt,
 			settings.cliBin,
 			'standard',
 			settings.aiProvider,
 			settings.claudeApiKey,
 			settings.geminiApiKey,
-		settings.openaiApiKey
-		);
+			settings.openaiApiKey
+		));
 		const parsed = parseJson<{ edges?: RawEdge[] }>(raw, { edges: [] });
 
 		// p1, p2... → 원본 ID로 매핑 (GPT가 "1" 형식으로 반환하는 경우도 처리)
