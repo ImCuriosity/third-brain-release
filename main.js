@@ -43076,9 +43076,13 @@ var ThirdBrainSettingTab = class extends import_obsidian14.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
+  // 이중 구현 전략 — display()는 모든 Obsidian 버전에서 실제 렌더링을 담당하고(1.13 미만은
+  // 선언형 API 자체가 없어 이것만이 유일한 경로. 실측: 1.10.6에서 선언형만 두면 빈 설정창),
+  // getSettingDefinitions()는 1.13+의 설정 "검색" 인덱싱에 쓰인다. minAppVersion을 1.13으로
+  // 올리지 않기 위한 의도적 병행 — display() deprecated 권고는 감수한다.
   // 선언형 설정 API (Obsidian 1.13+) — 값 읽기/쓰기는 아래 get/setControlValue가 담당하고,
   // 여기서는 구조만 선언한다. visible 콜백은 매 렌더마다 재평가되므로 프로바이더 전환 시
-  // API 키 필드가 자동으로 나타나고 사라진다 (기존 display() 수동 재렌더 대체).
+  // API 키 필드가 자동으로 나타나고 사라진다.
   getSettingDefinitions() {
     const t = getT(this.plugin.settings.lang);
     const ko = this.plugin.settings.lang === "ko";
@@ -43182,7 +43186,7 @@ var ThirdBrainSettingTab = class extends import_obsidian14.PluginSettingTab {
       case "openaiApiKey":
         return s.openaiApiKey || "";
       default:
-        return super.getControlValue(key);
+        return void 0;
     }
   }
   async setControlValue(key, value) {
@@ -43219,12 +43223,96 @@ var ThirdBrainSettingTab = class extends import_obsidian14.PluginSettingTab {
         s.openaiApiKey = value || "";
         break;
       default:
-        await super.setControlValue(key, value);
         return;
     }
     await this.plugin.saveSettings();
     if (key === "lang")
       void this.plugin.refreshView();
+  }
+  // 명령형 렌더링 — 1.13 미만에서는 유일한 렌더 경로, 1.13+에서도 오버라이드가 우선 적용된다.
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    const t = getT(this.plugin.settings.lang);
+    const header = containerEl.createDiv({ cls: "tb-settings-header" });
+    const logoEl = header.createDiv({ cls: "tb-settings-logo" });
+    logoEl.appendChild((0, import_obsidian14.sanitizeHTMLToDom)(SOOTBALL_LOGO));
+    header.createDiv({ cls: "tb-settings-title", text: "ThirdBrain" });
+    new import_obsidian14.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
+      (dropdown) => dropdown.addOption("ko", "\uD55C\uAD6D\uC5B4").addOption("en", "English").setValue(this.plugin.settings.lang ?? "en").onChange(async (value) => {
+        this.plugin.settings.lang = value;
+        await this.plugin.saveSettings();
+        this.display();
+        void this.plugin.refreshView();
+      })
+    );
+    const ko = this.plugin.settings.lang === "ko";
+    new import_obsidian14.Setting(containerEl).setName(ko ? "AI \uC2E4\uD589 \uC804 \uBE44\uC6A9 \uD655\uC778" : "Confirm cost before AI runs").setDesc(ko ? "\uC0DD\uC131\xB7\uBD84\uC11D\xB7\uC5F0\uACB0 \uB4F1 AI \uC791\uC5C5 \uC804\uC5D0 \uC608\uC0C1 \uD1A0\uD070\xB7\uBE44\uC6A9\xB7\uC2DC\uAC04\uC744 \uBCF4\uC5EC\uC8FC\uACE0 \uC9C4\uD589 \uC5EC\uBD80\uB97C \uD655\uC778\uD569\uB2C8\uB2E4." : "Before any AI operation, show estimated tokens, cost, and time and ask to proceed.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.showCostPreflight !== false).onChange(async (value) => {
+        this.plugin.settings.showCostPreflight = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian14.Setting(containerEl).setName(t("settings_root_folder_name")).setDesc(t("settings_root_folder_desc")).addText(
+      (text) => text.setPlaceholder("ThirdBrainRoot").setValue(this.plugin.settings.rootFolder).onChange(async (value) => {
+        this.plugin.settings.rootFolder = value || "ThirdBrainRoot";
+        await this.plugin.saveSettings();
+      })
+    );
+    if (!import_obsidian14.Platform.isMobile) {
+      new import_obsidian14.Setting(containerEl).setName(t("settings_cli_name")).setDesc(t("settings_cli_desc")).addText(
+        (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.cliBin).onChange(async (value) => {
+          this.plugin.settings.cliBin = value || "claude";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    new import_obsidian14.Setting(containerEl).setName(t("settings_max_edge_name")).setDesc(t("settings_max_edge_desc")).addSlider(
+      (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.maxEdgeCandidates).onChange(async (value) => {
+        this.plugin.settings.maxEdgeCandidates = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian14.Setting(containerEl).setName(t("settings_bridge_top_k_name")).setDesc(t("settings_bridge_top_k_desc")).addSlider(
+      (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.bridgeTopKPerNode ?? 3).onChange(async (value) => {
+        this.plugin.settings.bridgeTopKPerNode = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian14.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown((dropdown) => {
+      if (!import_obsidian14.Platform.isMobile) {
+        dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)");
+      }
+      dropdown.addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(import_obsidian14.Platform.isMobile && this.plugin.settings.aiProvider === "claude-cli" ? "gemini" : this.plugin.settings.aiProvider).onChange(async (value) => {
+        this.plugin.settings.aiProvider = value;
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+    if (this.plugin.settings.aiProvider === "claude-api") {
+      new import_obsidian14.Setting(containerEl).setName(t("settings_claude_api_key_name")).setDesc(t("settings_claude_api_key_desc")).addText(
+        (text) => text.setPlaceholder("sk-ant-...").setValue(this.plugin.settings.claudeApiKey || "").onChange(async (value) => {
+          this.plugin.settings.claudeApiKey = value || "";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    if (this.plugin.settings.aiProvider === "gemini") {
+      new import_obsidian14.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
+        (text) => text.setPlaceholder("AIza...").setValue(this.plugin.settings.geminiApiKey || "").onChange(async (value) => {
+          this.plugin.settings.geminiApiKey = value || "";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    if (this.plugin.settings.aiProvider === "openai") {
+      new import_obsidian14.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
+        (text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey || "").onChange(async (value) => {
+          this.plugin.settings.openaiApiKey = value || "";
+          await this.plugin.saveSettings();
+        })
+      );
+    }
   }
 };
 
