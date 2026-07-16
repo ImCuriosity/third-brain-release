@@ -18,7 +18,7 @@ export class PipelineInfoModal extends Modal {
 
 		// 최초 open 시에만 stepLogEl 생성 (재오픈 시 이미 존재)
 		if (!this.stepLogEl) {
-			this.stepLogEl = this.contentEl.createEl('div', { cls: 'tb-step-log' });
+			this.stepLogEl = this.contentEl.createDiv({ cls: 'tb-step-log' });
 		}
 
 		this.contentEl.addClass('tb-pipeline-modal-body');

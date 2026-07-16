@@ -41,17 +41,17 @@ class AICostPreflightModal extends Modal {
 		this.setTitle(this.ko ? '⚡ AI 실행 확인' : '⚡ Confirm AI run');
 
 		const opName = OP_LABEL[this.est.operation][this.ko ? 'ko' : 'en'];
-		contentEl.createEl('div', { cls: 'tb-preflight-op', text: opName });
-		contentEl.createEl('div', {
+		contentEl.createDiv({ cls: 'tb-preflight-op', text: opName });
+		contentEl.createDiv({
 			cls: 'tb-preflight-model',
 			text: modelLabel(this.est.provider, this.est.tier),
 		});
 
-		const grid = contentEl.createEl('div', { cls: 'tb-preflight-grid' });
+		const grid = contentEl.createDiv({ cls: 'tb-preflight-grid' });
 		const cell = (label: string, value: string, accent = false) => {
-			const c = grid.createEl('div', { cls: 'tb-preflight-cell' });
-			c.createEl('div', { cls: 'tb-preflight-cell-label', text: label });
-			const v = c.createEl('div', { cls: 'tb-preflight-cell-value', text: value });
+			const c = grid.createDiv({ cls: 'tb-preflight-cell' });
+			c.createDiv({ cls: 'tb-preflight-cell-label', text: label });
+			const v = c.createDiv({ cls: 'tb-preflight-cell-value', text: value });
 			if (accent) v.addClass('is-accent');
 		};
 
@@ -71,7 +71,7 @@ class AICostPreflightModal extends Modal {
 		);
 
 		// 입력/출력 토큰 분해
-		contentEl.createEl('div', {
+		contentEl.createDiv({
 			cls: 'tb-preflight-breakdown',
 			text: this.ko
 				? `입력 ~${formatTokens(this.est.inputTokens)} · 출력 ~${formatTokens(this.est.outputTokens)}`
@@ -79,7 +79,7 @@ class AICostPreflightModal extends Modal {
 		});
 
 		if (this.est.isSubscription) {
-			contentEl.createEl('div', {
+			contentEl.createDiv({
 				cls: 'tb-preflight-note',
 				text: this.ko
 					? '※ Claude CLI는 구독 사용량에서 차감됩니다 (별도 과금 아님). 비용은 API 환산 참고치입니다.'
@@ -87,14 +87,14 @@ class AICostPreflightModal extends Modal {
 			});
 		}
 
-		contentEl.createEl('div', {
+		contentEl.createDiv({
 			cls: 'tb-preflight-disclaimer',
 			text: this.ko
 				? '추정치입니다 — 실제 사용량과 다를 수 있습니다.'
 				: 'Estimate only — actual usage may differ.',
 		});
 
-		const btns = contentEl.createEl('div', { cls: 'tb-preflight-btns' });
+		const btns = contentEl.createDiv({ cls: 'tb-preflight-btns' });
 		const cancelBtn = btns.createEl('button', { cls: 'tb-btn tb-preflight-cancel', text: this.ko ? '취소' : 'Cancel' });
 		cancelBtn.addEventListener('click', () => { this.finish(false); });
 		const goBtn = btns.createEl('button', { cls: 'tb-btn tb-preflight-go', text: this.ko ? '진행' : 'Proceed' });

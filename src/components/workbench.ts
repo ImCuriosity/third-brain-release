@@ -170,7 +170,7 @@ export class MissionControlModal extends Modal {
 		contentEl.empty();
 		this.setTitle(this.ko ? '🎯 미션 컨트롤' : '🎯 Mission Control');
 
-		contentEl.createEl('div', {
+		contentEl.createDiv({
 			cls: 'tb-mission-sub',
 			text: this.ko
 				? '폴더를 선택하면 그 폴더의 그래프만을 근거로 답하는 작업대가 열립니다.'
@@ -179,7 +179,7 @@ export class MissionControlModal extends Modal {
 
 		const folders = this.sessionFolders();
 		if (folders.length === 0) {
-			contentEl.createEl('div', { cls: 'tb-mission-empty', text: this.ko ? '세션 폴더가 없습니다. 먼저 그래프를 생성하세요.' : 'No session folders yet — run the pipeline first.' });
+			contentEl.createDiv({ cls: 'tb-mission-empty', text: this.ko ? '세션 폴더가 없습니다. 먼저 그래프를 생성하세요.' : 'No session folders yet — run the pipeline first.' });
 		}
 
 		// 폴더별 open 미션 수 배지 (뇌 상태 집계 재사용)
@@ -191,16 +191,16 @@ export class MissionControlModal extends Modal {
 
 		for (const f of folders) {
 			const row = contentEl.createEl('button', { cls: 'tb-brain-folder-row' });
-			row.createEl('span', { cls: 'tb-brain-folder-name', text: `📁 ${baseName(f)}` });
-			const badges = row.createEl('span', { cls: 'tb-brain-folder-badges' });
+			row.createSpan({ cls: 'tb-brain-folder-name', text: `📁 ${baseName(f)}` });
+			const badges = row.createSpan({ cls: 'tb-brain-folder-badges' });
 			const mc = missionCount.get(f) ?? 0;
-			if (mc > 0) badges.createEl('span', { cls: 'tb-brain-badge is-mission', text: this.ko ? `🎯 미션 ${mc}` : `🎯 ${mc}` });
+			if (mc > 0) badges.createSpan({ cls: 'tb-brain-badge is-mission', text: this.ko ? `🎯 미션 ${mc}` : `🎯 ${mc}` });
 			row.addEventListener('click', () => { void this.openWorkbench(f); });
 		}
 
 		// 보조: 기존 폴더 간 연결 탐색 (브릿지) — 뷰 밖 진입(deps 없음)이면 숨김
 		if (this.deps.onOpenBridge) {
-			const footer = contentEl.createEl('div', { cls: 'tb-workbench-l1-footer' });
+			const footer = contentEl.createDiv({ cls: 'tb-workbench-l1-footer' });
 			const bridgeBtn = footer.createEl('button', { cls: 'tb-btn tb-btn-sm', text: this.ko ? '🌉 폴더 간 연결 탐색' : '🌉 Explore cross-folder links' });
 			bridgeBtn.addEventListener('click', () => { this.close(); this.deps.onOpenBridge!(); });
 		}
@@ -264,27 +264,27 @@ export class MissionControlModal extends Modal {
 		this.setTitle(`🎯 ${name}`);
 
 		// 헤더: 뒤로 + 그라운딩 정보 + 누적 토큰
-		const head = contentEl.createEl('div', { cls: 'tb-workbench-head' });
+		const head = contentEl.createDiv({ cls: 'tb-workbench-head' });
 		const back = head.createEl('button', { cls: 'tb-btn tb-btn-sm', text: this.ko ? '← 폴더' : '← Folders' });
 		back.addEventListener('click', () => { void this.renderFolderList(); });
-		head.createEl('span', {
+		head.createSpan({
 			cls: 'tb-workbench-ground-info',
 			text: this.ko ? `그라운딩 ${this.mainNodes.length}개 노드` : `Grounded on ${this.mainNodes.length} nodes`,
 		});
-		this.tokenEl = head.createEl('span', { cls: 'tb-workbench-tokens', text: '↑0 ↓0' });
+		this.tokenEl = head.createSpan({ cls: 'tb-workbench-tokens', text: '↑0 ↓0' });
 
 		// 서브그래프 칩
-		this.chipsEl = contentEl.createEl('div', { cls: 'tb-workbench-chips' });
+		this.chipsEl = contentEl.createDiv({ cls: 'tb-workbench-chips' });
 		this.renderChips();
 
 		// 미션 리스트 (컴팩트)
-		this.missionListEl = contentEl.createEl('div', { cls: 'tb-workbench-missions' });
+		this.missionListEl = contentEl.createDiv({ cls: 'tb-workbench-missions' });
 		this.renderMissionList();
 
 		// 채팅 로그
-		this.chatLogEl = contentEl.createEl('div', { cls: 'tb-workbench-chat' });
+		this.chatLogEl = contentEl.createDiv({ cls: 'tb-workbench-chat' });
 		if (this.history.length === 0) {
-			this.chatLogEl.createEl('div', {
+			this.chatLogEl.createDiv({
 				cls: 'tb-workbench-hint',
 				text: this.ko
 					? '이 폴더의 그래프만을 근거로 답합니다. 모든 주장에 [[노드]] 인용이 붙고, 근거가 없으면 없다고 답합니다.'
@@ -294,7 +294,7 @@ export class MissionControlModal extends Modal {
 		for (const t of this.history) this.renderTurn(t);
 
 		// 입력 영역
-		const inputRow = contentEl.createEl('div', { cls: 'tb-workbench-input-row' });
+		const inputRow = contentEl.createDiv({ cls: 'tb-workbench-input-row' });
 		this.inputEl = inputRow.createEl('textarea', {
 			cls: 'tb-workbench-input',
 			attr: { rows: '2', placeholder: this.ko ? '질문을 입력하세요… (Shift+Enter 줄바꿈)' : 'Ask a question… (Shift+Enter for newline)' },
@@ -309,7 +309,7 @@ export class MissionControlModal extends Modal {
 		this.sendBtn.addEventListener('click', () => { void this.submit(); });
 
 		// 하단 액션
-		const footer = contentEl.createEl('div', { cls: 'tb-workbench-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-workbench-footer' });
 		const attachBtn = footer.createEl('button', { cls: 'tb-btn tb-btn-sm', text: this.ko ? '＋ 서브그래프 참여' : '＋ Attach subgraph' });
 		attachBtn.addEventListener('click', () => { this.pickSubgraph(); });
 		const promoteBtn = footer.createEl('button', { cls: 'tb-btn tb-btn-sm tb-workbench-promote', text: this.ko ? '⚑ 미션 승격' : '⚑ Promote to mission' });
@@ -327,10 +327,10 @@ export class MissionControlModal extends Modal {
 	private renderChips() {
 		this.chipsEl.empty();
 		if (this.subgraphs.length === 0) return;
-		this.chipsEl.createEl('span', { cls: 'tb-workbench-chips-label', text: this.ko ? '서브그래프:' : 'Subgraphs:' });
+		this.chipsEl.createSpan({ cls: 'tb-workbench-chips-label', text: this.ko ? '서브그래프:' : 'Subgraphs:' });
 		for (const sg of this.subgraphs) {
-			const chip = this.chipsEl.createEl('span', { cls: 'tb-workbench-chip' });
-			chip.createEl('span', { text: `⊂ ${sg.label} (${sg.nodes.length})` });
+			const chip = this.chipsEl.createSpan({ cls: 'tb-workbench-chip' });
+			chip.createSpan({ text: `⊂ ${sg.label} (${sg.nodes.length})` });
 			const x = chip.createEl('button', { cls: 'tb-workbench-chip-x', text: '✕' });
 			x.setAttribute('title', this.ko ? '참여 해제 — 다음 턴부터 제외' : 'Detach — excluded from next turn');
 			x.addEventListener('click', () => {
@@ -368,9 +368,9 @@ export class MissionControlModal extends Modal {
 	private renderMissionList() {
 		this.missionListEl.empty();
 		if (this.missions.length === 0) return;
-		this.missionListEl.createEl('span', { cls: 'tb-workbench-chips-label', text: this.ko ? '미션:' : 'Missions:' });
+		this.missionListEl.createSpan({ cls: 'tb-workbench-chips-label', text: this.ko ? '미션:' : 'Missions:' });
 		for (const m of this.missions) {
-			const group = this.missionListEl.createEl('span', { cls: 'tb-workbench-mission-group' });
+			const group = this.missionListEl.createSpan({ cls: 'tb-workbench-mission-group' });
 			const chip = group.createEl('button', { cls: 'tb-workbench-mission-chip' });
 			if (this.activeMission?.id === m.id) chip.addClass('is-active');
 			chip.setText(`🎯 ${m.title.length > 24 ? m.title.slice(0, 23) + '…' : m.title}`);
@@ -390,7 +390,7 @@ export class MissionControlModal extends Modal {
 		this.activeMission = m;
 		this.solvingNoteFile = null; // 박제 대상 노트 변경
 		this.renderMissionList();
-		const note = this.chatLogEl.createEl('div', { cls: 'tb-workbench-sysline' });
+		const note = this.chatLogEl.createDiv({ cls: 'tb-workbench-sysline' });
 		note.setText(m
 			? (this.ko ? `— 미션 컨텍스트: ${m.title} —` : `— Mission context: ${m.title} —`)
 			: (this.ko ? '— 미션 컨텍스트 해제 —' : '— Mission context cleared —'));
@@ -464,7 +464,7 @@ export class MissionControlModal extends Modal {
 		this.setSending(true);
 		this.setAIBusy(true);
 
-		const thinking = this.chatLogEl.createEl('div', { cls: 'tb-workbench-sysline', text: this.ko ? '…그래프 해석 중' : '…interpreting graph' });
+		const thinking = this.chatLogEl.createDiv({ cls: 'tb-workbench-sysline', text: this.ko ? '…그래프 해석 중' : '…interpreting graph' });
 		this.chatLogEl.scrollTop = this.chatLogEl.scrollHeight;
 
 		try {
@@ -486,7 +486,7 @@ export class MissionControlModal extends Modal {
 			await this.persistTurns(q, turn);
 		} catch (e) {
 			thinking.remove();
-			this.chatLogEl.createEl('div', {
+			this.chatLogEl.createDiv({
 				cls: 'tb-workbench-sysline is-error',
 				text: `${this.ko ? '오류' : 'Error'}: ${e instanceof Error ? e.message : String(e)}`,
 			});
@@ -565,14 +565,14 @@ Hard rules:
 	}
 
 	private renderTurn(t: ChatTurn) {
-		const row = this.chatLogEl.createEl('div', { cls: `tb-workbench-turn is-${t.role}` });
+		const row = this.chatLogEl.createDiv({ cls: `tb-workbench-turn is-${t.role}` });
 		if (t.role === 'q') {
 			row.setText(t.text);
 			return;
 		}
 		this.renderAnswerText(row, t.text, new Set(t.citations ?? []), new Set(t.invalidCitations ?? []));
 		if ((t.invalidCitations ?? []).length > 0) {
-			row.createEl('div', {
+			row.createDiv({
 				cls: 'tb-workbench-invalid-note',
 				text: this.ko
 					? `⚠ 검증 실패 인용 ${t.invalidCitations!.length}건 — 그래프에 없는 노드입니다`
@@ -591,7 +591,7 @@ Hard rules:
 			const id = m[1].trim();
 			const display = (m[2] ?? id).trim() || id;
 			if (invalid.has(id) && !valid.has(id)) {
-				const bad = container.createEl('span', { cls: 'tb-workbench-cite is-invalid', text: `[[${display}]]` });
+				const bad = container.createSpan({ cls: 'tb-workbench-cite is-invalid', text: `[[${display}]]` });
 				bad.setAttribute('title', this.ko ? '그래프에 존재하지 않는 인용 (환각 가능성)' : 'Citation not found in graph (possible hallucination)');
 			} else {
 				const link = container.createEl('a', { cls: 'tb-workbench-cite', text: `[[${display}]]` });
@@ -673,7 +673,7 @@ Hard rules:
 		}
 
 		this.setAIBusy(true);
-		const sysline = this.chatLogEl.createEl('div', { cls: 'tb-workbench-sysline', text: this.ko ? '…미션 승격 분석 중' : '…analyzing for promotion' });
+		const sysline = this.chatLogEl.createDiv({ cls: 'tb-workbench-sysline', text: this.ko ? '…미션 승격 분석 중' : '…analyzing for promotion' });
 		this.chatLogEl.scrollTop = this.chatLogEl.scrollHeight;
 
 		try {
@@ -781,17 +781,17 @@ export class ProblemDetailModal extends Modal {
 		const species = this.problem.problem_species ?? 'obstacle';
 		this.setTitle(`🎯 ${this.problem.title}`);
 
-		const head = contentEl.createEl('div', { cls: 'tb-problem-card-head' });
-		head.createEl('span', { cls: `tb-problem-species is-${species}`, text: species });
+		const head = contentEl.createDiv({ cls: 'tb-problem-card-head' });
+		head.createSpan({ cls: `tb-problem-species is-${species}`, text: species });
 		if (this.problem.problem_status === 'resolved') {
-			head.createEl('span', { cls: 'tb-problem-species', text: 'resolved' });
+			head.createSpan({ cls: 'tb-problem-species', text: 'resolved' });
 		}
 
 		// 본문(서술 + 증거 원문 인용) — [[위키링크]]는 클릭 시 해당 노트 열림
-		const body = contentEl.createEl('div', { cls: 'tb-problem-detail-content' });
+		const body = contentEl.createDiv({ cls: 'tb-problem-detail-content' });
 		this.renderWikiText(body, this.problem.content);
 
-		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-popup-footer' });
 		const openBtn = footer.createEl('button', { cls: 'tb-btn', text: '📄 노트 열기' });
 		openBtn.addEventListener('click', () => {
 			this.close();
@@ -832,7 +832,7 @@ class SubgraphPickerModal extends Modal {
 
 	onOpen() {
 		this.setTitle(this.ko ? '서브그래프 참여' : 'Attach subgraph');
-		this.contentEl.createEl('div', {
+		this.contentEl.createDiv({
 			cls: 'tb-mission-sub',
 			text: this.ko
 				? '이 미션의 해답을 찾기 위한 임시 참고인입니다. 칩의 ✕로 언제든 해제됩니다.'
@@ -840,7 +840,7 @@ class SubgraphPickerModal extends Modal {
 		});
 		for (const f of this.candidates) {
 			const row = this.contentEl.createEl('button', { cls: 'tb-brain-folder-row' });
-			row.createEl('span', { cls: 'tb-brain-folder-name', text: `⊂ ${baseName(f)}` });
+			row.createSpan({ cls: 'tb-brain-folder-name', text: `⊂ ${baseName(f)}` });
 			row.addEventListener('click', () => { this.close(); this.onPick(f); });
 		}
 	}

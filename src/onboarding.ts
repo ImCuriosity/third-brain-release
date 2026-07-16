@@ -30,7 +30,7 @@ export class OnboardingModal extends Modal {
 
 		// ── 언어 선택 칩 ────
 		const langRow = contentEl.createDiv({ cls: 'tb-ob-lang-row' });
-		langRow.createEl('span', { cls: 'tb-ob-lang-label', text: t('ob_lang_label') + ':' });
+		langRow.createSpan({ cls: 'tb-ob-lang-label', text: t('ob_lang_label') + ':' });
 		const chipKo = langRow.createEl('button', { cls: 'tb-ob-lang-chip', text: '🇰🇷 한국어' });
 		const chipEn = langRow.createEl('button', { cls: 'tb-ob-lang-chip', text: '🇺🇸 English' });
 
@@ -53,7 +53,7 @@ export class OnboardingModal extends Modal {
 
 		// ── 헤더 ────
 		const hdr = contentEl.createDiv({ cls: 'tb-ob-header' });
-		hdr.createEl('div', { cls: 'tb-ob-logo', text: '🧠' });
+		hdr.createDiv({ cls: 'tb-ob-logo', text: '🧠' });
 		hdr.createEl('h2', { cls: 'tb-ob-title', text: t('ob_title') });
 		hdr.createEl('p', { cls: 'tb-ob-subtitle', text: t('ob_subtitle') });
 
@@ -71,7 +71,7 @@ export class OnboardingModal extends Modal {
 
 		// ── 푸터 ────
 		const footer = contentEl.createDiv({ cls: 'tb-ob-footer' });
-		const skipLink = footer.createEl('span', { cls: 'tb-ob-skip', text: t('ob_skip') });
+		const skipLink = footer.createSpan({ cls: 'tb-ob-skip', text: t('ob_skip') });
 		skipLink.addEventListener('click', () => {
 			this.plugin.settings.onboardingComplete = true;
 			void this.plugin.saveSettings();
@@ -108,9 +108,9 @@ export class OnboardingModal extends Modal {
 	) {
 		const card = parent.createDiv({ cls: 'tb-ob-card' });
 		card.setAttribute('data-provider', provider);
-		card.createEl('div', { cls: 'tb-ob-card-icon', text: icon });
-		card.createEl('div', { cls: 'tb-ob-card-name', text: name });
-		const descEl = card.createEl('div', { cls: 'tb-ob-card-desc' });
+		card.createDiv({ cls: 'tb-ob-card-icon', text: icon });
+		card.createDiv({ cls: 'tb-ob-card-name', text: name });
+		const descEl = card.createDiv({ cls: 'tb-ob-card-desc' });
 		descEl.setText(desc);
 		descEl.addClass('tb-ob-card-desc-preline');
 
@@ -129,19 +129,19 @@ export class OnboardingModal extends Modal {
 
 		if (provider === 'gemini') {
 			el.createEl('label', { cls: 'tb-ob-label', text: t('ob_gemini_key_label') });
-			el.createEl('div', { cls: 'tb-ob-hint', text: t('ob_gemini_key_hint') });
+			el.createDiv({ cls: 'tb-ob-hint', text: t('ob_gemini_key_hint') });
 			this.apiKeyInput = el.createEl('input', { cls: 'tb-ob-input', attr: { type: 'password', placeholder: 'AIza...' } });
 			this.cliPathInput = null;
 		} else if (provider === 'claude-api') {
 			el.createEl('label', { cls: 'tb-ob-label', text: t('ob_claude_api_key_label') });
-			el.createEl('div', { cls: 'tb-ob-hint', text: t('ob_claude_api_key_hint') });
+			el.createDiv({ cls: 'tb-ob-hint', text: t('ob_claude_api_key_hint') });
 			this.apiKeyInput = el.createEl('input', { cls: 'tb-ob-input', attr: { type: 'password', placeholder: 'sk-ant-...' } });
 			this.cliPathInput = null;
 		} else {
 			this.apiKeyInput = null;
-			el.createEl('div', { cls: 'tb-ob-hint', text: t('ob_cli_not_found') });
+			el.createDiv({ cls: 'tb-ob-hint', text: t('ob_cli_not_found') });
 			const dlRow = el.createDiv({ cls: 'tb-ob-dl-row' });
-			dlRow.createEl('span', { text: t('ob_cli_install') });
+			dlRow.createSpan({ text: t('ob_cli_install') });
 			dlRow.createEl('a', {
 				cls: 'tb-ob-link',
 				text: 'claude.ai/code',

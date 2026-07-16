@@ -53,15 +53,15 @@ export class AnalysisTabbedModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass('tb-popup-content');
 
-		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_analysis_title') });
+		const titleEl = contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_analysis_title') });
 		makeDraggable(this.modalEl, titleEl);
 
-		const tabBar = contentEl.createEl('div', { cls: 'tb-tab-bar' });
+		const tabBar = contentEl.createDiv({ cls: 'tb-tab-bar' });
 		const tabAnalysis = tabBar.createEl('button', { cls: 'tb-tab is-active', text: this.t('tab_graph_analysis') });
 		const tabExpr = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('tab_expression_analysis') });
 
-		const paneAnalysis = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
-		const paneExpr = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
+		const paneAnalysis = contentEl.createDiv({ cls: 'tb-analysis-tab-pane' });
+		const paneExpr = contentEl.createDiv({ cls: 'tb-analysis-tab-pane' });
 		paneExpr.hide();
 
 		const switchTab = (active: HTMLButtonElement, activePane: HTMLElement) => {
@@ -79,28 +79,28 @@ export class AnalysisTabbedModal extends Modal {
 	}
 
 	private buildAnalysisPane(container: HTMLElement) {
-		container.createEl('div', {
+		container.createDiv({
 			cls: 'tb-popup-sub',
 			text: this.t('analysis_sub'),
 		});
 
 		if (this.folders.length === 0) {
-			container.createEl('div', { cls: 'tb-popup-empty', text: this.t('analysis_no_folder') });
-			const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+			container.createDiv({ cls: 'tb-popup-empty', text: this.t('analysis_no_folder') });
+			const footer = container.createDiv({ cls: 'tb-popup-footer' });
 			footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') }).addEventListener('click', () => this.close());
 			return;
 		}
 
 		const makeSelect = (label: string): HTMLSelectElement => {
-			const row = container.createEl('div', { cls: 'tb-popup-select-row' });
+			const row = container.createDiv({ cls: 'tb-popup-select-row' });
 			row.createEl('label', { cls: 'tb-popup-select-label', text: label });
 			return row.createEl('select', { cls: 'tb-popup-select' });
 		};
 
 		// ── 폴더 선택 체크박스 리스트 ────
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const analysisFolders = this.folders.filter(f => !f.endsWith('/_actions') && f !== '_actions');
-		const folderList = container.createEl('div', { cls: 'tb-popup-folder-list' });
+		const folderList = container.createDiv({ cls: 'tb-popup-folder-list' });
 		const analysisCbs: Array<{ folder: string; cb: HTMLInputElement }> = [];
 		for (const f of analysisFolders) {
 			const depth = f.split('/').length - 1;
@@ -109,8 +109,8 @@ export class AnalysisTabbedModal extends Modal {
 			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
 			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.addClass('tb-popup-cb');
-			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+			label.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+			label.createSpan({ cls: 'tb-popup-folder-name', text: name });
 			analysisCbs.push({ folder: f, cb });
 		}
 		// 상위 폴더 체크 시 하위 폴더 자동 체크 (그래프 모달과 동일)
@@ -127,7 +127,7 @@ export class AnalysisTabbedModal extends Modal {
 		}
 
 		// ── _actions 포함 여부 ────
-		const actionsRow = container.createEl('div', { cls: 'tb-popup-select-row tb-actions-include-row' });
+		const actionsRow = container.createDiv({ cls: 'tb-popup-select-row tb-actions-include-row' });
 		actionsRow.hide();
 		const actionsChk = actionsRow.createEl('input', {
 			attr: { type: 'checkbox', id: 'tb-include-actions' },
@@ -146,8 +146,8 @@ export class AnalysisTabbedModal extends Modal {
 		};
 		updateActionsRow('');
 
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_intent_label') });
-		const chipRow = container.createEl('div', { cls: 'tb-intent-chips' });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_intent_label') });
+		const chipRow = container.createDiv({ cls: 'tb-intent-chips' });
 		let selectedIntent: string | undefined;
 		let activeChip: HTMLElement | null = null;
 
@@ -168,7 +168,7 @@ export class AnalysisTabbedModal extends Modal {
 			});
 		}
 
-		const customRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const customRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		customRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('analysis_custom_label') });
 		const customInput = customRow.createEl('textarea', {
 			cls: 'tb-intent-custom',
@@ -186,7 +186,7 @@ export class AnalysisTabbedModal extends Modal {
 		modeSel.createEl('option', { attr: { value: 'summary' }, text: this.t('analysis_depth_summary') });
 		modeSel.createEl('option', { attr: { value: 'rich' }, text: this.t('analysis_depth_rich') });
 
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') }).addEventListener('click', () => this.close());
 		const analyzeStartBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_analyze_start') });
 		analyzeStartBtn.disabled = this.isAnythingBusy();
@@ -203,28 +203,28 @@ export class AnalysisTabbedModal extends Modal {
 	}
 
 	private buildPathPane(container: HTMLElement) {
-		container.createEl('div', {
+		container.createDiv({
 			cls: 'tb-popup-sub',
 			text: this.t('path_sub'),
 		});
 
 		// ── 폴더 선택 라디오 리스트 ────
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('path_folder_label') });
-		const pathFolderList = container.createEl('div', { cls: 'tb-popup-folder-list' });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('path_folder_label') });
+		const pathFolderList = container.createDiv({ cls: 'tb-popup-folder-list' });
 
-		const srcRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const srcRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		srcRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('path_src_label') });
 		const srcSel = srcRow.createEl('select', { cls: 'tb-popup-select' });
 		srcSel.createEl('option', { attr: { value: '' }, text: this.t('path_src_placeholder') });
 		srcSel.disabled = true;
 
-		const dstRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const dstRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		dstRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('path_dst_label') });
 		const dstSel = dstRow.createEl('select', { cls: 'tb-popup-select' });
 		dstSel.createEl('option', { attr: { value: '' }, text: this.t('path_dst_placeholder') });
 		dstSel.disabled = true;
 
-		const resultEl = container.createEl('div', { cls: 'tb-path-result' });
+		const resultEl = container.createDiv({ cls: 'tb-path-result' });
 
 		const loadPathFolder = async (folder: string) => {
 			srcSel.disabled = true; dstSel.disabled = true;
@@ -254,8 +254,8 @@ export class AnalysisTabbedModal extends Modal {
 			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
 			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.addClass('tb-popup-cb');
-			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+			label.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+			label.createSpan({ cls: 'tb-popup-folder-name', text: name });
 			pathCbs.push({ folder: f, cb });
 		}
 		for (let i = 0; i < pathCbs.length; i++) {
@@ -274,7 +274,7 @@ export class AnalysisTabbedModal extends Modal {
 			});
 		}
 
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') }).addEventListener('click', () => this.close());
 		const searchBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_search') });
 
@@ -283,12 +283,12 @@ export class AnalysisTabbedModal extends Modal {
 			const dstId = dstSel.value;
 			if (!srcId || !dstId) {
 				resultEl.empty();
-				resultEl.createEl('div', { cls: 'tb-path-empty', text: this.t('path_select_nodes') });
+				resultEl.createDiv({ cls: 'tb-path-empty', text: this.t('path_select_nodes') });
 				return;
 			}
 			if (srcId === dstId) {
 				resultEl.empty();
-				resultEl.createEl('div', { cls: 'tb-path-empty', text: this.t('path_same_node') });
+				resultEl.createDiv({ cls: 'tb-path-empty', text: this.t('path_same_node') });
 				return;
 			}
 
@@ -299,7 +299,7 @@ export class AnalysisTabbedModal extends Modal {
 			try {
 				const nodes = this.loadedNodes;
 				const tensor = buildTensor(nodes);
-				resultEl.createEl('div', {
+				resultEl.createDiv({
 					cls: 'tb-path-meta',
 					text: `${nodes.length}${this.t('path_node_count_suffix')} / ${tensor.edges.length}${this.t('path_edge_count_suffix')}`,
 				});
@@ -314,7 +314,7 @@ export class AnalysisTabbedModal extends Modal {
 					} else {
 						const srcTitle = nodes.find(n => n.id === srcId)?.title ?? srcId;
 						const dstTitle = nodes.find(n => n.id === dstId)?.title ?? dstId;
-						resultEl.createEl('div', {
+						resultEl.createDiv({
 							cls: 'tb-path-empty',
 							text: `"${srcTitle}" → "${dstTitle}" ${this.t('path_no_path')}`,
 						});
@@ -322,7 +322,7 @@ export class AnalysisTabbedModal extends Modal {
 				}
 			} catch (err) {
 				resultEl.empty();
-				resultEl.createEl('div', {
+				resultEl.createDiv({
 					cls: 'tb-path-empty',
 					text: `${this.t('path_error_prefix')}${err instanceof Error ? err.message : String(err)}`,
 				});
@@ -340,24 +340,24 @@ export class AnalysisTabbedModal extends Modal {
 		tensor: ReturnType<typeof buildTensor>
 	) {
 		const titleById = new Map(nodes.map(n => [n.id, n.title]));
-		const card = container.createEl('div', {
+		const card = container.createDiv({
 			cls: path.isTransitive ? 'tb-path-card tb-path-transitive' : 'tb-path-card',
 		});
 
-		const header = card.createEl('div', { cls: 'tb-path-header' });
+		const header = card.createDiv({ cls: 'tb-path-header' });
 		if (path.isTransitive) {
-			header.createEl('span', { cls: 'tb-path-transitive-badge', text: this.t('path_transitive_badge') });
+			header.createSpan({ cls: 'tb-path-transitive-badge', text: this.t('path_transitive_badge') });
 		}
-		header.createEl('span', {
+		header.createSpan({
 			cls: 'tb-path-meta-inline',
 			text: `${path.nodes.length - 1}${this.t('path_hop')} · ${this.t('path_confidence')} ${(path.totalConfidence * 100).toFixed(0)}%`,
 		});
 
-		const chain = card.createEl('div', { cls: 'tb-path-chain' });
+		const chain = card.createDiv({ cls: 'tb-path-chain' });
 		for (let i = 0; i < path.nodes.length; i++) {
 			const nodeId = path.nodes[i];
 			const nodeTitle = titleById.get(nodeId) ?? nodeId;
-			const nodeEl = chain.createEl('span', { cls: 'tb-path-node', text: nodeTitle });
+			const nodeEl = chain.createSpan({ cls: 'tb-path-node', text: nodeTitle });
 
 			nodeEl.addEventListener('click', () => {
 				const node = nodes.find(n => n.id === nodeId);
@@ -370,7 +370,7 @@ export class AnalysisTabbedModal extends Modal {
 			if (i < path.relations.length) {
 				const rel = path.relations[i];
 				const relStr = relLabel(rel, this.lang);
-				chain.createEl('span', { cls: 'tb-path-arrow', text: `→[${relStr}]→` });
+				chain.createSpan({ cls: 'tb-path-arrow', text: `→[${relStr}]→` });
 			}
 		}
 
@@ -415,20 +415,20 @@ export class AnalysisTabbedModal extends Modal {
 	}
 
 	private buildExpressionPane(container: HTMLElement) {
-		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('expression_analysis_sub') });
+		container.createDiv({ cls: 'tb-popup-sub', text: this.t('expression_analysis_sub') });
 
 		if (this.folders.length === 0) {
-			container.createEl('div', { cls: 'tb-popup-empty', text: this.t('analysis_no_folder') });
-			const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+			container.createDiv({ cls: 'tb-popup-empty', text: this.t('analysis_no_folder') });
+			const footer = container.createDiv({ cls: 'tb-popup-footer' });
 			footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') })
 				.addEventListener('click', () => this.close());
 			return;
 		}
 
 		// ── 폴더 선택
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const analysisFolders = this.folders.filter(f => !f.endsWith('/_actions') && f !== '_actions');
-		const folderList = container.createEl('div', { cls: 'tb-popup-folder-list' });
+		const folderList = container.createDiv({ cls: 'tb-popup-folder-list' });
 		const exprCbs: Array<{ folder: string; cb: HTMLInputElement }> = [];
 		for (const f of analysisFolders) {
 			const depth = f.split('/').length - 1;
@@ -437,8 +437,8 @@ export class AnalysisTabbedModal extends Modal {
 			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
 			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.addClass('tb-popup-cb');
-			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+			label.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+			label.createSpan({ cls: 'tb-popup-folder-name', text: name });
 			exprCbs.push({ folder: f, cb });
 		}
 		for (let i = 0; i < exprCbs.length; i++) {
@@ -458,7 +458,7 @@ export class AnalysisTabbedModal extends Modal {
 			{ id: 'para',      labelKey: 'expression_mode4_label', descKey: 'expression_mode4_desc' },
 		];
 		let selectedMode: TranscriptAnalysisMode | null = null;
-		const modeRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const modeRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		modeRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('expression_mode_title') });
 		const modeSelect = modeRow.createEl('select', { cls: 'tb-popup-select' });
 		modeSelect.createEl('option', { attr: { value: '' }, text: this.t('expression_mode_placeholder') });
@@ -470,9 +470,9 @@ export class AnalysisTabbedModal extends Modal {
 		});
 
 		// ── 결과 영역
-		const resultEl = container.createEl('div', { cls: 'tb-expression-result' });
+		const resultEl = container.createDiv({ cls: 'tb-expression-result' });
 
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') })
 			.addEventListener('click', () => this.close());
 		const analyzeBtn = footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('expression_analyze_btn') });
@@ -520,11 +520,11 @@ export class AnalysisTabbedModal extends Modal {
 		// ── 이전 작업 상태 복원
 		if (this.transcriptJob?.running) {
 			setRunningUI(true);
-			resultEl.createEl('div', { cls: 'tb-popup-empty', text: this.t('expression_analyzing') });
+			resultEl.createDiv({ cls: 'tb-popup-empty', text: this.t('expression_analyzing') });
 		} else if (this.transcriptJob?.result) {
 			showResult(this.transcriptJob.result);
 		} else if (this.transcriptJob?.error) {
-			resultEl.createEl('div', { cls: 'tb-path-empty', text: this.transcriptJob.error });
+			resultEl.createDiv({ cls: 'tb-path-empty', text: this.transcriptJob.error });
 		}
 
 		// ── 분석 시작 (백그라운드 — 모달 닫혀도 계속 실행)
@@ -539,7 +539,7 @@ export class AnalysisTabbedModal extends Modal {
 			this.onTranscriptJobUpdate(this.transcriptJob);
 			setRunningUI(true);
 			resultEl.empty();
-			resultEl.createEl('div', { cls: 'tb-popup-empty', text: this.t('expression_analyzing') });
+			resultEl.createDiv({ cls: 'tb-popup-empty', text: this.t('expression_analyzing') });
 
 			void (async () => {
 				try {
@@ -555,7 +555,7 @@ export class AnalysisTabbedModal extends Modal {
 						if (activeDocument.body.contains(resultEl)) {
 							setRunningUI(false);
 							resultEl.empty();
-							resultEl.createEl('div', { cls: 'tb-popup-empty', text: msg });
+							resultEl.createDiv({ cls: 'tb-popup-empty', text: msg });
 						}
 						return;
 					}
@@ -591,7 +591,7 @@ export class AnalysisTabbedModal extends Modal {
 					if (activeDocument.body.contains(resultEl)) {
 						setRunningUI(false);
 						resultEl.empty();
-						resultEl.createEl('div', { cls: 'tb-path-empty', text: msg });
+						resultEl.createDiv({ cls: 'tb-path-empty', text: msg });
 					} else {
 						new Notice(msg, 8000);
 					}
@@ -630,31 +630,31 @@ export class AnalysisResultModal extends Modal {
 		modalEl.addClass('tb-analysis-result-container');
 
 		// 헤더
-		const hdr = contentEl.createEl('div', { cls: 'tb-ar-header' });
-		hdr.createEl('div', { cls: 'tb-ar-folder', text: `📊 ${this.folderPath}` });
+		const hdr = contentEl.createDiv({ cls: 'tb-ar-header' });
+		hdr.createDiv({ cls: 'tb-ar-folder', text: `📊 ${this.folderPath}` });
 
 		// 분석 기준 표시
 		const modeLabel = this.mode === 'rich' ? this.t('analysis_depth_rich') : this.t('analysis_depth_summary');
-		const metaRow = hdr.createEl('div', { cls: 'tb-ar-meta' });
-		metaRow.createEl('span', { cls: 'tb-ar-meta-mode', text: modeLabel });
+		const metaRow = hdr.createDiv({ cls: 'tb-ar-meta' });
+		metaRow.createSpan({ cls: 'tb-ar-meta-mode', text: modeLabel });
 		if (this.intent) {
-			metaRow.createEl('span', { cls: 'tb-ar-meta-sep', text: '·' });
-			metaRow.createEl('span', { cls: 'tb-ar-meta-intent', text: this.intent });
+			metaRow.createSpan({ cls: 'tb-ar-meta-sep', text: '·' });
+			metaRow.createSpan({ cls: 'tb-ar-meta-intent', text: this.intent });
 		}
 
-		const body = contentEl.createEl('div', { cls: 'tb-ar-body' });
+		const body = contentEl.createDiv({ cls: 'tb-ar-body' });
 
 		// 종합 결론 (synthesis) — 항상 맨 위, 펼쳐진 상태
 		if (this.result.synthesis) {
-			const synthCard = body.createEl('div', { cls: 'tb-ar-synthesis-card' });
-			synthCard.createEl('div', { cls: 'tb-ar-synthesis-label', text: this.t('ar_synthesis_label') });
-			synthCard.createEl('div', { cls: 'tb-ar-synthesis-text', text: this.result.synthesis });
+			const synthCard = body.createDiv({ cls: 'tb-ar-synthesis-card' });
+			synthCard.createDiv({ cls: 'tb-ar-synthesis-label', text: this.t('ar_synthesis_label') });
+			synthCard.createDiv({ cls: 'tb-ar-synthesis-text', text: this.result.synthesis });
 		}
 
 		// 개요
 		if (this.result.overview) {
 			this.makeSection(body, this.t('ar_overview_label'), el => {
-				el.createEl('div', { cls: 'tb-ar-overview', text: this.result.overview });
+				el.createDiv({ cls: 'tb-ar-overview', text: this.result.overview });
 			}, true);
 		}
 
@@ -662,9 +662,9 @@ export class AnalysisResultModal extends Modal {
 		if (this.result.highlights.length > 0) {
 			this.makeSection(body, `💡 ${this.t('ar_highlights_label')} · ${this.result.highlights.length}`, el => {
 				for (const h of this.result.highlights) {
-					const row = el.createEl('div', { cls: 'tb-ar-highlight' });
-					row.createEl('span', { cls: 'tb-ar-bullet', text: '·' });
-					row.createEl('span', { text: h });
+					const row = el.createDiv({ cls: 'tb-ar-highlight' });
+					row.createSpan({ cls: 'tb-ar-bullet', text: '·' });
+					row.createSpan({ text: h });
 				}
 			}, true);
 		}
@@ -673,9 +673,9 @@ export class AnalysisResultModal extends Modal {
 		if (this.result.themes.length > 0) {
 			this.makeSection(body, `🏷 ${this.t('ar_themes_label')} · ${this.result.themes.length}`, el => {
 				for (const theme of this.result.themes) {
-					const card = el.createEl('div', { cls: 'tb-ar-theme-card' });
-					card.createEl('div', { cls: 'tb-ar-theme-title', text: theme.title });
-					card.createEl('div', { cls: 'tb-ar-theme-desc', text: theme.description });
+					const card = el.createDiv({ cls: 'tb-ar-theme-card' });
+					card.createDiv({ cls: 'tb-ar-theme-title', text: theme.title });
+					card.createDiv({ cls: 'tb-ar-theme-desc', text: theme.description });
 				}
 			}, false);
 		}
@@ -684,18 +684,18 @@ export class AnalysisResultModal extends Modal {
 		if (this.result.link_contexts.length > 0) {
 			this.makeSection(body, `🔗 ${this.t('ar_link_contexts_label')} · ${this.result.link_contexts.length}`, el => {
 				for (const lc of this.result.link_contexts) {
-					const row = el.createEl('div', { cls: 'tb-ar-lc-row' });
-					const top = row.createEl('div', { cls: 'tb-ar-lc-top' });
-					top.createEl('span', { cls: 'tb-lc-node', text: shortText(lc.source, 16) });
-					top.createEl('span', { cls: 'tb-lc-arrow', text: ` ―${lc.relation}→ ` });
-					top.createEl('span', { cls: 'tb-lc-node', text: shortText(lc.target, 16) });
-					row.createEl('div', { cls: 'tb-lc-context', text: lc.context });
+					const row = el.createDiv({ cls: 'tb-ar-lc-row' });
+					const top = row.createDiv({ cls: 'tb-ar-lc-top' });
+					top.createSpan({ cls: 'tb-lc-node', text: shortText(lc.source, 16) });
+					top.createSpan({ cls: 'tb-lc-arrow', text: ` ―${lc.relation}→ ` });
+					top.createSpan({ cls: 'tb-lc-node', text: shortText(lc.target, 16) });
+					row.createDiv({ cls: 'tb-lc-context', text: lc.context });
 				}
 			}, false);
 		}
 
 		// 푸터
-		const footer = contentEl.createEl('div', { cls: 'tb-ar-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-ar-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_close') }).addEventListener('click', () => this.close());
 		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_save') }).addEventListener('click', () => {
 			this.close();
@@ -704,11 +704,11 @@ export class AnalysisResultModal extends Modal {
 	}
 
 	private makeSection(parent: HTMLElement, label: string, fill: (el: HTMLElement) => void, open: boolean) {
-		const wrap = parent.createEl('div', { cls: 'tb-ar-section' });
-		const toggler = wrap.createEl('div', { cls: `tb-ar-section-toggle${open ? ' is-open' : ''}` });
-		toggler.createEl('span', { cls: 'tb-ar-chevron', text: open ? '▾' : '▸' });
-		toggler.createEl('span', { text: label });
-		const content = wrap.createEl('div', { cls: 'tb-ar-section-content' });
+		const wrap = parent.createDiv({ cls: 'tb-ar-section' });
+		const toggler = wrap.createDiv({ cls: `tb-ar-section-toggle${open ? ' is-open' : ''}` });
+		toggler.createSpan({ cls: 'tb-ar-chevron', text: open ? '▾' : '▸' });
+		toggler.createSpan({ text: label });
+		const content = wrap.createDiv({ cls: 'tb-ar-section-content' });
 		if (!open) content.hide();
 		fill(content);
 		toggler.addEventListener('click', () => {

@@ -327,13 +327,13 @@ Selected folders contain no nodes.
 	static downloadFile(content: string, filename: string): void {
 		const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
 		const url = URL.createObjectURL(blob);
-		const link = activeDocument.createElement('a');
-		link.setAttribute('href', url);
-		link.setAttribute('download', filename);
-		link.className = 'tb-hidden-download-link';
-		activeDocument.body.appendChild(link);
+		// activeDocument 기준으로 생성해야 팝아웃 창에서도 올바른 문서에 붙는다
+		const link = activeDocument.body.createEl('a', {
+			cls: 'tb-hidden-download-link',
+			attr: { href: url, download: filename },
+		});
 		link.click();
-		activeDocument.body.removeChild(link);
+		link.remove();
 		URL.revokeObjectURL(url);
 	}
 }

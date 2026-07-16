@@ -59,7 +59,7 @@ import {
 	SYSTEM_TRANSPLANT_EDGES,
 	SYSTEM_CROSS,
 } from './prompts';
-import { splitIntoParagraphs, shortHash, splitIntoChunks, repairJson, parseJson, redactPhoneNumbers } from './text-utils';
+import { shortHash, splitIntoChunks, parseJson, redactPhoneNumbers } from './text-utils';
 
 export const DISTILL_THRESHOLD = 10000;  // 하위 호환 — 더 이상 메인 플로우에서 사용 안 함
 export const CHUNK_SIZE = 5000;           // 청크별 풀파이프라인 분할 기준 (cmd.exe 8191자 한계 대응)

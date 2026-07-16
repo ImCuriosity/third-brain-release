@@ -35,7 +35,7 @@ export class TreeView {
 		this.expandedSet.clear();
 
 		if (nodes.length === 0) {
-			this.container.createEl('div', {
+			this.container.createDiv({
 				cls: 'tb-tree-empty',
 				text: '노드 없음. 인제스트 탭에서 텍스트를 추가하세요.',
 			});
@@ -93,18 +93,18 @@ export class TreeView {
 		const li = ul.createEl('li', { cls: 'tb-tree-li' });
 		const hasChildren = item.children.length > 0;
 
-		const row = li.createEl('div', { cls: `tb-tree-item is-${item.node.type}` });
+		const row = li.createDiv({ cls: `tb-tree-item is-${item.node.type}` });
 		row.setCssStyles({ paddingLeft: `${8 + depth * 14}px` });
 
-		const chevron = row.createEl('span', {
+		const chevron = row.createSpan({
 			cls: 'tb-tree-chevron',
 			text: hasChildren ? '▶' : '·',
 		});
-		row.createEl('span', {
+		row.createSpan({
 			cls: `tb-tag is-${item.node.type}`,
 			text: item.node.type.slice(0, 3).toUpperCase(),
 		});
-		row.createEl('span', { cls: 'tb-tree-label', text: item.node.title });
+		row.createSpan({ cls: 'tb-tree-label', text: item.node.title });
 
 		this.itemEls.set(item.node.id, row);
 

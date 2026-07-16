@@ -52,20 +52,20 @@ export class ConflictResolutionModal extends Modal {
 		contentEl.createEl('p', { text: this.t(descKey), cls: 'tb-conflict-modal-desc' });
 
 		// 충돌 요약 — 제목·명제문·원문 인용을 양쪽 모두 표시 (제목만으로는 모순 성립 판단 불가)
-		const summary = contentEl.createEl('div', { cls: 'tb-conflict-summary' });
+		const summary = contentEl.createDiv({ cls: 'tb-conflict-summary' });
 		const renderSide = (node: TBNode, cls: string) => {
-			const box = summary.createEl('div', { cls: `tb-conflict-side ${cls}` });
-			box.createEl('div', { cls: 'tb-conflict-side-title', text: node.title });
+			const box = summary.createDiv({ cls: `tb-conflict-side ${cls}` });
+			box.createDiv({ cls: 'tb-conflict-side-title', text: node.title });
 			const { claim, quote } = conflictNodeDetail(node);
-			if (claim) box.createEl('div', { cls: 'tb-conflict-side-claim', text: claim });
-			if (quote) box.createEl('div', { cls: 'tb-conflict-side-quote', text: quote });
+			if (claim) box.createDiv({ cls: 'tb-conflict-side-claim', text: claim });
+			if (quote) box.createDiv({ cls: 'tb-conflict-side-quote', text: quote });
 		};
 		renderSide(this.conflict.nodeA, 'tb-conflict-node-a');
-		summary.createEl('div', { cls: 'tb-conflict-vs', text: '⟷' });
+		summary.createDiv({ cls: 'tb-conflict-vs', text: '⟷' });
 		renderSide(this.conflict.nodeB, 'tb-conflict-node-b');
 		if (this.conflict.evidence) {
 			const evidenceLabel = this.settings.lang === 'en' ? 'Evidence: ' : '근거: ';
-			contentEl.createEl('div', { cls: 'tb-conflict-evidence', text: `${evidenceLabel}${this.conflict.evidence}` });
+			contentEl.createDiv({ cls: 'tb-conflict-evidence', text: `${evidenceLabel}${this.conflict.evidence}` });
 		}
 
 		contentEl.createEl('hr');
@@ -74,12 +74,12 @@ export class ConflictResolutionModal extends Modal {
 		const opt1Label = this.settings.lang === 'en'
 			? 'Option 1 — Reclassify with a more accurate edge'
 			: '옵션 1 — 더 정확한 엣지로 재분류';
-		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt1Label });
-		const rankArea = contentEl.createEl('div', { cls: 'tb-conflict-rank-area' });
+		contentEl.createDiv({ cls: 'tb-conflict-section-title', text: opt1Label });
+		const rankArea = contentEl.createDiv({ cls: 'tb-conflict-rank-area' });
 		const loadingText = this.settings.lang === 'en' ? 'AI is analyzing the relation...' : 'AI가 관계를 분석 중...';
 		const noRankText = this.settings.lang === 'en' ? 'No recommendation (conflict may be genuine)' : '추천 관계 없음 (모순이 실제일 수 있음)';
 		const aiFailText = this.settings.lang === 'en' ? 'AI analysis failed' : 'AI 분석 실패';
-		const loadingEl = rankArea.createEl('div', { cls: 'tb-conflict-loading', text: loadingText });
+		const loadingEl = rankArea.createDiv({ cls: 'tb-conflict-loading', text: loadingText });
 
 		const relLabels: Record<string, string> = this.settings.lang === 'en'
 			? { causes: 'Causes', precedes: 'Precedes', precondition_of: 'Precondition', supports: 'Supports', contrasts_with: 'Contrasts', exemplifies: 'Exemplifies', applies_to: 'Applies to', analogous_to: 'Analogous', isomorphic_to: 'Isomorphic' }
@@ -95,15 +95,15 @@ export class ConflictResolutionModal extends Modal {
 			this.rankLoading = false;
 			loadingEl.remove();
 			if (ranks.length === 0) {
-				rankArea.createEl('div', { cls: 'tb-conflict-no-rank', text: noRankText });
+				rankArea.createDiv({ cls: 'tb-conflict-no-rank', text: noRankText });
 				return;
 			}
 			for (const r of ranks) {
-				const chip = rankArea.createEl('div', { cls: 'tb-conflict-rank-chip' });
+				const chip = rankArea.createDiv({ cls: 'tb-conflict-rank-chip' });
 				const pct = Math.round(r.confidence * 100);
-				chip.createEl('span', { cls: 'tb-rank-label', text: relLabels[r.relation] ?? r.relation });
-				chip.createEl('span', { cls: 'tb-rank-pct', text: `${pct}%` });
-				if (r.reason) chip.createEl('span', { cls: 'tb-rank-reason', text: r.reason });
+				chip.createSpan({ cls: 'tb-rank-label', text: relLabels[r.relation] ?? r.relation });
+				chip.createSpan({ cls: 'tb-rank-pct', text: `${pct}%` });
+				if (r.reason) chip.createSpan({ cls: 'tb-rank-reason', text: r.reason });
 				chip.addEventListener('click', () => { void this.applyReclassify(r.relation, r.reason); });
 			}
 		}).catch(() => {
@@ -115,15 +115,15 @@ export class ConflictResolutionModal extends Modal {
 		// ── 옵션 2: 상위 노트 추가 ───────────────────────────────
 		const ko = this.settings.lang !== 'en';
 		const opt2Label = ko ? '옵션 2 — 상위 개념 노트 추가 (precondition_of)' : 'Option 2 — Add parent premise (precondition_of)';
-		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt2Label });
-		const parentArea = contentEl.createEl('div', { cls: 'tb-conflict-parent-area' });
+		contentEl.createDiv({ cls: 'tb-conflict-section-title', text: opt2Label });
+		const parentArea = contentEl.createDiv({ cls: 'tb-conflict-parent-area' });
 
 		const contentTextarea = parentArea.createEl('textarea', {
 			cls: 'tb-conflict-parent-textarea',
 			placeholder: ko ? '상위 개념의 내용을 입력하세요...' : 'Describe the parent concept...',
 		});
 
-		const titleRow = parentArea.createEl('div', { cls: 'tb-conflict-parent-title-row' });
+		const titleRow = parentArea.createDiv({ cls: 'tb-conflict-parent-title-row' });
 		const titleInput = titleRow.createEl('input', {
 			type: 'text',
 			cls: 'tb-conflict-parent-input',
@@ -164,8 +164,8 @@ export class ConflictResolutionModal extends Modal {
 
 		// ── 옵션 3: 폐기 (차원별 레이블 분기) ───────────────────
 		const opt3Label = this.settings.lang === 'en' ? 'Option 3 — Discard a proposition' : '옵션 3 — 한쪽 명제 폐기';
-		contentEl.createEl('div', { cls: 'tb-conflict-section-title', text: opt3Label });
-		const deleteArea = contentEl.createEl('div', { cls: 'tb-conflict-delete-area' });
+		contentEl.createDiv({ cls: 'tb-conflict-section-title', text: opt3Label });
+		const deleteArea = contentEl.createDiv({ cls: 'tb-conflict-delete-area' });
 
 		const aIsFact = this.conflict.nodeA.proposition_type === 'fact';
 		const bIsFact = this.conflict.nodeB.proposition_type === 'fact';
@@ -181,7 +181,7 @@ export class ConflictResolutionModal extends Modal {
 		const footerText = this.settings.lang === 'en'
 			? 'Closing without action keeps the conflict edge in the graph.'
 			: '닫기 시 모순 엣지가 그래프에 그대로 유지됩니다.';
-		contentEl.createEl('div', { cls: 'tb-conflict-footer', text: footerText });
+		contentEl.createDiv({ cls: 'tb-conflict-footer', text: footerText });
 	}
 
 	private async applyReclassify(relation: TBEdgeRelation, reason: string): Promise<void> {
@@ -289,14 +289,14 @@ export class BrainStatusModal extends Modal {
 		try { status = await this.store.loadBrainStatus(); } catch { /* 로드 실패는 빈 목록 처리 */ }
 
 		if (status.length === 0) {
-			contentEl.createEl('div', {
+			contentEl.createDiv({
 				cls: 'tb-mission-empty',
 				text: this.ko ? '✓ 모든 폴더가 정리됨 — 미션·미연결·모순 없음' : '✓ All folders clear — no missions, unlinked nodes or conflicts',
 			});
 			return;
 		}
 
-		contentEl.createEl('div', {
+		contentEl.createDiv({
 			cls: 'tb-mission-sub',
 			text: this.ko ? '폴더를 눌러 그 안의 미션·미연결·모순을 처리하세요.' : 'Open a folder to work on its missions, unlinked nodes and conflicts.',
 		});
@@ -304,16 +304,16 @@ export class BrainStatusModal extends Modal {
 		for (const st of status) {
 			const name = st.sessionFolder.split('/').pop() ?? st.sessionFolder;
 			const row = contentEl.createEl('button', { cls: 'tb-brain-folder-row' });
-			row.createEl('span', { cls: 'tb-brain-folder-name', text: `📁 ${name}` });
-			const badges = row.createEl('span', { cls: 'tb-brain-folder-badges' });
+			row.createSpan({ cls: 'tb-brain-folder-name', text: `📁 ${name}` });
+			const badges = row.createSpan({ cls: 'tb-brain-folder-badges' });
 			if (st.conflicts.length > 0) {
-				badges.createEl('span', { cls: 'tb-brain-badge is-conflict', text: this.ko ? `⚠ 모순 ${st.conflicts.length}` : `⚠ ${st.conflicts.length}` });
+				badges.createSpan({ cls: 'tb-brain-badge is-conflict', text: this.ko ? `⚠ 모순 ${st.conflicts.length}` : `⚠ ${st.conflicts.length}` });
 			}
 			if (st.missions.length > 0) {
-				badges.createEl('span', { cls: 'tb-brain-badge is-mission', text: this.ko ? `🎯 미션 ${st.missions.length}` : `🎯 ${st.missions.length}` });
+				badges.createSpan({ cls: 'tb-brain-badge is-mission', text: this.ko ? `🎯 미션 ${st.missions.length}` : `🎯 ${st.missions.length}` });
 			}
 			if (st.orphanCount > 0) {
-				badges.createEl('span', { cls: 'tb-brain-badge is-orphan', text: this.ko ? `◈ 미연결 ${st.orphanCount}` : `◈ ${st.orphanCount}` });
+				badges.createSpan({ cls: 'tb-brain-badge is-orphan', text: this.ko ? `◈ 미연결 ${st.orphanCount}` : `◈ ${st.orphanCount}` });
 			}
 			row.addEventListener('click', () => { this.renderFolderDetail(st); });
 		}
@@ -330,18 +330,18 @@ export class BrainStatusModal extends Modal {
 		back.addEventListener('click', () => { void this.renderFolderList(); });
 
 		if (st.conflicts.length > 0) {
-			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `⚠ 미해소 모순 ${st.conflicts.length}건` : `⚠ Unresolved conflicts (${st.conflicts.length})` });
+			contentEl.createDiv({ cls: 'tb-brain-section-title', text: this.ko ? `⚠ 미해소 모순 ${st.conflicts.length}건` : `⚠ Unresolved conflicts (${st.conflicts.length})` });
 			for (const c of st.conflicts) this.renderConflictCard(contentEl, c, st);
 		}
 
 		if (st.missions.length > 0) {
-			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `🎯 미션 ${st.missions.length}건` : `🎯 Missions (${st.missions.length})` });
+			contentEl.createDiv({ cls: 'tb-brain-section-title', text: this.ko ? `🎯 미션 ${st.missions.length}건` : `🎯 Missions (${st.missions.length})` });
 			for (const p of st.missions) this.renderMissionCard(contentEl, p, st);
 		}
 
 		if (st.orphanCount > 0) {
-			contentEl.createEl('div', { cls: 'tb-brain-section-title', text: this.ko ? `◈ 미연결 명제 ${st.orphanCount}건` : `◈ Unlinked propositions (${st.orphanCount})` });
-			contentEl.createEl('div', {
+			contentEl.createDiv({ cls: 'tb-brain-section-title', text: this.ko ? `◈ 미연결 명제 ${st.orphanCount}건` : `◈ Unlinked propositions (${st.orphanCount})` });
+			contentEl.createDiv({
 				cls: 'tb-mission-sub',
 				text: this.ko ? '같은 폴더 안에서 AI가 연결 후보를 찾아 붙여줍니다.' : 'AI finds connection candidates within this folder.',
 			});
@@ -358,12 +358,12 @@ export class BrainStatusModal extends Modal {
 	}
 
 	private renderConflictCard(container: HTMLElement, c: ConflictReport, st: BrainFolderStatus) {
-		const card = container.createEl('div', { cls: 'tb-conflict-notice-row' });
-		card.createEl('span', { cls: 'tb-conflict-notice-a', text: c.nodeA.title });
-		card.createEl('span', { cls: 'tb-conflict-notice-vs', text: '⟷' });
-		card.createEl('span', { cls: 'tb-conflict-notice-b', text: c.nodeB.title });
+		const card = container.createDiv({ cls: 'tb-conflict-notice-row' });
+		card.createSpan({ cls: 'tb-conflict-notice-a', text: c.nodeA.title });
+		card.createSpan({ cls: 'tb-conflict-notice-vs', text: '⟷' });
+		card.createSpan({ cls: 'tb-conflict-notice-b', text: c.nodeB.title });
 		const btn = card.createEl('button', { cls: 'tb-btn tb-conflict-resolve-btn', text: this.ko ? '해소하기' : 'Resolve' });
-		const resolvedMsg = card.createEl('span', { cls: 'tb-conflict-resolved-msg' });
+		const resolvedMsg = card.createSpan({ cls: 'tb-conflict-resolved-msg' });
 		btn.addEventListener('click', () => {
 			new ConflictResolutionModal(this.app, c, this.store, this.settings, (msg) => {
 				btn.remove();
@@ -376,15 +376,15 @@ export class BrainStatusModal extends Modal {
 
 	private renderMissionCard(container: HTMLElement, p: TBNode, st: BrainFolderStatus) {
 		const species = p.problem_species ?? 'obstacle';
-		const card = container.createEl('div', { cls: `tb-problem-card is-${species}` });
-		const head = card.createEl('div', { cls: 'tb-problem-card-head' });
-		head.createEl('span', { cls: `tb-problem-species is-${species}`, text: species });
-		head.createEl('span', { cls: 'tb-problem-title', text: p.title });
+		const card = container.createDiv({ cls: `tb-problem-card is-${species}` });
+		const head = card.createDiv({ cls: 'tb-problem-card-head' });
+		head.createSpan({ cls: `tb-problem-species is-${species}`, text: species });
+		head.createSpan({ cls: 'tb-problem-title', text: p.title });
 
 		const desc = ((p.content.split('\n---\n')[0] ?? '').trim().split('\n')[0] ?? '').trim();
-		if (desc) card.createEl('div', { cls: 'tb-problem-desc', text: desc });
+		if (desc) card.createDiv({ cls: 'tb-problem-desc', text: desc });
 
-		const btnRow = card.createEl('div', { cls: 'tb-problem-card-btns' });
+		const btnRow = card.createDiv({ cls: 'tb-problem-card-btns' });
 		const workbenchBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-workbench-btn', text: this.ko ? '🎯 작업대' : '🎯 Workbench' });
 		workbenchBtn.addEventListener('click', () => {
 			this.close();

@@ -144,10 +144,10 @@ export class ThirdBrainView extends ItemView {
 		this.buildHeader(root);
 
 		// 인제스트 컨테이너
-		this.ingestContainer = root.createEl('div', { cls: 'tb-ingest-container' });
+		this.ingestContainer = root.createDiv({ cls: 'tb-ingest-container' });
 
 		// 입력 패널 래퍼 (드래그 리사이즈 대상)
-		const inputPane = this.ingestContainer.createEl('div', { cls: 'tb-input-pane' });
+		const inputPane = this.ingestContainer.createDiv({ cls: 'tb-input-pane' });
 		this.buildIngestPanel(inputPane);
 		this.buildProgressBar(inputPane);
 		this.syncIngestBtnState(); // 초기 빈 상태에서 버튼 비활성
@@ -157,7 +157,7 @@ export class ThirdBrainView extends ItemView {
 		this.registerEvent(this.app.vault.on('delete', () => this.scheduleBadgeRefresh()));
 		this.registerEvent(this.app.vault.on('rename', () => this.scheduleBadgeRefresh()));
 
-		this.resultsEl = this.ingestContainer.createEl('div', { cls: 'tb-results' });
+		this.resultsEl = this.ingestContainer.createDiv({ cls: 'tb-results' });
 	}
 
 	async onClose() {
@@ -167,16 +167,16 @@ export class ThirdBrainView extends ItemView {
 	// ── 헤더 ─────────────────────────────────────────────
 
 	private buildHeader(root: HTMLElement) {
-		const hdr = root.createEl('div', { cls: 'tb-header' });
+		const hdr = root.createDiv({ cls: 'tb-header' });
 
-		const titleRow = hdr.createEl('div', { cls: 'tb-header-title' });
-		titleRow.createEl('span', { cls: 'tb-header-name', text: 'ThirdBrain' });
+		const titleRow = hdr.createDiv({ cls: 'tb-header-title' });
+		titleRow.createSpan({ cls: 'tb-header-name', text: 'ThirdBrain' });
 
 		// 후원 QR 버튼
-		const donateWrap = titleRow.createEl('div', { cls: 'tb-donate-wrap' });
+		const donateWrap = titleRow.createDiv({ cls: 'tb-donate-wrap' });
 		const donateBtn = donateWrap.createEl('button', { cls: 'tb-donate-btn', text: '🍦' });
-		const donatePopup = donateWrap.createEl('div', { cls: 'tb-donate-popup' });
-		donatePopup.createEl('div', { cls: 'tb-donate-msg', text: this.t('donate_msg') });
+		const donatePopup = donateWrap.createDiv({ cls: 'tb-donate-popup' });
+		donatePopup.createDiv({ cls: 'tb-donate-msg', text: this.t('donate_msg') });
 		if (DONATE_QR_BASE64) {
 			const img = donatePopup.createEl('img', { cls: 'tb-donate-qr', attr: { src: DONATE_QR_BASE64, alt: 'KakaoPay QR' } });
 			img.draggable = false;
@@ -187,20 +187,20 @@ export class ThirdBrainView extends ItemView {
 		});
 		this.registerDomEvent(activeDocument, 'click', () => donatePopup.removeClass('is-visible'), { passive: true });
 
-		hdr.createEl('div', { cls: 'tb-header-subtitle', text: this.t('subtitle') });
+		hdr.createDiv({ cls: 'tb-header-subtitle', text: this.t('subtitle') });
 
-		this.usageEl = hdr.createEl('div', { cls: 'tb-usage-bar', text: '─' });
+		this.usageEl = hdr.createDiv({ cls: 'tb-usage-bar', text: '─' });
 	}
 
 	// ── 인제스트 패널 ─────────────────────────────────────
 
 	private buildIngestPanel(parent: HTMLElement) {
-		const panel = parent.createEl('div', { cls: 'tb-ingest' });
+		const panel = parent.createDiv({ cls: 'tb-ingest' });
 
 		// 드롭존
-		const dropZone = panel.createEl('div', { cls: 'tb-dropzone' });
+		const dropZone = panel.createDiv({ cls: 'tb-dropzone' });
 		this.dropZoneEl = dropZone;
-		const faceEl = dropZone.createEl('div', { cls: 'tb-dropzone-face is-clickable' });
+		const faceEl = dropZone.createDiv({ cls: 'tb-dropzone-face is-clickable' });
 		faceEl.appendChild(sanitizeHTMLToDom(SOOTBALL_WAITING));
 		faceEl.setAttribute('title', this.plugin.settings.lang === 'ko'
 			? '클릭 — 뇌 상태 (폴더별 미션·미연결·모순)'
@@ -219,7 +219,7 @@ export class ThirdBrainView extends ItemView {
 			openBrainStatus();
 		});
 		// 모순 경고 말풍선 — faceEl은 드래그 시 empty()되므로 형제 요소로 둔다
-		this.conflictBubbleEl = dropZone.createEl('div', { cls: 'tb-conflict-bubble', text: '!' });
+		this.conflictBubbleEl = dropZone.createDiv({ cls: 'tb-conflict-bubble', text: '!' });
 		this.conflictBubbleEl.setAttribute('title', this.plugin.settings.lang === 'ko'
 			? '미해소 모순 있음 — 클릭해서 확인'
 			: 'Unresolved conflicts — click to review');
@@ -228,7 +228,7 @@ export class ThirdBrainView extends ItemView {
 			e.stopPropagation();
 			openBrainStatus();
 		});
-		const dropLabel = dropZone.createEl('div', { cls: 'tb-dropzone-label', text: this.t('dropzone_label') });
+		const dropLabel = dropZone.createDiv({ cls: 'tb-dropzone-label', text: this.t('dropzone_label') });
 		const fileInput = dropZone.createEl('input', {
 			attr: { type: 'file', accept: '.md,.txt,.pdf,.mp3', multiple: true },
 		});
@@ -238,7 +238,7 @@ export class ThirdBrainView extends ItemView {
 		this.fileBtnEl = fileBtn;
 		fileBtn.addEventListener('click', () => fileInput.click());
 		fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-		dropZone.createEl('div', { cls: 'tb-dropzone-raw-hint', text: this.t('dropzone_raw_hint') });
+		dropZone.createDiv({ cls: 'tb-dropzone-raw-hint', text: this.t('dropzone_raw_hint') });
 
 		// dragenter 카운터 — 자식 요소 이동 시 dragleave 오작동 방지
 		let dragDepth = 0;
@@ -272,10 +272,10 @@ export class ThirdBrainView extends ItemView {
 		});
 
 		// OR 구분선
-		const sep = panel.createEl('div', { cls: 'tb-or-sep' });
-		sep.createEl('span', { cls: 'tb-or-line' });
-		sep.createEl('span', { cls: 'tb-or-text', text: this.t('or_sep') });
-		sep.createEl('span', { cls: 'tb-or-line' });
+		const sep = panel.createDiv({ cls: 'tb-or-sep' });
+		sep.createSpan({ cls: 'tb-or-line' });
+		sep.createSpan({ cls: 'tb-or-text', text: this.t('or_sep') });
+		sep.createSpan({ cls: 'tb-or-line' });
 
 		// 텍스트에어리어
 		this.ingestTextarea = panel.createEl('textarea', {
@@ -284,14 +284,14 @@ export class ThirdBrainView extends ItemView {
 		});
 
 		// 글자수 표시
-		this.charCountEl = panel.createEl('div', { cls: 'tb-char-count', text: `0${this.t('char_suffix')}` });
+		this.charCountEl = panel.createDiv({ cls: 'tb-char-count', text: `0${this.t('char_suffix')}` });
 		this.ingestTextarea.addEventListener('input', () => {
 			this.updateCharCount();
 			this.syncIngestBtnState();
 		});
 
 		// 2×2 액션 버튼 그룹
-		const actions = parent.createEl('div', { cls: 'tb-action-group' });
+		const actions = parent.createDiv({ cls: 'tb-action-group' });
 
 		this.ingestBtn = actions.createEl('button', { cls: 'tb-btn-primary', text: this.t('btn_generate') });
 		this.ingestBtn.addEventListener('click', () => {
@@ -334,7 +334,7 @@ export class ThirdBrainView extends ItemView {
 		this.bridgeBtn.addEventListener('click', () => { this.openMissionControl(); });
 
 
-		this.fileCountEl = actions.createEl('div', { cls: 'tb-file-count', text: this.vaultCountText() });
+		this.fileCountEl = actions.createDiv({ cls: 'tb-file-count', text: this.vaultCountText() });
 	}
 
 	/** 🎯 미션 컨트롤 열기 — initial을 주면 해당 폴더·미션 작업대로 바로 진입 (구 작업대 대체) */
@@ -569,12 +569,12 @@ export class ThirdBrainView extends ItemView {
 	}
 
 	private buildProgressBar(parent: HTMLElement) {
-		this.progressEl = parent.createEl('div', { cls: 'tb-progress' });
-		const sootball = this.progressEl.createEl('span', { cls: 'tb-progress-sootball' });
+		this.progressEl = parent.createDiv({ cls: 'tb-progress' });
+		const sootball = this.progressEl.createSpan({ cls: 'tb-progress-sootball' });
 		sootball.appendChild(sanitizeHTMLToDom(SOOTBALL_LOGO));
-		this.progressBarEl = this.progressEl.createEl('span', { cls: 'tb-progress-bar', text: progressBar(0) });
-		this.progressMsgEl = this.progressEl.createEl('span', { cls: 'tb-progress-msg', text: '' });
-		this.stepLogEl = parent.createEl('div', { cls: 'tb-step-log' });
+		this.progressBarEl = this.progressEl.createSpan({ cls: 'tb-progress-bar', text: progressBar(0) });
+		this.progressMsgEl = this.progressEl.createSpan({ cls: 'tb-progress-msg', text: '' });
+		this.stepLogEl = parent.createDiv({ cls: 'tb-step-log' });
 	}
 
 	private appendStepStat(label: string, elapsedMs: number, snapBefore: ReturnType<typeof getSessionStats>) {
@@ -583,11 +583,11 @@ export class ThirdBrainView extends ItemView {
 		const outTok = after.outputTokens - snapBefore.outputTokens;
 		const sec = (elapsedMs / 1000).toFixed(1);
 		const fmt = (n: number) => n > 0 ? n.toLocaleString() : '─';
-		const row = this.stepLogEl.createEl('div', { cls: 'tb-step-row' });
-		row.createEl('span', { cls: 'tb-step-name', text: label });
-		row.createEl('span', { cls: 'tb-step-time', text: `${sec}s` });
-		row.createEl('span', { cls: 'tb-step-in',   text: `↑${fmt(inTok)}` });
-		row.createEl('span', { cls: 'tb-step-out',  text: `↓${fmt(outTok)}` });
+		const row = this.stepLogEl.createDiv({ cls: 'tb-step-row' });
+		row.createSpan({ cls: 'tb-step-name', text: label });
+		row.createSpan({ cls: 'tb-step-time', text: `${sec}s` });
+		row.createSpan({ cls: 'tb-step-in',   text: `↑${fmt(inTok)}` });
+		row.createSpan({ cls: 'tb-step-out',  text: `↓${fmt(outTok)}` });
 	}
 
 	// 외부 호출용 (NodeTransplantModal → raw 파일 인제스트)
@@ -882,7 +882,7 @@ export class ThirdBrainView extends ItemView {
 			} catch (propErr) {
 				const diagMsg = propErr instanceof Error ? propErr.message : String(propErr);
 				new Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + ' ' : ''}명제 추출 실패\n${diagMsg}`, 15000);
-				this.resultsEl.createEl('div', {
+				this.resultsEl.createDiv({
 					cls: 'tb-error-msg',
 					text: `명제 추출 실패 (${chunkLabel ?? '단일 청크'}):\n${diagMsg}`,
 				});
@@ -1006,20 +1006,20 @@ export class ThirdBrainView extends ItemView {
 
 			// UI에 대형 에러 표시
 			this.resultsEl.empty();
-			const errorDiv = this.resultsEl.createEl('div', { cls: 'tb-error-container' });
+			const errorDiv = this.resultsEl.createDiv({ cls: 'tb-error-container' });
 
-			errorDiv.createEl('div', { cls: 'tb-error-title', text: this.t('error_title') });
-			errorDiv.createEl('div', { cls: 'tb-error-message', text: msg });
+			errorDiv.createDiv({ cls: 'tb-error-title', text: this.t('error_title') });
+			errorDiv.createDiv({ cls: 'tb-error-message', text: msg });
 
 			if (stack) {
-				const detailsDiv = errorDiv.createEl('div', { cls: 'tb-error-details' });
-				detailsDiv.createEl('div', { cls: 'tb-error-label', text: this.t('error_detail_label') });
+				const detailsDiv = errorDiv.createDiv({ cls: 'tb-error-details' });
+				detailsDiv.createDiv({ cls: 'tb-error-label', text: this.t('error_detail_label') });
 				detailsDiv.createEl('pre', { cls: 'tb-error-stack', text: stack.split('\n').slice(0, 5).join('\n') });
 			}
 
 			if (msg.includes('Claude API')) {
-				const helpDiv = errorDiv.createEl('div', { cls: 'tb-error-help' });
-				helpDiv.createEl('div', { cls: 'tb-error-label', text: this.t('error_help_label') });
+				const helpDiv = errorDiv.createDiv({ cls: 'tb-error-help' });
+				helpDiv.createDiv({ cls: 'tb-error-label', text: this.t('error_help_label') });
 				helpDiv.createEl('ul', {}).createEl('li', { text: this.t('error_help_1') });
 				helpDiv.createEl('ul', {}).createEl('li', { text: this.t('error_help_2') });
 				helpDiv.createEl('ul', {}).createEl('li', { text: this.t('error_help_3') });
@@ -1038,15 +1038,15 @@ export class ThirdBrainView extends ItemView {
 			`${this.t('layer_context_header')} · ${contexts.length}${this.t('layer_count_unit')}`, true
 		);
 		for (const ctx of contexts) {
-			const card = content.createEl('div', { cls: 'tb-card is-summary' });
-			const head = card.createEl('div', { cls: 'tb-card-head' });
-			head.createEl('span', { cls: 'tb-tag is-summary', text: `CTX · ${ctx.date}` });
-			head.createEl('span', { cls: 'tb-card-title', text: ctx.title });
-			card.createEl('div', { cls: 'tb-card-body', text: ctx.summary });
+			const card = content.createDiv({ cls: 'tb-card is-summary' });
+			const head = card.createDiv({ cls: 'tb-card-head' });
+			head.createSpan({ cls: 'tb-tag is-summary', text: `CTX · ${ctx.date}` });
+			head.createSpan({ cls: 'tb-card-title', text: ctx.title });
+			card.createDiv({ cls: 'tb-card-body', text: ctx.summary });
 			if (ctx.tags.length || ctx.keywords.length) {
-				const tagRow = card.createEl('div', { cls: 'tb-tagrow' });
-				for (const t of ctx.tags) tagRow.createEl('span', { cls: 'tb-keyword', text: `#${t}` });
-				for (const k of ctx.keywords) tagRow.createEl('span', { cls: 'tb-keyword is-kw', text: k });
+				const tagRow = card.createDiv({ cls: 'tb-tagrow' });
+				for (const t of ctx.tags) tagRow.createSpan({ cls: 'tb-keyword', text: `#${t}` });
+				for (const k of ctx.keywords) tagRow.createSpan({ cls: 'tb-keyword is-kw', text: k });
 			}
 			if (contexts.length > 1) card.addClass('is-collapsed');
 			head.addEventListener('click', () =>
@@ -1063,11 +1063,11 @@ export class ThirdBrainView extends ItemView {
 			`${this.t('layer_insight_header')} · ${insights.length}${this.t('layer_count_generic')}`, false
 		);
 		for (const ins of insights) {
-			const card = content.createEl('div', { cls: 'tb-card is-insight' });
-			const head = card.createEl('div', { cls: 'tb-card-head' });
-			head.createEl('span', { cls: 'tb-insight-badge', text: '⬡ 인사이트' });
-			head.createEl('span', { cls: 'tb-card-title', text: ins.title });
-			card.createEl('div', { cls: 'tb-card-body', text: ins.why_central });
+			const card = content.createDiv({ cls: 'tb-card is-insight' });
+			const head = card.createDiv({ cls: 'tb-card-head' });
+			head.createSpan({ cls: 'tb-insight-badge', text: '⬡ 인사이트' });
+			head.createSpan({ cls: 'tb-card-title', text: ins.title });
+			card.createDiv({ cls: 'tb-card-body', text: ins.why_central });
 			head.addEventListener('click', () =>
 				card.toggleClass('is-collapsed', !card.hasClass('is-collapsed'))
 			);
@@ -1090,25 +1090,25 @@ export class ThirdBrainView extends ItemView {
 		for (const p of sorted) {
 			const isInsight = p.role === 'insight';
 			const hasSource = !!p.source_span?.text;
-			const card = content.createEl('div', {
+			const card = content.createDiv({
 				cls: `tb-card is-${p.role}${p.is_core_concept ? ' is-core-concept' : ''}${isInsight ? ' is-hub' : ''}`,
 			});
-			const head = card.createEl('div', { cls: 'tb-card-head' });
+			const head = card.createDiv({ cls: 'tb-card-head' });
 			if (isInsight) {
-				head.createEl('span', { cls: 'tb-hub-badge', text: this.t('badge_insight') });
+				head.createSpan({ cls: 'tb-hub-badge', text: this.t('badge_insight') });
 			} else if (p.is_core_concept) {
-				head.createEl('span', { cls: 'tb-core-badge', text: this.t('badge_core') });
+				head.createSpan({ cls: 'tb-core-badge', text: this.t('badge_core') });
 			}
-			head.createEl('span', { cls: `tb-tag is-${p.role}`, text: p.role.toUpperCase() });
-			head.createEl('span', { cls: 'tb-card-title', text: p.title });
+			head.createSpan({ cls: `tb-tag is-${p.role}`, text: p.role.toUpperCase() });
+			head.createSpan({ cls: 'tb-card-title', text: p.title });
 			if (!hasSource) {
-				head.createEl('span', { cls: 'tb-no-source-badge', text: this.t('badge_no_source') });
+				head.createSpan({ cls: 'tb-no-source-badge', text: this.t('badge_no_source') });
 			}
-			card.createEl('div', { cls: 'tb-card-body', text: p.text });
+			card.createDiv({ cls: 'tb-card-body', text: p.text });
 			if (hasSource) {
-				const footer = card.createEl('div', { cls: 'tb-card-footer' });
+				const footer = card.createDiv({ cls: 'tb-card-footer' });
 				const srcToggle = footer.createEl('button', { cls: 'tb-source-toggle', text: this.t('source_toggle') });
-				const srcBox = card.createEl('div', { cls: 'tb-source-box' });
+				const srcBox = card.createDiv({ cls: 'tb-source-box' });
 				srcBox.createEl('p', { cls: 'tb-source-text', text: p.source_span.text });
 				srcToggle.addEventListener('click', (e) => {
 					e.stopPropagation();
@@ -1123,22 +1123,22 @@ export class ThirdBrainView extends ItemView {
 		}
 
 		if (logic.edges.length > 0) {
-			content.createEl('div', { cls: 'tb-block-label', text: this.t('label_logic_edge') });
-			const list = content.createEl('div', { cls: 'tb-edgelist' });
+			content.createDiv({ cls: 'tb-block-label', text: this.t('label_logic_edge') });
+			const list = content.createDiv({ cls: 'tb-edgelist' });
 			for (const e of logic.edges) {
 				const s = byId.get(e.source);
 				const t = byId.get(e.target);
 				if (!s || !t) continue;
 				const rel = relLabel(e.relation, this.plugin.settings.lang);
-				const row = list.createEl('div', { cls: 'tb-edge-row' });
-				row.createEl('span', { cls: 'tb-edge-node', text: shortText(s.text, 24) });
+				const row = list.createDiv({ cls: 'tb-edge-row' });
+				row.createSpan({ cls: 'tb-edge-node', text: shortText(s.text, 24) });
 				// Phase 6-3: axiom_basis hover tooltip
-				const relChip = row.createEl('span', {
+				const relChip = row.createSpan({
 					cls: `tb-edge-rel tb-edge-${e.relation}`,
 					text: ` ―${rel}→ `,
 				});
 				if (e.axiom_basis) relChip.setAttr('title', `근거: ${e.axiom_basis}`);
-				row.createEl('span', { cls: 'tb-edge-node', text: shortText(t.text, 24) });
+				row.createSpan({ cls: 'tb-edge-node', text: shortText(t.text, 24) });
 			}
 		}
 	}
@@ -1153,28 +1153,28 @@ export class ThirdBrainView extends ItemView {
 		const connectBtns: Array<{ btn: HTMLButtonElement; rec: EdgeCandidate }> = [];
 
 		if (recs.length === 0) {
-			content.createEl('div', { cls: 'tb-empty', text: this.t('label_no_vault_nodes') });
+			content.createDiv({ cls: 'tb-empty', text: this.t('label_no_vault_nodes') });
 		} else {
-			content.createEl('div', {
+			content.createDiv({
 				cls: 'tb-hint',
 				text: this.t('label_graph_save_hint'),
 			});
-			const chipRow = content.createEl('div', { cls: 'tb-edge-chips' });
+			const chipRow = content.createDiv({ cls: 'tb-edge-chips' });
 
 			for (const rec of recs) {
-				const chip = chipRow.createEl('div', { cls: 'tb-chip' });
-				const top = chip.createEl('div', { cls: 'tb-chip-top' });
-				top.createEl('span', { cls: 'tb-chip-icon', text: '◎' });
+				const chip = chipRow.createDiv({ cls: 'tb-chip' });
+				const top = chip.createDiv({ cls: 'tb-chip-top' });
+				top.createSpan({ cls: 'tb-chip-icon', text: '◎' });
 				const rel = relLabel(rec.label, this.plugin.settings.lang);
 				if (rec.source_node) {
-					top.createEl('span', { cls: 'tb-chip-source', text: shortText(rec.source_node, 16) });
-					top.createEl('span', { cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
-					top.createEl('span', { cls: 'tb-chip-target', text: rec.target_file.replace(/\.md$/, '') });
+					top.createSpan({ cls: 'tb-chip-source', text: shortText(rec.source_node, 16) });
+					top.createSpan({ cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
+					top.createSpan({ cls: 'tb-chip-target', text: rec.target_file.replace(/\.md$/, '') });
 				} else {
-					top.createEl('span', { cls: 'tb-chip-target', text: rec.target_file.replace(/\.md$/, '') });
-					top.createEl('span', { cls: 'tb-chip-arrow', text: ` (${rel})` });
+					top.createSpan({ cls: 'tb-chip-target', text: rec.target_file.replace(/\.md$/, '') });
+					top.createSpan({ cls: 'tb-chip-arrow', text: ` (${rel})` });
 				}
-				chip.createEl('div', { cls: 'tb-chip-reason', text: rec.reason });
+				chip.createDiv({ cls: 'tb-chip-reason', text: rec.reason });
 
 				const btn = chip.createEl('button', {
 					cls: 'tb-chip-connect-btn',
@@ -1228,11 +1228,11 @@ export class ThirdBrainView extends ItemView {
 		onSaveReport: () => Promise<void>,
 		onSaved?: (coreFile: TFile) => void
 	) {
-		const block = this.resultsEl.createEl('div', { cls: 'tb-block tb-save-block' });
-		const btnRow = block.createEl('div', { cls: 'tb-save-btn-row' });
+		const block = this.resultsEl.createDiv({ cls: 'tb-block tb-save-block' });
+		const btnRow = block.createDiv({ cls: 'tb-save-btn-row' });
 
 		const saveBtn = btnRow.createEl('button', { cls: 'tb-btn is-primary tb-save-main', text: this.t('btn_save_graph') });
-		const resultArea = block.createEl('div', { cls: 'tb-save-result-area' });
+		const resultArea = block.createDiv({ cls: 'tb-save-result-area' });
 
 		const doSave = async (folder: string) => {
 			saveBtn.disabled = true;
@@ -1246,12 +1246,12 @@ export class ThirdBrainView extends ItemView {
 
 				if (files.length > 0) {
 					const destLabel = dest === this.t('fallback_folder_root') ? this.t('label_vault_root') : `${dest}/`;
-					resultArea.createEl('div', { cls: 'tb-save-result-label', text: `✓ ${destLabel}${this.t('label_saved_in_suffix')}` });
-					const list = resultArea.createEl('div', { cls: 'tb-save-result-list' });
+					resultArea.createDiv({ cls: 'tb-save-result-label', text: `✓ ${destLabel}${this.t('label_saved_in_suffix')}` });
+					const list = resultArea.createDiv({ cls: 'tb-save-result-list' });
 					for (const file of files) {
-						const item = list.createEl('div', { cls: 'tb-save-result-item' });
-						item.createEl('span', { cls: 'tb-save-result-icon', text: '▸' });
-						const link = item.createEl('span', { cls: 'tb-save-result-name', text: file.basename });
+						const item = list.createDiv({ cls: 'tb-save-result-item' });
+						item.createSpan({ cls: 'tb-save-result-icon', text: '▸' });
+						const link = item.createSpan({ cls: 'tb-save-result-name', text: file.basename });
 						link.addEventListener('click', () => {
 							void this.app.workspace.getLeaf('tab').openFile(file);
 						});
@@ -1265,7 +1265,7 @@ export class ThirdBrainView extends ItemView {
 			} catch (e) {
 				saveBtn.textContent = this.t('btn_save_graph');
 				saveBtn.disabled = false;
-				resultArea.createEl('div', { cls: 'tb-save-result-error', text: `${this.t('save_error_prefix')}${e instanceof Error ? e.message : String(e)}` });
+				resultArea.createDiv({ cls: 'tb-save-result-error', text: `${this.t('save_error_prefix')}${e instanceof Error ? e.message : String(e)}` });
 				new Notice(`${this.t('save_error_prefix')}${e instanceof Error ? e.message : String(e)}`);
 			}
 		};
@@ -1342,22 +1342,22 @@ export class ThirdBrainView extends ItemView {
 	// ── Phase 8: 액션 레이어 결과 렌더 ─────────────────────────
 
 	private renderActionCard(parent: HTMLElement, node: ActionNode, propById?: Map<string, Proposition>) {
-		const card = parent.createEl('div', { cls: `tb-action-card is-${node.status}` });
+		const card = parent.createDiv({ cls: `tb-action-card is-${node.status}` });
 
-		const head = card.createEl('div', { cls: 'tb-action-card-head' });
+		const head = card.createDiv({ cls: 'tb-action-card-head' });
 		if (node.meeting_type) {
 			const mtKey = `action_meeting_${node.meeting_type}` as TKey;
-			head.createEl('span', { cls: `tb-action-meeting-badge is-${node.meeting_type}`, text: this.t(mtKey) });
+			head.createSpan({ cls: `tb-action-meeting-badge is-${node.meeting_type}`, text: this.t(mtKey) });
 		}
 		if (node.origin === 'from_resolution') {
-			head.createEl('span', { cls: 'tb-action-badge-conflict', text: this.t('badge_conflict_resolved') });
+			head.createSpan({ cls: 'tb-action-badge-conflict', text: this.t('badge_conflict_resolved') });
 		} else if (node.origin === 'extracted') {
-			head.createEl('span', { cls: 'tb-action-origin', text: this.t('badge_ai_extracted') });
+			head.createSpan({ cls: 'tb-action-origin', text: this.t('badge_ai_extracted') });
 		}
-		head.createEl('span', { cls: 'tb-action-title', text: node.title });
+		head.createSpan({ cls: 'tb-action-title', text: node.title });
 
 		// 상태 드롭다운
-		const statusRow = card.createEl('div', { cls: 'tb-action-meta-row' });
+		const statusRow = card.createDiv({ cls: 'tb-action-meta-row' });
 		const statusSel = statusRow.createEl('select', { cls: `tb-action-status-sel is-${node.status}` });
 		(['pending', 'in_progress', 'done', 'blocked'] as ActionStatus[]).forEach(s => {
 			const labels: Record<ActionStatus, string> = {
@@ -1367,8 +1367,8 @@ export class ThirdBrainView extends ItemView {
 			if (s === node.status) opt.selected = true;
 		});
 
-		if (node.owner) statusRow.createEl('span', { cls: 'tb-action-owner', text: node.owner });
-		if (node.deadline) statusRow.createEl('span', { cls: 'tb-action-deadline', text: node.deadline.slice(0, 10) });
+		if (node.owner) statusRow.createSpan({ cls: 'tb-action-owner', text: node.owner });
+		if (node.deadline) statusRow.createSpan({ cls: 'tb-action-deadline', text: node.deadline.slice(0, 10) });
 
 		statusSel.addEventListener('change', () => void (async () => {
 			const newStatus = statusSel.value as ActionStatus;
@@ -1381,16 +1381,16 @@ export class ThirdBrainView extends ItemView {
 		})());
 
 		if (node.content) {
-			card.createEl('div', { cls: 'tb-action-content', text: node.content.slice(0, 120) });
+			card.createDiv({ cls: 'tb-action-content', text: node.content.slice(0, 120) });
 		}
 
 		// 동기 명제 링크
 		if (node.motivation_ids.length > 0) {
-			const motivRow = card.createEl('div', { cls: 'tb-action-motiv' });
-			motivRow.createEl('span', { cls: 'tb-action-motiv-label', text: this.t('label_motiv') });
+			const motivRow = card.createDiv({ cls: 'tb-action-motiv' });
+			motivRow.createSpan({ cls: 'tb-action-motiv-label', text: this.t('label_motiv') });
 			for (const id of node.motivation_ids) {
 				const label = propById?.get(id)?.title ?? id;
-				const chip = motivRow.createEl('span', { cls: 'tb-action-motiv-chip', text: label });
+				const chip = motivRow.createSpan({ cls: 'tb-action-motiv-chip', text: label });
 				chip.addEventListener('click', () => {
 					const f = this.app.vault.getMarkdownFiles().find(f =>
 						this.app.metadataCache.getFileCache(f)?.frontmatter?.tb_id === id
@@ -1475,7 +1475,7 @@ export class ThirdBrainView extends ItemView {
 				const group = groups.get(key);
 				if (!group || group.length === 0) continue;
 				const labelKey: TKey = key === 'none' ? 'action_meeting_none' : `action_meeting_${key}` as TKey;
-				content.createEl('div', { cls: 'tb-action-group-header', text: this.t(labelKey) });
+				content.createDiv({ cls: 'tb-action-group-header', text: this.t(labelKey) });
 				for (const a of group) this.renderActionCard(content, a, propById);
 			}
 		} else {
@@ -1576,21 +1576,21 @@ export class ThirdBrainView extends ItemView {
 			`${this.t('layer_problem_header')} · ${items.length}${this.t('layer_count_generic')}`, false
 		);
 		for (const { file, problem } of items) {
-			const card = content.createEl('div', { cls: `tb-problem-card is-${problem.species}` });
-			const head = card.createEl('div', { cls: 'tb-problem-card-head' });
-			head.createEl('span', {
+			const card = content.createDiv({ cls: `tb-problem-card is-${problem.species}` });
+			const head = card.createDiv({ cls: 'tb-problem-card-head' });
+			head.createSpan({
 				cls: `tb-problem-species is-${problem.species}`,
 				text: this.t(`problem_species_${problem.species}` as TKey),
 			});
-			head.createEl('span', { cls: 'tb-problem-title', text: problem.title });
+			head.createSpan({ cls: 'tb-problem-title', text: problem.title });
 			if (problem.description) {
-				card.createEl('div', { cls: 'tb-problem-desc', text: problem.description });
+				card.createDiv({ cls: 'tb-problem-desc', text: problem.description });
 			}
-			card.createEl('div', {
+			card.createDiv({
 				cls: 'tb-problem-evidence',
 				text: `${this.t('problem_evidence_label')}${problem.evidence_ids.join(', ')}`,
 			});
-			const btnRow = card.createEl('div', { cls: 'tb-problem-card-btns' });
+			const btnRow = card.createDiv({ cls: 'tb-problem-card-btns' });
 			const workbenchBtn = btnRow.createEl('button', { cls: 'tb-btn tb-btn-sm tb-problem-workbench-btn', text: '🎯 작업대' });
 			workbenchBtn.addEventListener('click', () => {
 				this.openMissionControl({ folder: sessionFolderOfProblem(file), missionId: file.basename });
@@ -1609,25 +1609,25 @@ export class ThirdBrainView extends ItemView {
 		const { content } = this.makeSectionToggle(
 			`⚠ 논리 모순 · ${conflicts.length}개 (그래프에 보존됨)`, false
 		);
-		content.createEl('div', {
+		content.createDiv({
 			cls: 'tb-conflict-notice-hint',
 			text: this.t('label_conflict_notice'),
 		});
 		for (const c of conflicts) {
-			const row = content.createEl('div', { cls: 'tb-conflict-notice-row' });
-			row.createEl('span', { cls: 'tb-conflict-notice-a', text: c.nodeA.title });
-			row.createEl('span', { cls: 'tb-conflict-notice-vs', text: '⟷' });
-			row.createEl('span', { cls: 'tb-conflict-notice-b', text: c.nodeB.title });
+			const row = content.createDiv({ cls: 'tb-conflict-notice-row' });
+			row.createSpan({ cls: 'tb-conflict-notice-a', text: c.nodeA.title });
+			row.createSpan({ cls: 'tb-conflict-notice-vs', text: '⟷' });
+			row.createSpan({ cls: 'tb-conflict-notice-b', text: c.nodeB.title });
 			// 제목 아래 명제문 동봉 — 제목만으로는 왜 모순인지 유추할 수 없다
 			const dA = conflictNodeDetail(c.nodeA);
 			const dB = conflictNodeDetail(c.nodeB);
 			if (dA.claim || dB.claim) {
-				const detail = content.createEl('div', { cls: 'tb-conflict-notice-detail' });
-				if (dA.claim) detail.createEl('div', { cls: 'tb-conflict-notice-claim', text: `A · ${dA.claim}` });
-				if (dB.claim) detail.createEl('div', { cls: 'tb-conflict-notice-claim', text: `B · ${dB.claim}` });
+				const detail = content.createDiv({ cls: 'tb-conflict-notice-detail' });
+				if (dA.claim) detail.createDiv({ cls: 'tb-conflict-notice-claim', text: `A · ${dA.claim}` });
+				if (dB.claim) detail.createDiv({ cls: 'tb-conflict-notice-claim', text: `B · ${dB.claim}` });
 			}
 			const btn = row.createEl('button', { cls: 'tb-btn tb-conflict-resolve-btn', text: '해소하기' });
-			const resolvedMsg = row.createEl('span', { cls: 'tb-conflict-resolved-msg' });
+			const resolvedMsg = row.createSpan({ cls: 'tb-conflict-resolved-msg' });
 			btn.addEventListener('click', () => {
 				new ConflictResolutionModal(this.app, c, this.store, this.plugin.settings, (msg) => {
 					btn.remove();
@@ -1725,11 +1725,11 @@ export class ThirdBrainView extends ItemView {
 	// ⑨ 자동 저장(≥0.75) 로그 — 접을 수 있는 저장 내역 표시
 	private renderCrossConnectionSavedLog(saved: CrossConnection[]): void {
 		const container = this.pipelineModal?.contentEl ?? this.resultsEl;
-		const block = container.createEl('div', { cls: 'tb-block' });
-		const toggle = block.createEl('div', { cls: 'tb-section-toggle' });
-		toggle.createEl('span', { cls: 'tb-section-chevron', text: '▾' });
-		toggle.createEl('span', { cls: 'tb-section-label', text: `✓ ⑨ ${saved.length}${this.t('conn_auto_saved_suffix')}` });
-		const content = block.createEl('div', { cls: 'tb-section-content' });
+		const block = container.createDiv({ cls: 'tb-block' });
+		const toggle = block.createDiv({ cls: 'tb-section-toggle' });
+		toggle.createSpan({ cls: 'tb-section-chevron', text: '▾' });
+		toggle.createSpan({ cls: 'tb-section-label', text: `✓ ⑨ ${saved.length}${this.t('conn_auto_saved_suffix')}` });
+		const content = block.createDiv({ cls: 'tb-section-content' });
 		toggle.addEventListener('click', () => {
 			const collapsed = content.hasClass('is-collapsed');
 			content.toggleClass('is-collapsed', !collapsed);
@@ -1738,8 +1738,8 @@ export class ThirdBrainView extends ItemView {
 		for (const conn of saved) {
 			const rel = relLabel(conn.relation, this.plugin.settings.lang);
 			const pct = Math.round((conn.confidence ?? 0.5) * 100);
-			const chip = content.createEl('div', { cls: 'tb-chip is-saved', text: `[${pct}%] ${conn.new_title} ―${rel}→ ${conn.existing_title}` });
-			if (conn.reason) chip.createEl('div', { cls: 'tb-chip-reason', text: conn.reason });
+			const chip = content.createDiv({ cls: 'tb-chip is-saved', text: `[${pct}%] ${conn.new_title} ―${rel}→ ${conn.existing_title}` });
+			if (conn.reason) chip.createDiv({ cls: 'tb-chip-reason', text: conn.reason });
 		}
 	}
 
@@ -1751,20 +1751,20 @@ export class ThirdBrainView extends ItemView {
 	): void {
 		const pending = connections;
 		const container = this.pipelineModal?.contentEl ?? this.resultsEl;
-		const block = container.createEl('div', { cls: 'tb-block' });
-		const toggle = block.createEl('div', { cls: 'tb-section-toggle' });
-		toggle.createEl('span', { cls: 'tb-section-chevron', text: '▾' });
-		const labelEl = toggle.createEl('span', { cls: 'tb-section-label', text: `${this.t('conn_pending_prefix')}${pending.length}${this.t('conn_pending_suffix')}` });
-		const content = block.createEl('div', { cls: 'tb-section-content' });
+		const block = container.createDiv({ cls: 'tb-block' });
+		const toggle = block.createDiv({ cls: 'tb-section-toggle' });
+		toggle.createSpan({ cls: 'tb-section-chevron', text: '▾' });
+		const labelEl = toggle.createSpan({ cls: 'tb-section-label', text: `${this.t('conn_pending_prefix')}${pending.length}${this.t('conn_pending_suffix')}` });
+		const content = block.createDiv({ cls: 'tb-section-content' });
 		toggle.addEventListener('click', () => {
 			const collapsed = content.hasClass('is-collapsed');
 			content.toggleClass('is-collapsed', !collapsed);
 			toggle.querySelector<HTMLElement>('.tb-section-chevron')!.textContent = collapsed ? '▾' : '▸';
 		});
 
-		content.createEl('div', { cls: 'tb-hint', text: this.t('conn_manual_hint') });
+		content.createDiv({ cls: 'tb-hint', text: this.t('conn_manual_hint') });
 
-		const chipRow = content.createEl('div', { cls: 'tb-edge-chips' });
+		const chipRow = content.createDiv({ cls: 'tb-edge-chips' });
 		const states: Array<{ conn: CrossConnection; selected: boolean }> = [];
 		let locked = false;
 
@@ -1772,14 +1772,14 @@ export class ThirdBrainView extends ItemView {
 			const conn = pending[i];
 			const rel = relLabel(conn.relation, this.plugin.settings.lang);
 			const pct = Math.round((conn.confidence ?? 0.5) * 100);
-			const chip = chipRow.createEl('div', { cls: 'tb-chip' });
-			const top  = chip.createEl('div', { cls: 'tb-chip-top' });
-			const icon = top.createEl('span', { cls: 'tb-chip-icon', text: '◎' });
-			top.createEl('span', { cls: 'tb-chip-conf', text: `[${pct}%]` });
-			top.createEl('span', { cls: 'tb-chip-source', text: shortText(conn.new_title, 14) });
-			top.createEl('span', { cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
-			top.createEl('span', { cls: 'tb-chip-target', text: conn.existing_title });
-			if (conn.reason) chip.createEl('div', { cls: 'tb-chip-reason', text: conn.reason });
+			const chip = chipRow.createDiv({ cls: 'tb-chip' });
+			const top  = chip.createDiv({ cls: 'tb-chip-top' });
+			const icon = top.createSpan({ cls: 'tb-chip-icon', text: '◎' });
+			top.createSpan({ cls: 'tb-chip-conf', text: `[${pct}%]` });
+			top.createSpan({ cls: 'tb-chip-source', text: shortText(conn.new_title, 14) });
+			top.createSpan({ cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
+			top.createSpan({ cls: 'tb-chip-target', text: conn.existing_title });
+			if (conn.reason) chip.createDiv({ cls: 'tb-chip-reason', text: conn.reason });
 
 			const state = { conn, selected: false };
 			states.push(state);
@@ -1791,7 +1791,7 @@ export class ThirdBrainView extends ItemView {
 			});
 		}
 
-		const bar = block.createEl('div', { cls: 'tb-savebar' });
+		const bar = block.createDiv({ cls: 'tb-savebar' });
 		const saveBtn = bar.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_save_connection') });
 		saveBtn.addEventListener('click', () => void (async () => {
 			const selected = states.filter(s => s.selected);
@@ -2036,12 +2036,12 @@ export class ThirdBrainView extends ItemView {
 		this.resultsEl.empty();
 
 		// 인라인: synthesis 요약 + 버튼만
-		const doneCard = this.resultsEl.createEl('div', { cls: 'tb-block tb-analysis-done-card' });
-		doneCard.createEl('div', { cls: 'tb-analysis-done-folder', text: `📊 ${folderPath}` });
+		const doneCard = this.resultsEl.createDiv({ cls: 'tb-block tb-analysis-done-card' });
+		doneCard.createDiv({ cls: 'tb-analysis-done-folder', text: `📊 ${folderPath}` });
 		if (result.synthesis) {
-			doneCard.createEl('div', { cls: 'tb-analysis-done-synthesis', text: result.synthesis });
+			doneCard.createDiv({ cls: 'tb-analysis-done-synthesis', text: result.synthesis });
 		}
-		const btnRow = doneCard.createEl('div', { cls: 'tb-analysis-done-actions' });
+		const btnRow = doneCard.createDiv({ cls: 'tb-analysis-done-actions' });
 		const openBtn = btnRow.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_view_all') });
 
 		const openModal = () => {
@@ -2142,11 +2142,11 @@ export class ThirdBrainView extends ItemView {
 		block: HTMLElement; content: HTMLElement;
 	} {
 		const container = this.pipelineModal?.contentEl ?? this.resultsEl;
-		const block = container.createEl('div', { cls: 'tb-block' });
-		const toggle = block.createEl('div', { cls: 'tb-section-toggle' });
-		const chevron = toggle.createEl('span', { cls: 'tb-section-chevron', text: collapsed ? '▸' : '▾' });
-		toggle.createEl('span', { cls: 'tb-section-label', text: label });
-		const content = block.createEl('div', { cls: 'tb-section-content' });
+		const block = container.createDiv({ cls: 'tb-block' });
+		const toggle = block.createDiv({ cls: 'tb-section-toggle' });
+		const chevron = toggle.createSpan({ cls: 'tb-section-chevron', text: collapsed ? '▸' : '▾' });
+		toggle.createSpan({ cls: 'tb-section-label', text: label });
+		const content = block.createDiv({ cls: 'tb-section-content' });
 		if (collapsed) content.addClass('is-collapsed');
 
 		toggle.addEventListener('click', () => {
@@ -2164,7 +2164,7 @@ export class ThirdBrainView extends ItemView {
 		saveLabel: string,
 		onSave: () => Promise<void>
 	) {
-		const bar = parent.createEl('div', { cls: 'tb-savebar' });
+		const bar = parent.createDiv({ cls: 'tb-savebar' });
 		const skipBtn = bar.createEl('button', { cls: 'tb-btn', text: skipLabel });
 		const saveBtn = bar.createEl('button', { cls: 'tb-btn is-primary', text: saveLabel });
 
@@ -2551,7 +2551,7 @@ export class ThirdBrainView extends ItemView {
 			]);
 
 			if (tbNodesA.length === 0 || tbNodesB.length === 0) {
-				this.resultsEl.createEl('div', {
+				this.resultsEl.createDiv({
 					cls: 'tb-error-msg',
 					text: this.t('label_no_propositions'),
 				});
@@ -2614,7 +2614,7 @@ export class ThirdBrainView extends ItemView {
 			this.setBridgeBusy(false);
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`[ThirdBrain] ${this.t('save_error_prefix')}${msg}`);
-			this.resultsEl.createEl('div', { cls: 'tb-error-msg', text: `${this.t('error_title')}: ${msg}` });
+			this.resultsEl.createDiv({ cls: 'tb-error-msg', text: `${this.t('error_title')}: ${msg}` });
 		}
 	}
 

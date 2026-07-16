@@ -28,9 +28,9 @@ export class BridgeModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass('tb-popup-content');
 
-		const bridgeTitleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_bridge_title') });
+		const bridgeTitleEl = contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_bridge_title') });
 		makeDraggable(this.modalEl, bridgeTitleEl);
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_bridge_sub') });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_bridge_sub') });
 
 		// raw 폴더 제외
 		const eligible = this.folders.filter(f => {
@@ -38,14 +38,14 @@ export class BridgeModal extends Modal {
 			return !parts.some(p => p === 'raw');
 		});
 
-		const cols = contentEl.createEl('div', { cls: 'tb-popup-bridge-cols' });
+		const cols = contentEl.createDiv({ cls: 'tb-popup-bridge-cols' });
 
 		type ColEntry = { folder: string; cb: HTMLInputElement; labelEl: HTMLElement };
 
 		const buildCol = (colLabel: string): { entries: ColEntry[]; getSelected: () => string[] } => {
-			const col = cols.createEl('div', { cls: 'tb-popup-bridge-col' });
-			col.createEl('div', { cls: 'tb-popup-bridge-col-label', text: colLabel });
-			const list = col.createEl('div', { cls: 'tb-popup-folder-list' });
+			const col = cols.createDiv({ cls: 'tb-popup-bridge-col' });
+			col.createDiv({ cls: 'tb-popup-bridge-col-label', text: colLabel });
+			const list = col.createDiv({ cls: 'tb-popup-folder-list' });
 			const entries: ColEntry[] = [];
 			for (const f of eligible) {
 				const depth = f.split('/').length - 1;
@@ -54,8 +54,8 @@ export class BridgeModal extends Modal {
 				labelEl.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
 				const cb = labelEl.createEl('input', { attr: { type: 'checkbox' } });
 				cb.addClass('tb-popup-cb');
-				labelEl.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-				labelEl.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+				labelEl.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+				labelEl.createSpan({ cls: 'tb-popup-folder-name', text: name });
 				entries.push({ folder: f, cb, labelEl });
 			}
 			return { entries, getSelected: () => entries.filter(e => e.cb.checked).map(e => e.folder) };
@@ -93,7 +93,7 @@ export class BridgeModal extends Modal {
 				syncExclusion(colBData.entries, colAData.entries, i, colBData.entries[i].cb.checked));
 		}
 
-		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
 			.addEventListener('click', () => this.close());
 		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_bridge_run') })
@@ -133,14 +133,14 @@ export class BridgeResultModal extends Modal {
 	async onOpen() {
 		const { contentEl } = this;
 		contentEl.createEl('h2', { text: this._t('modal_bridge_title') });
-		contentEl.createEl('div', { cls: 'tb-bridge-modal-sub', text: `${this.folderAName}  ↔  ${this.folderBName}` });
+		contentEl.createDiv({ cls: 'tb-bridge-modal-sub', text: `${this.folderAName}  ↔  ${this.folderBName}` });
 
 		if (this.result.insight) {
-			contentEl.createEl('div', { cls: 'tb-bridge-insight', text: this.result.insight });
+			contentEl.createDiv({ cls: 'tb-bridge-insight', text: this.result.insight });
 		}
 
 		if (this.result.edges.length === 0) {
-			contentEl.createEl('div', { cls: 'tb-empty', text: this._t('label_no_edges') });
+			contentEl.createDiv({ cls: 'tb-empty', text: this._t('label_no_edges') });
 			contentEl.createEl('button', { cls: 'tb-btn is-primary', text: this._t('btn_close') })
 				.addEventListener('click', () => this.close());
 			return;
@@ -155,9 +155,9 @@ export class BridgeResultModal extends Modal {
 		let chipRow: HTMLElement | null = null;
 
 		if (visibleEdges.length > 0) {
-			contentEl.createEl('div', { cls: 'tb-hint', text: this._t('label_edge_save_hint') });
+			contentEl.createDiv({ cls: 'tb-hint', text: this._t('label_edge_save_hint') });
 
-			chipRow = contentEl.createEl('div', { cls: 'tb-edge-chips' });
+			chipRow = contentEl.createDiv({ cls: 'tb-edge-chips' });
 
 			for (const edge of visibleEdges) {
 				const rel = relLabel(edge.relation, this.lang);
@@ -166,14 +166,14 @@ export class BridgeResultModal extends Modal {
 				const tgtLabel = edge.target_title ?? edge.target_file.replace(/\.md$/, '');
 				const preSelected = (edge.confidence ?? 0) >= 0.75;
 
-				const chip = chipRow.createEl('div', { cls: `tb-chip${preSelected ? ' is-selected' : ''}` });
-				const top = chip.createEl('div', { cls: 'tb-chip-top' });
-				const icon = top.createEl('span', { cls: 'tb-chip-icon', text: preSelected ? '✓' : '◎' });
-				top.createEl('span', { cls: 'tb-chip-conf', text: `[${pct}%]` });
-				top.createEl('span', { cls: 'tb-chip-source', text: shortText(srcLabel, 14) });
-				top.createEl('span', { cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
-				top.createEl('span', { cls: 'tb-chip-target', text: tgtLabel });
-				if (edge.reason) chip.createEl('div', { cls: 'tb-chip-reason', text: edge.reason });
+				const chip = chipRow.createDiv({ cls: `tb-chip${preSelected ? ' is-selected' : ''}` });
+				const top = chip.createDiv({ cls: 'tb-chip-top' });
+				const icon = top.createSpan({ cls: 'tb-chip-icon', text: preSelected ? '✓' : '◎' });
+				top.createSpan({ cls: 'tb-chip-conf', text: `[${pct}%]` });
+				top.createSpan({ cls: 'tb-chip-source', text: shortText(srcLabel, 14) });
+				top.createSpan({ cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
+				top.createSpan({ cls: 'tb-chip-target', text: tgtLabel });
+				if (edge.reason) chip.createDiv({ cls: 'tb-chip-reason', text: edge.reason });
 
 				const state: BState = { edge, selected: preSelected };
 				states.push(state);
@@ -186,7 +186,7 @@ export class BridgeResultModal extends Modal {
 			}
 		}
 
-		const footer = contentEl.createEl('div', { cls: 'tb-bridge-modal-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-bridge-modal-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this._t('btn_close') })
 			.addEventListener('click', () => this.close());
 
@@ -241,9 +241,9 @@ export class SingleNodeBridgeModal extends Modal {
 		const t = getT(this.lang);
 		contentEl.addClass('tb-popup-content');
 
-		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: t('label_connect') });
+		const titleEl = contentEl.createDiv({ cls: 'tb-popup-title', text: t('label_connect') });
 		makeDraggable(this.modalEl, titleEl);
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.sourceTitle });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: this.sourceTitle });
 
 		const titleToFile = new Map<string, TFile>();
 		for (const n of this.targetNodes) {
@@ -272,16 +272,16 @@ export class SingleNodeBridgeModal extends Modal {
 		const visible = this.candidates.filter(c => (c.confidence ?? 0) >= 0.6);
 
 		if (visible.length === 0) {
-			contentEl.createEl('div', { cls: 'tb-popup-empty', text: t('label_no_edges') });
-			const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+			contentEl.createDiv({ cls: 'tb-popup-empty', text: t('label_no_edges') });
+			const footer = contentEl.createDiv({ cls: 'tb-popup-footer' });
 			footer.createEl('button', { cls: 'tb-btn', text: t('btn_close') })
 				.addEventListener('click', () => this.close());
 			return;
 		}
 
-		contentEl.createEl('div', { cls: 'tb-hint', text: t('label_edge_save_hint') });
+		contentEl.createDiv({ cls: 'tb-hint', text: t('label_edge_save_hint') });
 
-		const chipRow = contentEl.createEl('div', { cls: 'tb-edge-chips' });
+		const chipRow = contentEl.createDiv({ cls: 'tb-edge-chips' });
 		type State = { c: { target_title: string; relation: string; confidence?: number; reason: string }; selected: boolean };
 		const states: State[] = [];
 		let locked = false;
@@ -290,14 +290,14 @@ export class SingleNodeBridgeModal extends Modal {
 			const rel = relLabel(c.relation, this.lang);
 			const pct = Math.round((c.confidence ?? 0.5) * 100);
 
-			const chip = chipRow.createEl('div', { cls: 'tb-chip' });
-			const top = chip.createEl('div', { cls: 'tb-chip-top' });
-			const icon = top.createEl('span', { cls: 'tb-chip-icon', text: '◎' });
-			top.createEl('span', { cls: 'tb-chip-conf', text: `[${pct}%]` });
-			top.createEl('span', { cls: 'tb-chip-source', text: shortText(this.sourceTitle, 14) });
-			top.createEl('span', { cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
-			top.createEl('span', { cls: 'tb-chip-target', text: c.target_title });
-			if (c.reason) chip.createEl('div', { cls: 'tb-chip-reason', text: c.reason });
+			const chip = chipRow.createDiv({ cls: 'tb-chip' });
+			const top = chip.createDiv({ cls: 'tb-chip-top' });
+			const icon = top.createSpan({ cls: 'tb-chip-icon', text: '◎' });
+			top.createSpan({ cls: 'tb-chip-conf', text: `[${pct}%]` });
+			top.createSpan({ cls: 'tb-chip-source', text: shortText(this.sourceTitle, 14) });
+			top.createSpan({ cls: 'tb-chip-arrow', text: ` ―${rel}→ ` });
+			top.createSpan({ cls: 'tb-chip-target', text: c.target_title });
+			if (c.reason) chip.createDiv({ cls: 'tb-chip-reason', text: c.reason });
 
 			const state: State = { c, selected: false };
 			states.push(state);
@@ -309,7 +309,7 @@ export class SingleNodeBridgeModal extends Modal {
 			});
 		}
 
-		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: t('btn_close') })
 			.addEventListener('click', () => this.close());
 

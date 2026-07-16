@@ -35,7 +35,7 @@ export class GraphCanvasModal extends Modal {
 		this.setTitle(this.lang === 'ko' ? '지식 그래프' : 'Knowledge Graph');
 
 		// 캔버스 — 전체 영역
-		const canvasWrap = contentEl.createEl('div', { cls: 'tb-canvas-wrap' });
+		const canvasWrap = contentEl.createDiv({ cls: 'tb-canvas-wrap' });
 		this.graphView = new GraphView(canvasWrap, () => { }, this.lang, (rawPath, blockId) => {
 			void this.app.workspace.openLinkText(`${rawPath}#^${blockId}`, '');
 		});
@@ -79,9 +79,9 @@ export class GraphViewModal extends Modal {
 	private t(key: TKey): string { return getT(this.lang)(key); }
 
 	private buildFolderList(container: HTMLElement): Array<{ folder: string; cb: HTMLInputElement }> {
-		const list = container.createEl('div', { cls: 'tb-popup-folder-list' });
+		const list = container.createDiv({ cls: 'tb-popup-folder-list' });
 		if (this.folders.length === 0) {
-			list.createEl('div', { cls: 'tb-popup-empty', text: this.t('modal_graph_empty') });
+			list.createDiv({ cls: 'tb-popup-empty', text: this.t('modal_graph_empty') });
 			return [];
 		}
 		const checkboxes: Array<{ folder: string; cb: HTMLInputElement }> = [];
@@ -92,8 +92,8 @@ export class GraphViewModal extends Modal {
 			label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
 			const cb = label.createEl('input', { attr: { type: 'checkbox' } });
 			cb.addClass('tb-popup-cb');
-			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+			label.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+			label.createSpan({ cls: 'tb-popup-folder-name', text: name });
 			checkboxes.push({ folder, cb });
 		}
 		// 상위 폴더 체크 시 하위 폴더 자동 체크
@@ -114,19 +114,19 @@ export class GraphViewModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass('tb-popup-content');
 
-		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_graph_title') });
+		const titleEl = contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_graph_title') });
 		makeDraggable(this.modalEl, titleEl);
 
-		const tabBar = contentEl.createEl('div', { cls: 'tb-tab-bar' });
+		const tabBar = contentEl.createDiv({ cls: 'tb-tab-bar' });
 		const tabNative = tabBar.createEl('button', { cls: 'tb-tab is-active', text: this.t('modal_query_open_native') });
 		const tabCanvas = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('modal_query_open_canvas') });
 		const tabDownload = tabBar.createEl('button', { cls: 'tb-tab', text: this.t('modal_query_open_download') });
 		const tabDelete = tabBar.createEl('button', { cls: 'tb-tab tb-tab-danger', text: this.t('modal_query_open_delete') });
 
-		const paneNative = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
-		const paneCanvas = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
-		const paneDownload = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
-		const paneDelete = contentEl.createEl('div', { cls: 'tb-analysis-tab-pane' });
+		const paneNative = contentEl.createDiv({ cls: 'tb-analysis-tab-pane' });
+		const paneCanvas = contentEl.createDiv({ cls: 'tb-analysis-tab-pane' });
+		const paneDownload = contentEl.createDiv({ cls: 'tb-analysis-tab-pane' });
+		const paneDelete = contentEl.createDiv({ cls: 'tb-analysis-tab-pane' });
 		paneCanvas.hide();
 		paneDownload.hide();
 		paneDelete.hide();
@@ -153,17 +153,17 @@ export class GraphViewModal extends Modal {
 	}
 
 	private buildNativePane(container: HTMLElement) {
-		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_native_sub') });
+		container.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_graph_native_sub') });
 
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const checkboxes = this.buildFolderList(container);
 
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		const filterRow = footer.createEl('label', { cls: 'tb-graph-filter-row is-active' });
 		const conflictCb = filterRow.createEl('input', { attr: { type: 'checkbox' } });
 		conflictCb.addClass('tb-popup-cb');
 		conflictCb.checked = true;
-		filterRow.createEl('span', { cls: 'tb-graph-filter-label', text: this.t('graph_exclude_conflicts') });
+		filterRow.createSpan({ cls: 'tb-graph-filter-label', text: this.t('graph_exclude_conflicts') });
 		conflictCb.addEventListener('change', () => filterRow.toggleClass('is-active', conflictCb.checked));
 
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
@@ -178,13 +178,13 @@ export class GraphViewModal extends Modal {
 	}
 
 	private buildCanvasPane(container: HTMLElement) {
-		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_canvas_sub') });
+		container.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_graph_canvas_sub') });
 
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const checkboxes = this.buildFolderList(container);
 
 		// ── 프리셋 필터 (드롭다운) ──────────────────────────
-		const presetRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const presetRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		presetRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('modal_query_preset_label') });
 		const presetSelect = presetRow.createEl('select', { cls: 'tb-popup-select' });
 		presetSelect.createEl('option', { attr: { value: 'all' }, text: this.t('modal_query_preset_all') });
@@ -207,16 +207,16 @@ export class GraphViewModal extends Modal {
 		});
 
 		// ── AI 자연어 쿼리 ───────────────────────────────
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('modal_query_ai_label') });
-		const customRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('modal_query_ai_label') });
+		const customRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		const aiInput = customRow.createEl('textarea', {
 			cls: 'tb-intent-custom',
 			attr: { placeholder: this.t('modal_query_ai_placeholder'), rows: '2' },
 		});
 
-		const aiFooterRow = container.createEl('div', { cls: 'tb-popup-select-row' });
+		const aiFooterRow = container.createDiv({ cls: 'tb-popup-select-row' });
 		const aiBtn = aiFooterRow.createEl('button', { cls: 'tb-btn', text: this.t('modal_query_ai_btn') });
-		const aiStatus = aiFooterRow.createEl('div', { cls: 'tb-gvm-ai-status' });
+		const aiStatus = aiFooterRow.createDiv({ cls: 'tb-gvm-ai-status' });
 
 		aiBtn.addEventListener('click', () => void (async () => {
 			const prompt = aiInput.value.trim();
@@ -240,7 +240,7 @@ export class GraphViewModal extends Modal {
 		})());
 
 		// ── 하단 버튼 ─────────────────────────────────────
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
 			.addEventListener('click', () => this.close());
 		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_open_graph') })
@@ -253,31 +253,31 @@ export class GraphViewModal extends Modal {
 	}
 
 	private buildDownloadPane(container: HTMLElement) {
-		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_download_sub') });
+		container.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_graph_download_sub') });
 
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const checkboxes = this.buildFolderList(container);
 
 		// ── 옵션 섹션 ──────────────────────────────────
-		container.createEl('div', { cls: 'tb-popup-select-label', text: 'Export Options' });
-		const optionsRow = container.createEl('div', { cls: 'tb-popup-options-section' });
+		container.createDiv({ cls: 'tb-popup-select-label', text: 'Export Options' });
+		const optionsRow = container.createDiv({ cls: 'tb-popup-options-section' });
 
 		// 원본 텍스트 포함 (기본값: true)
 		const sourceLabel = optionsRow.createEl('label', { cls: 'tb-popup-checkbox-row' });
 		const sourceCb = sourceLabel.createEl('input', { attr: { type: 'checkbox' } });
 		sourceCb.checked = true;
 		sourceCb.addClass('tb-popup-cb');
-		sourceLabel.createEl('span', { text: this.t('graph_export_option_source') });
+		sourceLabel.createSpan({ text: this.t('graph_export_option_source') });
 
 		// 메타데이터 포함
 		const metaLabel = optionsRow.createEl('label', { cls: 'tb-popup-checkbox-row' });
 		const metaCb = metaLabel.createEl('input', { attr: { type: 'checkbox' } });
 		metaCb.checked = true;
 		metaCb.addClass('tb-popup-cb');
-		metaLabel.createEl('span', { text: this.t('graph_export_option_metadata') });
+		metaLabel.createSpan({ text: this.t('graph_export_option_metadata') });
 
 		// 최대 텍스트 길이 입력
-		const lengthRow = optionsRow.createEl('div', { cls: 'tb-popup-input-row' });
+		const lengthRow = optionsRow.createDiv({ cls: 'tb-popup-input-row' });
 		lengthRow.createEl('label', { cls: 'tb-popup-select-label', text: this.t('graph_export_option_length') });
 		const lengthInput = lengthRow.createEl('input', {
 			cls: 'tb-popup-input',
@@ -285,7 +285,7 @@ export class GraphViewModal extends Modal {
 		});
 
 		// 하단 버튼
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
 			.addEventListener('click', () => this.close());
 
@@ -334,16 +334,16 @@ export class GraphViewModal extends Modal {
 	// ── [v0.3.5] 그래프 삭제 탭 — 폴더 선택 → 대상 집계 → 확인 → 휴지통 ──
 	private buildDeletePane(container: HTMLElement) {
 		const ko = this.lang !== 'en';
-		container.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_graph_delete_sub') });
+		container.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_graph_delete_sub') });
 
-		container.createEl('div', { cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
+		container.createDiv({ cls: 'tb-popup-select-label', text: this.t('analysis_folder_label') });
 		const checkboxes = this.buildFolderList(container);
 
-		const previewEl = container.createEl('div', { cls: 'tb-delete-preview' });
+		const previewEl = container.createDiv({ cls: 'tb-delete-preview' });
 		let pendingTargets: TFile[] = [];
 		let pendingFolders: string[] = [];
 
-		const footer = container.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = container.createDiv({ cls: 'tb-popup-footer' });
 		const scanBtn = footer.createEl('button', { cls: 'tb-btn', text: ko ? '삭제 대상 확인' : 'Scan targets' });
 		const deleteBtn = footer.createEl('button', { cls: 'tb-btn tb-btn-danger', text: ko ? '휴지통으로 이동' : 'Move to trash' });
 		deleteBtn.disabled = true;
@@ -353,28 +353,28 @@ export class GraphViewModal extends Modal {
 			if (selected.length === 0) { new Notice(this.t('notice_select_folder')); return; }
 			scanBtn.disabled = true;
 			previewEl.empty();
-			previewEl.createEl('div', { cls: 'tb-mission-sub', text: ko ? '집계 중…' : 'Scanning…' });
+			previewEl.createDiv({ cls: 'tb-mission-sub', text: ko ? '집계 중…' : 'Scanning…' });
 			try {
 				pendingTargets = await this.store.collectGraphDeletionTargets(selected);
 				pendingFolders = selected;
 				previewEl.empty();
 				if (pendingTargets.length === 0) {
-					previewEl.createEl('div', { cls: 'tb-mission-sub', text: ko ? '삭제할 파일이 없습니다.' : 'Nothing to delete.' });
+					previewEl.createDiv({ cls: 'tb-mission-sub', text: ko ? '삭제할 파일이 없습니다.' : 'Nothing to delete.' });
 					deleteBtn.disabled = true;
 					return;
 				}
-				previewEl.createEl('div', {
+				previewEl.createDiv({
 					cls: 'tb-delete-count',
 					text: ko
 						? `⚠ 폴더 통째 + ${pendingTargets.length}개 파일이 휴지통으로 이동됩니다 (노드·raw 원본·요약 포함, 복구 가능)`
 						: `⚠ Folder itself + ${pendingTargets.length} files will be trashed (nodes, raw originals & summaries — recoverable)`,
 				});
-				const list = previewEl.createEl('div', { cls: 'tb-delete-list' });
+				const list = previewEl.createDiv({ cls: 'tb-delete-list' });
 				for (const f of pendingTargets.slice(0, 12)) {
-					list.createEl('div', { cls: 'tb-delete-item', text: f.path });
+					list.createDiv({ cls: 'tb-delete-item', text: f.path });
 				}
 				if (pendingTargets.length > 12) {
-					list.createEl('div', { cls: 'tb-delete-item', text: `… +${pendingTargets.length - 12}` });
+					list.createDiv({ cls: 'tb-delete-item', text: `… +${pendingTargets.length - 12}` });
 				}
 				deleteBtn.disabled = false;
 			} finally {

@@ -32970,13 +32970,12 @@ Selected folders contain no nodes.
   static downloadFile(content, filename) {
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const link = activeDocument.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.className = "tb-hidden-download-link";
-    activeDocument.body.appendChild(link);
+    const link = activeDocument.body.createEl("a", {
+      cls: "tb-hidden-download-link",
+      attr: { href: url, download: filename }
+    });
     link.click();
-    activeDocument.body.removeChild(link);
+    link.remove();
     URL.revokeObjectURL(url);
   }
 };
@@ -33090,16 +33089,16 @@ var AICostPreflightModal = class extends import_obsidian4.Modal {
     contentEl.addClass("tb-preflight");
     this.setTitle(this.ko ? "\u26A1 AI \uC2E4\uD589 \uD655\uC778" : "\u26A1 Confirm AI run");
     const opName = OP_LABEL[this.est.operation][this.ko ? "ko" : "en"];
-    contentEl.createEl("div", { cls: "tb-preflight-op", text: opName });
-    contentEl.createEl("div", {
+    contentEl.createDiv({ cls: "tb-preflight-op", text: opName });
+    contentEl.createDiv({
       cls: "tb-preflight-model",
       text: modelLabel(this.est.provider, this.est.tier)
     });
-    const grid = contentEl.createEl("div", { cls: "tb-preflight-grid" });
+    const grid = contentEl.createDiv({ cls: "tb-preflight-grid" });
     const cell = (label, value, accent = false) => {
-      const c2 = grid.createEl("div", { cls: "tb-preflight-cell" });
-      c2.createEl("div", { cls: "tb-preflight-cell-label", text: label });
-      const v = c2.createEl("div", { cls: "tb-preflight-cell-value", text: value });
+      const c2 = grid.createDiv({ cls: "tb-preflight-cell" });
+      c2.createDiv({ cls: "tb-preflight-cell-label", text: label });
+      const v = c2.createDiv({ cls: "tb-preflight-cell-value", text: value });
       if (accent)
         v.addClass("is-accent");
     };
@@ -33117,21 +33116,21 @@ var AICostPreflightModal = class extends import_obsidian4.Modal {
       this.ko ? "\uC608\uC0C1 \uC2DC\uAC04" : "Est. time",
       formatDuration(this.est.seconds, this.ko)
     );
-    contentEl.createEl("div", {
+    contentEl.createDiv({
       cls: "tb-preflight-breakdown",
       text: this.ko ? `\uC785\uB825 ~${formatTokens(this.est.inputTokens)} \xB7 \uCD9C\uB825 ~${formatTokens(this.est.outputTokens)}` : `in ~${formatTokens(this.est.inputTokens)} \xB7 out ~${formatTokens(this.est.outputTokens)}`
     });
     if (this.est.isSubscription) {
-      contentEl.createEl("div", {
+      contentEl.createDiv({
         cls: "tb-preflight-note",
         text: this.ko ? "\u203B Claude CLI\uB294 \uAD6C\uB3C5 \uC0AC\uC6A9\uB7C9\uC5D0\uC11C \uCC28\uAC10\uB429\uB2C8\uB2E4 (\uBCC4\uB3C4 \uACFC\uAE08 \uC544\uB2D8). \uBE44\uC6A9\uC740 API \uD658\uC0B0 \uCC38\uACE0\uCE58\uC785\uB2C8\uB2E4." : "\u203B Claude CLI draws from your subscription (no separate billing). Cost is an API-equivalent reference."
       });
     }
-    contentEl.createEl("div", {
+    contentEl.createDiv({
       cls: "tb-preflight-disclaimer",
       text: this.ko ? "\uCD94\uC815\uCE58\uC785\uB2C8\uB2E4 \u2014 \uC2E4\uC81C \uC0AC\uC6A9\uB7C9\uACFC \uB2E4\uB97C \uC218 \uC788\uC2B5\uB2C8\uB2E4." : "Estimate only \u2014 actual usage may differ."
     });
-    const btns = contentEl.createEl("div", { cls: "tb-preflight-btns" });
+    const btns = contentEl.createDiv({ cls: "tb-preflight-btns" });
     const cancelBtn = btns.createEl("button", { cls: "tb-btn tb-preflight-cancel", text: this.ko ? "\uCDE8\uC18C" : "Cancel" });
     cancelBtn.addEventListener("click", () => {
       this.finish(false);
@@ -33263,13 +33262,13 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     const { contentEl } = this;
     contentEl.empty();
     this.setTitle(this.ko ? "\u{1F3AF} \uBBF8\uC158 \uCEE8\uD2B8\uB864" : "\u{1F3AF} Mission Control");
-    contentEl.createEl("div", {
+    contentEl.createDiv({
       cls: "tb-mission-sub",
       text: this.ko ? "\uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uBA74 \uADF8 \uD3F4\uB354\uC758 \uADF8\uB798\uD504\uB9CC\uC744 \uADFC\uAC70\uB85C \uB2F5\uD558\uB294 \uC791\uC5C5\uB300\uAC00 \uC5F4\uB9BD\uB2C8\uB2E4." : "Pick a folder to open a workbench grounded only in that folder's graph."
     });
     const folders = this.sessionFolders();
     if (folders.length === 0) {
-      contentEl.createEl("div", { cls: "tb-mission-empty", text: this.ko ? "\uC138\uC158 \uD3F4\uB354\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uBA3C\uC800 \uADF8\uB798\uD504\uB97C \uC0DD\uC131\uD558\uC138\uC694." : "No session folders yet \u2014 run the pipeline first." });
+      contentEl.createDiv({ cls: "tb-mission-empty", text: this.ko ? "\uC138\uC158 \uD3F4\uB354\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uBA3C\uC800 \uADF8\uB798\uD504\uB97C \uC0DD\uC131\uD558\uC138\uC694." : "No session folders yet \u2014 run the pipeline first." });
     }
     let missionCount = /* @__PURE__ */ new Map();
     try {
@@ -33279,17 +33278,17 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     }
     for (const f of folders) {
       const row = contentEl.createEl("button", { cls: "tb-brain-folder-row" });
-      row.createEl("span", { cls: "tb-brain-folder-name", text: `\u{1F4C1} ${baseName(f)}` });
-      const badges = row.createEl("span", { cls: "tb-brain-folder-badges" });
+      row.createSpan({ cls: "tb-brain-folder-name", text: `\u{1F4C1} ${baseName(f)}` });
+      const badges = row.createSpan({ cls: "tb-brain-folder-badges" });
       const mc = missionCount.get(f) ?? 0;
       if (mc > 0)
-        badges.createEl("span", { cls: "tb-brain-badge is-mission", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${mc}` : `\u{1F3AF} ${mc}` });
+        badges.createSpan({ cls: "tb-brain-badge is-mission", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${mc}` : `\u{1F3AF} ${mc}` });
       row.addEventListener("click", () => {
         void this.openWorkbench(f);
       });
     }
     if (this.deps.onOpenBridge) {
-      const footer = contentEl.createEl("div", { cls: "tb-workbench-l1-footer" });
+      const footer = contentEl.createDiv({ cls: "tb-workbench-l1-footer" });
       const bridgeBtn = footer.createEl("button", { cls: "tb-btn tb-btn-sm", text: this.ko ? "\u{1F309} \uD3F4\uB354 \uAC04 \uC5F0\uACB0 \uD0D0\uC0C9" : "\u{1F309} Explore cross-folder links" });
       bridgeBtn.addEventListener("click", () => {
         this.close();
@@ -33347,30 +33346,30 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     contentEl.empty();
     const name = baseName(this.folder ?? "");
     this.setTitle(`\u{1F3AF} ${name}`);
-    const head = contentEl.createEl("div", { cls: "tb-workbench-head" });
+    const head = contentEl.createDiv({ cls: "tb-workbench-head" });
     const back = head.createEl("button", { cls: "tb-btn tb-btn-sm", text: this.ko ? "\u2190 \uD3F4\uB354" : "\u2190 Folders" });
     back.addEventListener("click", () => {
       void this.renderFolderList();
     });
-    head.createEl("span", {
+    head.createSpan({
       cls: "tb-workbench-ground-info",
       text: this.ko ? `\uADF8\uB77C\uC6B4\uB529 ${this.mainNodes.length}\uAC1C \uB178\uB4DC` : `Grounded on ${this.mainNodes.length} nodes`
     });
-    this.tokenEl = head.createEl("span", { cls: "tb-workbench-tokens", text: "\u21910 \u21930" });
-    this.chipsEl = contentEl.createEl("div", { cls: "tb-workbench-chips" });
+    this.tokenEl = head.createSpan({ cls: "tb-workbench-tokens", text: "\u21910 \u21930" });
+    this.chipsEl = contentEl.createDiv({ cls: "tb-workbench-chips" });
     this.renderChips();
-    this.missionListEl = contentEl.createEl("div", { cls: "tb-workbench-missions" });
+    this.missionListEl = contentEl.createDiv({ cls: "tb-workbench-missions" });
     this.renderMissionList();
-    this.chatLogEl = contentEl.createEl("div", { cls: "tb-workbench-chat" });
+    this.chatLogEl = contentEl.createDiv({ cls: "tb-workbench-chat" });
     if (this.history.length === 0) {
-      this.chatLogEl.createEl("div", {
+      this.chatLogEl.createDiv({
         cls: "tb-workbench-hint",
         text: this.ko ? "\uC774 \uD3F4\uB354\uC758 \uADF8\uB798\uD504\uB9CC\uC744 \uADFC\uAC70\uB85C \uB2F5\uD569\uB2C8\uB2E4. \uBAA8\uB4E0 \uC8FC\uC7A5\uC5D0 [[\uB178\uB4DC]] \uC778\uC6A9\uC774 \uBD99\uACE0, \uADFC\uAC70\uAC00 \uC5C6\uC73C\uBA74 \uC5C6\uB2E4\uACE0 \uB2F5\uD569\uB2C8\uB2E4." : "Answers are grounded only in this folder's graph. Every claim cites [[nodes]]; no basis \u2192 says so."
       });
     }
     for (const t of this.history)
       this.renderTurn(t);
-    const inputRow = contentEl.createEl("div", { cls: "tb-workbench-input-row" });
+    const inputRow = contentEl.createDiv({ cls: "tb-workbench-input-row" });
     this.inputEl = inputRow.createEl("textarea", {
       cls: "tb-workbench-input",
       attr: { rows: "2", placeholder: this.ko ? "\uC9C8\uBB38\uC744 \uC785\uB825\uD558\uC138\uC694\u2026 (Shift+Enter \uC904\uBC14\uAFC8)" : "Ask a question\u2026 (Shift+Enter for newline)" }
@@ -33385,7 +33384,7 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     this.sendBtn.addEventListener("click", () => {
       void this.submit();
     });
-    const footer = contentEl.createEl("div", { cls: "tb-workbench-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-workbench-footer" });
     const attachBtn = footer.createEl("button", { cls: "tb-btn tb-btn-sm", text: this.ko ? "\uFF0B \uC11C\uBE0C\uADF8\uB798\uD504 \uCC38\uC5EC" : "\uFF0B Attach subgraph" });
     attachBtn.addEventListener("click", () => {
       this.pickSubgraph();
@@ -33406,10 +33405,10 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     this.chipsEl.empty();
     if (this.subgraphs.length === 0)
       return;
-    this.chipsEl.createEl("span", { cls: "tb-workbench-chips-label", text: this.ko ? "\uC11C\uBE0C\uADF8\uB798\uD504:" : "Subgraphs:" });
+    this.chipsEl.createSpan({ cls: "tb-workbench-chips-label", text: this.ko ? "\uC11C\uBE0C\uADF8\uB798\uD504:" : "Subgraphs:" });
     for (const sg of this.subgraphs) {
-      const chip = this.chipsEl.createEl("span", { cls: "tb-workbench-chip" });
-      chip.createEl("span", { text: `\u2282 ${sg.label} (${sg.nodes.length})` });
+      const chip = this.chipsEl.createSpan({ cls: "tb-workbench-chip" });
+      chip.createSpan({ text: `\u2282 ${sg.label} (${sg.nodes.length})` });
       const x3 = chip.createEl("button", { cls: "tb-workbench-chip-x", text: "\u2715" });
       x3.setAttribute("title", this.ko ? "\uCC38\uC5EC \uD574\uC81C \u2014 \uB2E4\uC74C \uD134\uBD80\uD130 \uC81C\uC678" : "Detach \u2014 excluded from next turn");
       x3.addEventListener("click", () => {
@@ -33443,9 +33442,9 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     this.missionListEl.empty();
     if (this.missions.length === 0)
       return;
-    this.missionListEl.createEl("span", { cls: "tb-workbench-chips-label", text: this.ko ? "\uBBF8\uC158:" : "Missions:" });
+    this.missionListEl.createSpan({ cls: "tb-workbench-chips-label", text: this.ko ? "\uBBF8\uC158:" : "Missions:" });
     for (const m2 of this.missions) {
-      const group = this.missionListEl.createEl("span", { cls: "tb-workbench-mission-group" });
+      const group = this.missionListEl.createSpan({ cls: "tb-workbench-mission-group" });
       const chip = group.createEl("button", { cls: "tb-workbench-mission-chip" });
       if (this.activeMission?.id === m2.id)
         chip.addClass("is-active");
@@ -33466,7 +33465,7 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     this.activeMission = m2;
     this.solvingNoteFile = null;
     this.renderMissionList();
-    const note = this.chatLogEl.createEl("div", { cls: "tb-workbench-sysline" });
+    const note = this.chatLogEl.createDiv({ cls: "tb-workbench-sysline" });
     note.setText(m2 ? this.ko ? `\u2014 \uBBF8\uC158 \uCEE8\uD14D\uC2A4\uD2B8: ${m2.title} \u2014` : `\u2014 Mission context: ${m2.title} \u2014` : this.ko ? "\u2014 \uBBF8\uC158 \uCEE8\uD14D\uC2A4\uD2B8 \uD574\uC81C \u2014" : "\u2014 Mission context cleared \u2014");
     this.chatLogEl.scrollTop = this.chatLogEl.scrollHeight;
   }
@@ -33538,7 +33537,7 @@ var MissionControlModal = class extends import_obsidian5.Modal {
     this.pushTurn({ role: "q", text: q });
     this.setSending(true);
     this.setAIBusy(true);
-    const thinking = this.chatLogEl.createEl("div", { cls: "tb-workbench-sysline", text: this.ko ? "\u2026\uADF8\uB798\uD504 \uD574\uC11D \uC911" : "\u2026interpreting graph" });
+    const thinking = this.chatLogEl.createDiv({ cls: "tb-workbench-sysline", text: this.ko ? "\u2026\uADF8\uB798\uD504 \uD574\uC11D \uC911" : "\u2026interpreting graph" });
     this.chatLogEl.scrollTop = this.chatLogEl.scrollHeight;
     try {
       const answer = await this.askLLM(q);
@@ -33559,7 +33558,7 @@ var MissionControlModal = class extends import_obsidian5.Modal {
       await this.persistTurns(q, turn);
     } catch (e) {
       thinking.remove();
-      this.chatLogEl.createEl("div", {
+      this.chatLogEl.createDiv({
         cls: "tb-workbench-sysline is-error",
         text: `${this.ko ? "\uC624\uB958" : "Error"}: ${e instanceof Error ? e.message : String(e)}`
       });
@@ -33638,14 +33637,14 @@ ${question}`
     this.chatLogEl.scrollTop = this.chatLogEl.scrollHeight;
   }
   renderTurn(t) {
-    const row = this.chatLogEl.createEl("div", { cls: `tb-workbench-turn is-${t.role}` });
+    const row = this.chatLogEl.createDiv({ cls: `tb-workbench-turn is-${t.role}` });
     if (t.role === "q") {
       row.setText(t.text);
       return;
     }
     this.renderAnswerText(row, t.text, new Set(t.citations ?? []), new Set(t.invalidCitations ?? []));
     if ((t.invalidCitations ?? []).length > 0) {
-      row.createEl("div", {
+      row.createDiv({
         cls: "tb-workbench-invalid-note",
         text: this.ko ? `\u26A0 \uAC80\uC99D \uC2E4\uD328 \uC778\uC6A9 ${t.invalidCitations.length}\uAC74 \u2014 \uADF8\uB798\uD504\uC5D0 \uC5C6\uB294 \uB178\uB4DC\uC785\uB2C8\uB2E4` : `\u26A0 ${t.invalidCitations.length} citation(s) failed validation \u2014 not in graph`
       });
@@ -33662,7 +33661,7 @@ ${question}`
       const id2 = m2[1].trim();
       const display = (m2[2] ?? id2).trim() || id2;
       if (invalid.has(id2) && !valid.has(id2)) {
-        const bad = container.createEl("span", { cls: "tb-workbench-cite is-invalid", text: `[[${display}]]` });
+        const bad = container.createSpan({ cls: "tb-workbench-cite is-invalid", text: `[[${display}]]` });
         bad.setAttribute("title", this.ko ? "\uADF8\uB798\uD504\uC5D0 \uC874\uC7AC\uD558\uC9C0 \uC54A\uB294 \uC778\uC6A9 (\uD658\uAC01 \uAC00\uB2A5\uC131)" : "Citation not found in graph (possible hallucination)");
       } else {
         const link = container.createEl("a", { cls: "tb-workbench-cite", text: `[[${display}]]` });
@@ -33747,7 +33746,7 @@ ${a2.text}
       return;
     }
     this.setAIBusy(true);
-    const sysline = this.chatLogEl.createEl("div", { cls: "tb-workbench-sysline", text: this.ko ? "\u2026\uBBF8\uC158 \uC2B9\uACA9 \uBD84\uC11D \uC911" : "\u2026analyzing for promotion" });
+    const sysline = this.chatLogEl.createDiv({ cls: "tb-workbench-sysline", text: this.ko ? "\u2026\uBBF8\uC158 \uC2B9\uACA9 \uBD84\uC11D \uC911" : "\u2026analyzing for promotion" });
     this.chatLogEl.scrollTop = this.chatLogEl.scrollHeight;
     try {
       const chatTail = this.history.slice(-8).map((t) => `${t.role === "q" ? "Q" : "A"}: ${t.text}`).join("\n");
@@ -33835,14 +33834,14 @@ var ProblemDetailModal = class extends import_obsidian5.Modal {
     contentEl.addClass("tb-problem-detail-body");
     const species = this.problem.problem_species ?? "obstacle";
     this.setTitle(`\u{1F3AF} ${this.problem.title}`);
-    const head = contentEl.createEl("div", { cls: "tb-problem-card-head" });
-    head.createEl("span", { cls: `tb-problem-species is-${species}`, text: species });
+    const head = contentEl.createDiv({ cls: "tb-problem-card-head" });
+    head.createSpan({ cls: `tb-problem-species is-${species}`, text: species });
     if (this.problem.problem_status === "resolved") {
-      head.createEl("span", { cls: "tb-problem-species", text: "resolved" });
+      head.createSpan({ cls: "tb-problem-species", text: "resolved" });
     }
-    const body = contentEl.createEl("div", { cls: "tb-problem-detail-content" });
+    const body = contentEl.createDiv({ cls: "tb-problem-detail-content" });
     this.renderWikiText(body, this.problem.content);
-    const footer = contentEl.createEl("div", { cls: "tb-popup-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-popup-footer" });
     const openBtn = footer.createEl("button", { cls: "tb-btn", text: "\u{1F4C4} \uB178\uD2B8 \uC5F4\uAE30" });
     openBtn.addEventListener("click", () => {
       this.close();
@@ -33882,13 +33881,13 @@ var SubgraphPickerModal = class extends import_obsidian5.Modal {
   }
   onOpen() {
     this.setTitle(this.ko ? "\uC11C\uBE0C\uADF8\uB798\uD504 \uCC38\uC5EC" : "Attach subgraph");
-    this.contentEl.createEl("div", {
+    this.contentEl.createDiv({
       cls: "tb-mission-sub",
       text: this.ko ? "\uC774 \uBBF8\uC158\uC758 \uD574\uB2F5\uC744 \uCC3E\uAE30 \uC704\uD55C \uC784\uC2DC \uCC38\uACE0\uC778\uC785\uB2C8\uB2E4. \uCE69\uC758 \u2715\uB85C \uC5B8\uC81C\uB4E0 \uD574\uC81C\uB429\uB2C8\uB2E4." : "A temporary advisory witness for this mission. Detach anytime via the chip's \u2715."
     });
     for (const f of this.candidates) {
       const row = this.contentEl.createEl("button", { cls: "tb-brain-folder-row" });
-      row.createEl("span", { cls: "tb-brain-folder-name", text: `\u2282 ${baseName(f)}` });
+      row.createSpan({ cls: "tb-brain-folder-name", text: `\u2282 ${baseName(f)}` });
       row.addEventListener("click", () => {
         this.close();
         this.onPick(f);
@@ -33961,7 +33960,7 @@ var PipelineInfoModal = class extends import_obsidian6.Modal {
     this.modalEl.addClass("tb-pipeline-modal");
     this.titleEl.setText(this.t("label_pipeline_result"));
     if (!this.stepLogEl) {
-      this.stepLogEl = this.contentEl.createEl("div", { cls: "tb-step-log" });
+      this.stepLogEl = this.contentEl.createDiv({ cls: "tb-step-log" });
     }
     this.contentEl.addClass("tb-pipeline-modal-body");
   }
@@ -34017,9 +34016,9 @@ var ContentTypeModal = class extends import_obsidian7.Modal {
   renderTypeScreen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_title") });
-    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_content_type_sub") });
-    const row = contentEl.createEl("div", { cls: "tb-content-type-modal-row" });
+    contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_content_type_title") });
+    contentEl.createDiv({ cls: "tb-popup-sub", text: this.t("modal_content_type_sub") });
+    const row = contentEl.createDiv({ cls: "tb-content-type-modal-row" });
     const btnDoc = row.createEl("button", { cls: "tb-content-type-btn", text: this.t("modal_content_type_document") });
     btnDoc.addEventListener("click", () => {
       this.resolve({ contentType: "document", includeActionLayer: false });
@@ -34042,9 +34041,9 @@ var ContentTypeModal = class extends import_obsidian7.Modal {
   renderMeetingSubtypeScreen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_subtype_title") });
-    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_content_type_subtype_sub") });
-    const row = contentEl.createEl("div", { cls: "tb-content-type-modal-row" });
+    contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_content_type_subtype_title") });
+    contentEl.createDiv({ cls: "tb-popup-sub", text: this.t("modal_content_type_subtype_sub") });
+    const row = contentEl.createDiv({ cls: "tb-content-type-modal-row" });
     const types = [
       { key: "modal_content_type_brainstorm", val: "brainstorm" },
       { key: "modal_content_type_execution", val: "execution" },
@@ -34065,9 +34064,9 @@ var ContentTypeModal = class extends import_obsidian7.Modal {
   renderDialogueSubtypeScreen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_content_type_dialogue") });
-    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_content_type_dialogue_sub") });
-    const row = contentEl.createEl("div", { cls: "tb-content-type-modal-row" });
+    contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_content_type_dialogue") });
+    contentEl.createDiv({ cls: "tb-popup-sub", text: this.t("modal_content_type_dialogue_sub") });
+    const row = contentEl.createDiv({ cls: "tb-content-type-modal-row" });
     const types = [
       { key: "modal_content_type_dialogue_english", val: "english_conversation" },
       { key: "modal_content_type_dialogue_call", val: "phone_call" },
@@ -34106,10 +34105,10 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("tb-popup-content");
-    const titleEl = contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_save_folder_title") });
+    const titleEl = contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_save_folder_title") });
     makeDraggable(this.modalEl, titleEl);
-    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_save_folder_sub") });
-    const list = contentEl.createEl("div", { cls: "tb-popup-folder-list" });
+    contentEl.createDiv({ cls: "tb-popup-sub", text: this.t("modal_save_folder_sub") });
+    const list = contentEl.createDiv({ cls: "tb-popup-folder-list" });
     let selected = this.rootFolder && this.currentFolder === this.rootFolder ? "" : this.currentFolder;
     const items = [];
     const updateSelected = () => {
@@ -34118,9 +34117,9 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
       }
     };
     if (this.rootFolder) {
-      const rootItem = list.createEl("div", { cls: "tb-popup-folder-item tb-popup-folder-header" });
-      rootItem.createEl("span", { cls: "tb-popup-folder-icon", text: "\u{1F3E0}" });
-      rootItem.createEl("span", { cls: "tb-popup-folder-name", text: this.rootFolder });
+      const rootItem = list.createDiv({ cls: "tb-popup-folder-item tb-popup-folder-header" });
+      rootItem.createSpan({ cls: "tb-popup-folder-icon", text: "\u{1F3E0}" });
+      rootItem.createSpan({ cls: "tb-popup-folder-name", text: this.rootFolder });
       const rootDepth = this.rootFolder.split("/").length;
       const rawPath = `${this.rootFolder}/raw`;
       for (const folder of this.folders) {
@@ -34130,10 +34129,10 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
           continue;
         const depth = folder.split("/").length - rootDepth;
         const name = folder.split("/").pop() ?? folder;
-        const item = list.createEl("div", { cls: "tb-popup-folder-item" });
+        const item = list.createDiv({ cls: "tb-popup-folder-item" });
         item.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
-        item.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-        item.createEl("span", { cls: "tb-popup-folder-name", text: name });
+        item.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+        item.createSpan({ cls: "tb-popup-folder-name", text: name });
         item.addEventListener("click", () => {
           selected = folder;
           updateSelected();
@@ -34141,9 +34140,9 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
         items.push({ el: item, path: folder });
       }
     } else {
-      const rootItem = list.createEl("div", { cls: "tb-popup-folder-item" });
-      rootItem.createEl("span", { cls: "tb-popup-folder-icon", text: "\u{1F3E0}" });
-      rootItem.createEl("span", { cls: "tb-popup-folder-name", text: this.t("modal_save_folder_root") });
+      const rootItem = list.createDiv({ cls: "tb-popup-folder-item" });
+      rootItem.createSpan({ cls: "tb-popup-folder-icon", text: "\u{1F3E0}" });
+      rootItem.createSpan({ cls: "tb-popup-folder-name", text: this.t("modal_save_folder_root") });
       rootItem.addEventListener("click", () => {
         selected = "";
         updateSelected();
@@ -34152,10 +34151,10 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
       for (const folder of this.folders) {
         const depth = folder.split("/").length - 1;
         const name = folder.split("/").pop() ?? folder;
-        const item = list.createEl("div", { cls: "tb-popup-folder-item" });
+        const item = list.createDiv({ cls: "tb-popup-folder-item" });
         item.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
-        item.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-        item.createEl("span", { cls: "tb-popup-folder-name", text: name });
+        item.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+        item.createSpan({ cls: "tb-popup-folder-name", text: name });
         item.addEventListener("click", () => {
           selected = folder;
           updateSelected();
@@ -34165,7 +34164,7 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
     }
     updateSelected();
     if (this.rootFolder) {
-      const newFolderRow = contentEl.createEl("div", { cls: "tb-popup-new-folder-row" });
+      const newFolderRow = contentEl.createDiv({ cls: "tb-popup-new-folder-row" });
       const newFolderInput = newFolderRow.createEl("input", {
         cls: "tb-popup-new-folder-input",
         attr: { type: "text", placeholder: this.t("modal_save_folder_new_placeholder") }
@@ -34180,10 +34179,10 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
           return;
         const safeName = raw.replace(/[\\/:*?"<>|#^[\]]/g, "_").replace(/\s+/g, "_");
         const newPath = `${this.rootFolder}/${safeName}`;
-        const item = list.createEl("div", { cls: "tb-popup-folder-item" });
+        const item = list.createDiv({ cls: "tb-popup-folder-item" });
         item.setCssStyles({ paddingLeft: "32px" });
-        item.createEl("span", { cls: "tb-popup-folder-icon", text: "\u21B3" });
-        item.createEl("span", { cls: "tb-popup-folder-name", text: safeName });
+        item.createSpan({ cls: "tb-popup-folder-icon", text: "\u21B3" });
+        item.createSpan({ cls: "tb-popup-folder-name", text: safeName });
         item.addEventListener("click", () => {
           selected = newPath;
           updateSelected();
@@ -34199,7 +34198,7 @@ var SaveFolderModal = class extends import_obsidian7.Modal {
           createNewFolder();
       });
     }
-    const footer = contentEl.createEl("div", { cls: "tb-popup-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_save") }).addEventListener("click", () => {
       this.close();
@@ -34227,18 +34226,18 @@ var BridgeModal = class extends import_obsidian8.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("tb-popup-content");
-    const bridgeTitleEl = contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_bridge_title") });
+    const bridgeTitleEl = contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_bridge_title") });
     makeDraggable(this.modalEl, bridgeTitleEl);
-    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_bridge_sub") });
+    contentEl.createDiv({ cls: "tb-popup-sub", text: this.t("modal_bridge_sub") });
     const eligible = this.folders.filter((f) => {
       const parts = f.split("/");
       return !parts.some((p) => p === "raw");
     });
-    const cols = contentEl.createEl("div", { cls: "tb-popup-bridge-cols" });
+    const cols = contentEl.createDiv({ cls: "tb-popup-bridge-cols" });
     const buildCol = (colLabel) => {
-      const col = cols.createEl("div", { cls: "tb-popup-bridge-col" });
-      col.createEl("div", { cls: "tb-popup-bridge-col-label", text: colLabel });
-      const list = col.createEl("div", { cls: "tb-popup-folder-list" });
+      const col = cols.createDiv({ cls: "tb-popup-bridge-col" });
+      col.createDiv({ cls: "tb-popup-bridge-col-label", text: colLabel });
+      const list = col.createDiv({ cls: "tb-popup-folder-list" });
       const entries = [];
       for (const f of eligible) {
         const depth = f.split("/").length - 1;
@@ -34247,8 +34246,8 @@ var BridgeModal = class extends import_obsidian8.Modal {
         labelEl.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
         const cb = labelEl.createEl("input", { attr: { type: "checkbox" } });
         cb.addClass("tb-popup-cb");
-        labelEl.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-        labelEl.createEl("span", { cls: "tb-popup-folder-name", text: name });
+        labelEl.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+        labelEl.createSpan({ cls: "tb-popup-folder-name", text: name });
         entries.push({ folder: f, cb, labelEl });
       }
       return { entries, getSelected: () => entries.filter((e) => e.cb.checked).map((e) => e.folder) };
@@ -34277,7 +34276,7 @@ var BridgeModal = class extends import_obsidian8.Modal {
     for (let i = 0; i < colBData.entries.length; i++) {
       colBData.entries[i].cb.addEventListener("change", () => syncExclusion(colBData.entries, colAData.entries, i, colBData.entries[i].cb.checked));
     }
-    const footer = contentEl.createEl("div", { cls: "tb-popup-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_bridge_run") }).addEventListener("click", () => {
       const a2 = colAData.getSelected();
@@ -34310,12 +34309,12 @@ var BridgeResultModal = class extends import_obsidian8.Modal {
   async onOpen() {
     const { contentEl } = this;
     contentEl.createEl("h2", { text: this._t("modal_bridge_title") });
-    contentEl.createEl("div", { cls: "tb-bridge-modal-sub", text: `${this.folderAName}  \u2194  ${this.folderBName}` });
+    contentEl.createDiv({ cls: "tb-bridge-modal-sub", text: `${this.folderAName}  \u2194  ${this.folderBName}` });
     if (this.result.insight) {
-      contentEl.createEl("div", { cls: "tb-bridge-insight", text: this.result.insight });
+      contentEl.createDiv({ cls: "tb-bridge-insight", text: this.result.insight });
     }
     if (this.result.edges.length === 0) {
-      contentEl.createEl("div", { cls: "tb-empty", text: this._t("label_no_edges") });
+      contentEl.createDiv({ cls: "tb-empty", text: this._t("label_no_edges") });
       contentEl.createEl("button", { cls: "tb-btn is-primary", text: this._t("btn_close") }).addEventListener("click", () => this.close());
       return;
     }
@@ -34324,23 +34323,23 @@ var BridgeResultModal = class extends import_obsidian8.Modal {
     const states = [];
     let chipRow = null;
     if (visibleEdges.length > 0) {
-      contentEl.createEl("div", { cls: "tb-hint", text: this._t("label_edge_save_hint") });
-      chipRow = contentEl.createEl("div", { cls: "tb-edge-chips" });
+      contentEl.createDiv({ cls: "tb-hint", text: this._t("label_edge_save_hint") });
+      chipRow = contentEl.createDiv({ cls: "tb-edge-chips" });
       for (const edge of visibleEdges) {
         const rel = relLabel(edge.relation, this.lang);
         const pct = Math.round((edge.confidence ?? 0.5) * 100);
         const srcLabel = edge.source_title ?? edge.source_file.replace(/\.md$/, "");
         const tgtLabel = edge.target_title ?? edge.target_file.replace(/\.md$/, "");
         const preSelected = (edge.confidence ?? 0) >= 0.75;
-        const chip = chipRow.createEl("div", { cls: `tb-chip${preSelected ? " is-selected" : ""}` });
-        const top = chip.createEl("div", { cls: "tb-chip-top" });
-        const icon = top.createEl("span", { cls: "tb-chip-icon", text: preSelected ? "\u2713" : "\u25CE" });
-        top.createEl("span", { cls: "tb-chip-conf", text: `[${pct}%]` });
-        top.createEl("span", { cls: "tb-chip-source", text: shortText(srcLabel, 14) });
-        top.createEl("span", { cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
-        top.createEl("span", { cls: "tb-chip-target", text: tgtLabel });
+        const chip = chipRow.createDiv({ cls: `tb-chip${preSelected ? " is-selected" : ""}` });
+        const top = chip.createDiv({ cls: "tb-chip-top" });
+        const icon = top.createSpan({ cls: "tb-chip-icon", text: preSelected ? "\u2713" : "\u25CE" });
+        top.createSpan({ cls: "tb-chip-conf", text: `[${pct}%]` });
+        top.createSpan({ cls: "tb-chip-source", text: shortText(srcLabel, 14) });
+        top.createSpan({ cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
+        top.createSpan({ cls: "tb-chip-target", text: tgtLabel });
         if (edge.reason)
-          chip.createEl("div", { cls: "tb-chip-reason", text: edge.reason });
+          chip.createDiv({ cls: "tb-chip-reason", text: edge.reason });
         const state = { edge, selected: preSelected };
         states.push(state);
         chip.addEventListener("click", () => {
@@ -34352,7 +34351,7 @@ var BridgeResultModal = class extends import_obsidian8.Modal {
         });
       }
     }
-    const footer = contentEl.createEl("div", { cls: "tb-bridge-modal-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-bridge-modal-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this._t("btn_close") }).addEventListener("click", () => this.close());
     if (states.length > 0) {
       const saveBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this._t("btn_save_connection") });
@@ -34398,9 +34397,9 @@ var SingleNodeBridgeModal = class extends import_obsidian8.Modal {
     const { contentEl } = this;
     const t = getT(this.lang);
     contentEl.addClass("tb-popup-content");
-    const titleEl = contentEl.createEl("div", { cls: "tb-popup-title", text: t("label_connect") });
+    const titleEl = contentEl.createDiv({ cls: "tb-popup-title", text: t("label_connect") });
     makeDraggable(this.modalEl, titleEl);
-    contentEl.createEl("div", { cls: "tb-popup-sub", text: this.sourceTitle });
+    contentEl.createDiv({ cls: "tb-popup-sub", text: this.sourceTitle });
     const titleToFile = /* @__PURE__ */ new Map();
     for (const n of this.targetNodes) {
       const f = this.app.vault.getAbstractFileByPath(n.filePath);
@@ -34430,27 +34429,27 @@ var SingleNodeBridgeModal = class extends import_obsidian8.Modal {
     };
     const visible = this.candidates.filter((c2) => (c2.confidence ?? 0) >= 0.6);
     if (visible.length === 0) {
-      contentEl.createEl("div", { cls: "tb-popup-empty", text: t("label_no_edges") });
-      const footer2 = contentEl.createEl("div", { cls: "tb-popup-footer" });
+      contentEl.createDiv({ cls: "tb-popup-empty", text: t("label_no_edges") });
+      const footer2 = contentEl.createDiv({ cls: "tb-popup-footer" });
       footer2.createEl("button", { cls: "tb-btn", text: t("btn_close") }).addEventListener("click", () => this.close());
       return;
     }
-    contentEl.createEl("div", { cls: "tb-hint", text: t("label_edge_save_hint") });
-    const chipRow = contentEl.createEl("div", { cls: "tb-edge-chips" });
+    contentEl.createDiv({ cls: "tb-hint", text: t("label_edge_save_hint") });
+    const chipRow = contentEl.createDiv({ cls: "tb-edge-chips" });
     const states = [];
     let locked = false;
     for (const c2 of visible) {
       const rel = relLabel(c2.relation, this.lang);
       const pct = Math.round((c2.confidence ?? 0.5) * 100);
-      const chip = chipRow.createEl("div", { cls: "tb-chip" });
-      const top = chip.createEl("div", { cls: "tb-chip-top" });
-      const icon = top.createEl("span", { cls: "tb-chip-icon", text: "\u25CE" });
-      top.createEl("span", { cls: "tb-chip-conf", text: `[${pct}%]` });
-      top.createEl("span", { cls: "tb-chip-source", text: shortText(this.sourceTitle, 14) });
-      top.createEl("span", { cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
-      top.createEl("span", { cls: "tb-chip-target", text: c2.target_title });
+      const chip = chipRow.createDiv({ cls: "tb-chip" });
+      const top = chip.createDiv({ cls: "tb-chip-top" });
+      const icon = top.createSpan({ cls: "tb-chip-icon", text: "\u25CE" });
+      top.createSpan({ cls: "tb-chip-conf", text: `[${pct}%]` });
+      top.createSpan({ cls: "tb-chip-source", text: shortText(this.sourceTitle, 14) });
+      top.createSpan({ cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
+      top.createSpan({ cls: "tb-chip-target", text: c2.target_title });
       if (c2.reason)
-        chip.createEl("div", { cls: "tb-chip-reason", text: c2.reason });
+        chip.createDiv({ cls: "tb-chip-reason", text: c2.reason });
       const state = { c: c2, selected: false };
       states.push(state);
       chip.addEventListener("click", () => {
@@ -34461,7 +34460,7 @@ var SingleNodeBridgeModal = class extends import_obsidian8.Modal {
         icon.textContent = state.selected ? "\u2713" : "\u25CE";
       });
     }
-    const footer = contentEl.createEl("div", { cls: "tb-popup-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: t("btn_close") }).addEventListener("click", () => this.close());
     const saveBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: t("btn_save_connection") });
     saveBtn.addEventListener("click", () => void (async () => {
@@ -38903,9 +38902,9 @@ var GraphView = class {
   }
   showNodePopup(node, screenX, screenY) {
     this.closeNodePopup();
-    const popup = activeDocument.body.createEl("div", { cls: "tb-node-popup" });
+    const popup = activeDocument.body.createDiv({ cls: "tb-node-popup" });
     this.nodePopupEl = popup;
-    popup.createEl("div", { cls: "tb-node-popup-title", text: node.title });
+    popup.createDiv({ cls: "tb-node-popup-title", text: node.title });
     const typeColors = {
       claim: "#cc9900",
       core: "#ffcc00",
@@ -38915,7 +38914,7 @@ var GraphView = class {
       action: "#ff7744",
       problem: "#ff9800"
     };
-    const badge = popup.createEl("div", { cls: "tb-node-popup-type", text: node.type });
+    const badge = popup.createDiv({ cls: "tb-node-popup-type", text: node.type });
     badge.setCssStyles({ background: typeColors[node.type] ?? "#888" });
     const edges = [];
     for (const l of this.simLinks) {
@@ -38947,26 +38946,26 @@ var GraphView = class {
       }
     }
     if (edges.length > 0) {
-      const list = popup.createEl("div", { cls: "tb-node-popup-edges" });
+      const list = popup.createDiv({ cls: "tb-node-popup-edges" });
       for (const e of edges) {
-        const row = list.createEl("div", { cls: "tb-node-popup-edge-row" });
-        row.createEl("span", { cls: "tb-node-popup-dir", text: e.dir });
-        row.createEl("span", { cls: "tb-node-popup-edge-title", text: e.title });
-        const rel = row.createEl("span", { cls: "tb-node-popup-rel", text: e.relation });
+        const row = list.createDiv({ cls: "tb-node-popup-edge-row" });
+        row.createSpan({ cls: "tb-node-popup-dir", text: e.dir });
+        row.createSpan({ cls: "tb-node-popup-edge-title", text: e.title });
+        const rel = row.createSpan({ cls: "tb-node-popup-rel", text: e.relation });
         rel.setCssStyles({ color: e.color });
       }
     } else {
-      popup.createEl("div", { cls: "tb-node-popup-empty", text: "\uC5F0\uACB0 \uC5C6\uC74C" });
+      popup.createDiv({ cls: "tb-node-popup-empty", text: "\uC5F0\uACB0 \uC5C6\uC74C" });
     }
     if (node.raw_path && node.block_id) {
-      const sourceDiv = popup.createEl("div", { cls: "tb-node-popup-source" });
+      const sourceDiv = popup.createDiv({ cls: "tb-node-popup-source" });
       if (node.heading_path) {
-        sourceDiv.createEl("div", { cls: "tb-node-popup-heading", text: node.heading_path });
+        sourceDiv.createDiv({ cls: "tb-node-popup-heading", text: node.heading_path });
       }
       if (this.openSourceCb) {
         const rawPath = node.raw_path;
         const blockId = node.block_id;
-        const link = sourceDiv.createEl("div", { cls: "tb-node-popup-source-link", text: "\u2197 \uC6D0\uBCF8 \uC704\uCE58\uB85C \uC774\uB3D9" });
+        const link = sourceDiv.createDiv({ cls: "tb-node-popup-source-link", text: "\u2197 \uC6D0\uBCF8 \uC704\uCE58\uB85C \uC774\uB3D9" });
         link.addEventListener("click", (e) => {
           e.stopPropagation();
           this.openSourceCb(rawPath, blockId);
@@ -39059,7 +39058,7 @@ var GraphCanvasModal = class extends import_obsidian9.Modal {
   onOpen() {
     const { contentEl } = this;
     this.setTitle(this.lang === "ko" ? "\uC9C0\uC2DD \uADF8\uB798\uD504" : "Knowledge Graph");
-    const canvasWrap = contentEl.createEl("div", { cls: "tb-canvas-wrap" });
+    const canvasWrap = contentEl.createDiv({ cls: "tb-canvas-wrap" });
     this.graphView = new GraphView(canvasWrap, () => {
     }, this.lang, (rawPath, blockId) => {
       void this.app.workspace.openLinkText(`${rawPath}#^${blockId}`, "");
@@ -39106,9 +39105,9 @@ var GraphViewModal = class extends import_obsidian9.Modal {
     return getT(this.lang)(key);
   }
   buildFolderList(container) {
-    const list = container.createEl("div", { cls: "tb-popup-folder-list" });
+    const list = container.createDiv({ cls: "tb-popup-folder-list" });
     if (this.folders.length === 0) {
-      list.createEl("div", { cls: "tb-popup-empty", text: this.t("modal_graph_empty") });
+      list.createDiv({ cls: "tb-popup-empty", text: this.t("modal_graph_empty") });
       return [];
     }
     const checkboxes = [];
@@ -39119,8 +39118,8 @@ var GraphViewModal = class extends import_obsidian9.Modal {
       label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
-      label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-      label.createEl("span", { cls: "tb-popup-folder-name", text: name });
+      label.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+      label.createSpan({ cls: "tb-popup-folder-name", text: name });
       checkboxes.push({ folder, cb });
     }
     for (let i = 0; i < checkboxes.length; i++) {
@@ -39138,17 +39137,17 @@ var GraphViewModal = class extends import_obsidian9.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("tb-popup-content");
-    const titleEl = contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_graph_title") });
+    const titleEl = contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_graph_title") });
     makeDraggable(this.modalEl, titleEl);
-    const tabBar = contentEl.createEl("div", { cls: "tb-tab-bar" });
+    const tabBar = contentEl.createDiv({ cls: "tb-tab-bar" });
     const tabNative = tabBar.createEl("button", { cls: "tb-tab is-active", text: this.t("modal_query_open_native") });
     const tabCanvas = tabBar.createEl("button", { cls: "tb-tab", text: this.t("modal_query_open_canvas") });
     const tabDownload = tabBar.createEl("button", { cls: "tb-tab", text: this.t("modal_query_open_download") });
     const tabDelete = tabBar.createEl("button", { cls: "tb-tab tb-tab-danger", text: this.t("modal_query_open_delete") });
-    const paneNative = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
-    const paneCanvas = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
-    const paneDownload = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
-    const paneDelete = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
+    const paneNative = contentEl.createDiv({ cls: "tb-analysis-tab-pane" });
+    const paneCanvas = contentEl.createDiv({ cls: "tb-analysis-tab-pane" });
+    const paneDownload = contentEl.createDiv({ cls: "tb-analysis-tab-pane" });
+    const paneDelete = contentEl.createDiv({ cls: "tb-analysis-tab-pane" });
     paneCanvas.hide();
     paneDownload.hide();
     paneDelete.hide();
@@ -39181,15 +39180,15 @@ var GraphViewModal = class extends import_obsidian9.Modal {
     this.buildDeletePane(paneDelete);
   }
   buildNativePane(container) {
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_native_sub") });
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    container.createDiv({ cls: "tb-popup-sub", text: this.t("modal_graph_native_sub") });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const checkboxes = this.buildFolderList(container);
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     const filterRow = footer.createEl("label", { cls: "tb-graph-filter-row is-active" });
     const conflictCb = filterRow.createEl("input", { attr: { type: "checkbox" } });
     conflictCb.addClass("tb-popup-cb");
     conflictCb.checked = true;
-    filterRow.createEl("span", { cls: "tb-graph-filter-label", text: this.t("graph_exclude_conflicts") });
+    filterRow.createSpan({ cls: "tb-graph-filter-label", text: this.t("graph_exclude_conflicts") });
     conflictCb.addEventListener("change", () => filterRow.toggleClass("is-active", conflictCb.checked));
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
@@ -39203,10 +39202,10 @@ var GraphViewModal = class extends import_obsidian9.Modal {
     });
   }
   buildCanvasPane(container) {
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_canvas_sub") });
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    container.createDiv({ cls: "tb-popup-sub", text: this.t("modal_graph_canvas_sub") });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const checkboxes = this.buildFolderList(container);
-    const presetRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    const presetRow = container.createDiv({ cls: "tb-popup-select-row" });
     presetRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("modal_query_preset_label") });
     const presetSelect = presetRow.createEl("select", { cls: "tb-popup-select" });
     presetSelect.createEl("option", { attr: { value: "all" }, text: this.t("modal_query_preset_all") });
@@ -39235,15 +39234,15 @@ var GraphViewModal = class extends import_obsidian9.Modal {
       }
       this.querySpec = null;
     });
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("modal_query_ai_label") });
-    const customRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("modal_query_ai_label") });
+    const customRow = container.createDiv({ cls: "tb-popup-select-row" });
     const aiInput = customRow.createEl("textarea", {
       cls: "tb-intent-custom",
       attr: { placeholder: this.t("modal_query_ai_placeholder"), rows: "2" }
     });
-    const aiFooterRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    const aiFooterRow = container.createDiv({ cls: "tb-popup-select-row" });
     const aiBtn = aiFooterRow.createEl("button", { cls: "tb-btn", text: this.t("modal_query_ai_btn") });
-    const aiStatus = aiFooterRow.createEl("div", { cls: "tb-gvm-ai-status" });
+    const aiStatus = aiFooterRow.createDiv({ cls: "tb-gvm-ai-status" });
     aiBtn.addEventListener("click", () => void (async () => {
       const prompt = aiInput.value.trim();
       if (!prompt)
@@ -39264,7 +39263,7 @@ var GraphViewModal = class extends import_obsidian9.Modal {
       aiStatus.setText(labelStr + (spec.startNodeTitle ? ` \xB7 BFS: ${spec.startNodeTitle}` : ""));
       aiBtn.disabled = false;
     })());
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_open_graph") }).addEventListener("click", () => {
       const selected = checkboxes.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
@@ -39277,28 +39276,28 @@ var GraphViewModal = class extends import_obsidian9.Modal {
     });
   }
   buildDownloadPane(container) {
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_download_sub") });
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    container.createDiv({ cls: "tb-popup-sub", text: this.t("modal_graph_download_sub") });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const checkboxes = this.buildFolderList(container);
-    container.createEl("div", { cls: "tb-popup-select-label", text: "Export Options" });
-    const optionsRow = container.createEl("div", { cls: "tb-popup-options-section" });
+    container.createDiv({ cls: "tb-popup-select-label", text: "Export Options" });
+    const optionsRow = container.createDiv({ cls: "tb-popup-options-section" });
     const sourceLabel = optionsRow.createEl("label", { cls: "tb-popup-checkbox-row" });
     const sourceCb = sourceLabel.createEl("input", { attr: { type: "checkbox" } });
     sourceCb.checked = true;
     sourceCb.addClass("tb-popup-cb");
-    sourceLabel.createEl("span", { text: this.t("graph_export_option_source") });
+    sourceLabel.createSpan({ text: this.t("graph_export_option_source") });
     const metaLabel = optionsRow.createEl("label", { cls: "tb-popup-checkbox-row" });
     const metaCb = metaLabel.createEl("input", { attr: { type: "checkbox" } });
     metaCb.checked = true;
     metaCb.addClass("tb-popup-cb");
-    metaLabel.createEl("span", { text: this.t("graph_export_option_metadata") });
-    const lengthRow = optionsRow.createEl("div", { cls: "tb-popup-input-row" });
+    metaLabel.createSpan({ text: this.t("graph_export_option_metadata") });
+    const lengthRow = optionsRow.createDiv({ cls: "tb-popup-input-row" });
     lengthRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("graph_export_option_length") });
     const lengthInput = lengthRow.createEl("input", {
       cls: "tb-popup-input",
       attr: { type: "number", value: "500", min: "0", placeholder: "0 = unlimited" }
     });
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     const exportBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("graph_export_btn") });
     exportBtn.addEventListener("click", () => void (async () => {
@@ -39339,13 +39338,13 @@ var GraphViewModal = class extends import_obsidian9.Modal {
   // ── [v0.3.5] 그래프 삭제 탭 — 폴더 선택 → 대상 집계 → 확인 → 휴지통 ──
   buildDeletePane(container) {
     const ko = this.lang !== "en";
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("modal_graph_delete_sub") });
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    container.createDiv({ cls: "tb-popup-sub", text: this.t("modal_graph_delete_sub") });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const checkboxes = this.buildFolderList(container);
-    const previewEl = container.createEl("div", { cls: "tb-delete-preview" });
+    const previewEl = container.createDiv({ cls: "tb-delete-preview" });
     let pendingTargets = [];
     let pendingFolders = [];
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     const scanBtn = footer.createEl("button", { cls: "tb-btn", text: ko ? "\uC0AD\uC81C \uB300\uC0C1 \uD655\uC778" : "Scan targets" });
     const deleteBtn = footer.createEl("button", { cls: "tb-btn tb-btn-danger", text: ko ? "\uD734\uC9C0\uD1B5\uC73C\uB85C \uC774\uB3D9" : "Move to trash" });
     deleteBtn.disabled = true;
@@ -39357,26 +39356,26 @@ var GraphViewModal = class extends import_obsidian9.Modal {
       }
       scanBtn.disabled = true;
       previewEl.empty();
-      previewEl.createEl("div", { cls: "tb-mission-sub", text: ko ? "\uC9D1\uACC4 \uC911\u2026" : "Scanning\u2026" });
+      previewEl.createDiv({ cls: "tb-mission-sub", text: ko ? "\uC9D1\uACC4 \uC911\u2026" : "Scanning\u2026" });
       try {
         pendingTargets = await this.store.collectGraphDeletionTargets(selected);
         pendingFolders = selected;
         previewEl.empty();
         if (pendingTargets.length === 0) {
-          previewEl.createEl("div", { cls: "tb-mission-sub", text: ko ? "\uC0AD\uC81C\uD560 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : "Nothing to delete." });
+          previewEl.createDiv({ cls: "tb-mission-sub", text: ko ? "\uC0AD\uC81C\uD560 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : "Nothing to delete." });
           deleteBtn.disabled = true;
           return;
         }
-        previewEl.createEl("div", {
+        previewEl.createDiv({
           cls: "tb-delete-count",
           text: ko ? `\u26A0 \uD3F4\uB354 \uD1B5\uC9F8 + ${pendingTargets.length}\uAC1C \uD30C\uC77C\uC774 \uD734\uC9C0\uD1B5\uC73C\uB85C \uC774\uB3D9\uB429\uB2C8\uB2E4 (\uB178\uB4DC\xB7raw \uC6D0\uBCF8\xB7\uC694\uC57D \uD3EC\uD568, \uBCF5\uAD6C \uAC00\uB2A5)` : `\u26A0 Folder itself + ${pendingTargets.length} files will be trashed (nodes, raw originals & summaries \u2014 recoverable)`
         });
-        const list = previewEl.createEl("div", { cls: "tb-delete-list" });
+        const list = previewEl.createDiv({ cls: "tb-delete-list" });
         for (const f of pendingTargets.slice(0, 12)) {
-          list.createEl("div", { cls: "tb-delete-item", text: f.path });
+          list.createDiv({ cls: "tb-delete-item", text: f.path });
         }
         if (pendingTargets.length > 12) {
-          list.createEl("div", { cls: "tb-delete-item", text: `\u2026 +${pendingTargets.length - 12}` });
+          list.createDiv({ cls: "tb-delete-item", text: `\u2026 +${pendingTargets.length - 12}` });
         }
         deleteBtn.disabled = false;
       } finally {
@@ -39577,13 +39576,13 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("tb-popup-content");
-    const titleEl = contentEl.createEl("div", { cls: "tb-popup-title", text: this.t("modal_analysis_title") });
+    const titleEl = contentEl.createDiv({ cls: "tb-popup-title", text: this.t("modal_analysis_title") });
     makeDraggable(this.modalEl, titleEl);
-    const tabBar = contentEl.createEl("div", { cls: "tb-tab-bar" });
+    const tabBar = contentEl.createDiv({ cls: "tb-tab-bar" });
     const tabAnalysis = tabBar.createEl("button", { cls: "tb-tab is-active", text: this.t("tab_graph_analysis") });
     const tabExpr = tabBar.createEl("button", { cls: "tb-tab", text: this.t("tab_expression_analysis") });
-    const paneAnalysis = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
-    const paneExpr = contentEl.createEl("div", { cls: "tb-analysis-tab-pane" });
+    const paneAnalysis = contentEl.createDiv({ cls: "tb-analysis-tab-pane" });
+    const paneExpr = contentEl.createDiv({ cls: "tb-analysis-tab-pane" });
     paneExpr.hide();
     const switchTab = (active, activePane) => {
       for (const [tab, pane] of [[tabAnalysis, paneAnalysis], [tabExpr, paneExpr]]) {
@@ -39600,24 +39599,24 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
     this.buildExpressionPane(paneExpr);
   }
   buildAnalysisPane(container) {
-    container.createEl("div", {
+    container.createDiv({
       cls: "tb-popup-sub",
       text: this.t("analysis_sub")
     });
     if (this.folders.length === 0) {
-      container.createEl("div", { cls: "tb-popup-empty", text: this.t("analysis_no_folder") });
-      const footer2 = container.createEl("div", { cls: "tb-popup-footer" });
+      container.createDiv({ cls: "tb-popup-empty", text: this.t("analysis_no_folder") });
+      const footer2 = container.createDiv({ cls: "tb-popup-footer" });
       footer2.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
       return;
     }
     const makeSelect = (label) => {
-      const row = container.createEl("div", { cls: "tb-popup-select-row" });
+      const row = container.createDiv({ cls: "tb-popup-select-row" });
       row.createEl("label", { cls: "tb-popup-select-label", text: label });
       return row.createEl("select", { cls: "tb-popup-select" });
     };
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const analysisFolders = this.folders.filter((f) => !f.endsWith("/_actions") && f !== "_actions");
-    const folderList = container.createEl("div", { cls: "tb-popup-folder-list" });
+    const folderList = container.createDiv({ cls: "tb-popup-folder-list" });
     const analysisCbs = [];
     for (const f of analysisFolders) {
       const depth = f.split("/").length - 1;
@@ -39626,8 +39625,8 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
-      label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-      label.createEl("span", { cls: "tb-popup-folder-name", text: name });
+      label.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+      label.createSpan({ cls: "tb-popup-folder-name", text: name });
       analysisCbs.push({ folder: f, cb });
     }
     for (let i = 0; i < analysisCbs.length; i++) {
@@ -39641,7 +39640,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
         updateActionsRow(analysisCbs.filter((c2) => c2.cb.checked)[0]?.folder ?? "");
       });
     }
-    const actionsRow = container.createEl("div", { cls: "tb-popup-select-row tb-actions-include-row" });
+    const actionsRow = container.createDiv({ cls: "tb-popup-select-row tb-actions-include-row" });
     actionsRow.hide();
     const actionsChk = actionsRow.createEl("input", {
       attr: { type: "checkbox", id: "tb-include-actions" }
@@ -39661,8 +39660,8 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
         actionsChk.checked = false;
     };
     updateActionsRow("");
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_intent_label") });
-    const chipRow = container.createEl("div", { cls: "tb-intent-chips" });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_intent_label") });
+    const chipRow = container.createDiv({ cls: "tb-intent-chips" });
     let selectedIntent;
     let activeChip = null;
     for (const intent of getAnalysisIntents(this.lang)) {
@@ -39681,7 +39680,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
         }
       });
     }
-    const customRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    const customRow = container.createDiv({ cls: "tb-popup-select-row" });
     customRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("analysis_custom_label") });
     const customInput = customRow.createEl("textarea", {
       cls: "tb-intent-custom",
@@ -39697,7 +39696,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
     const modeSel = makeSelect(this.t("analysis_depth_label"));
     modeSel.createEl("option", { attr: { value: "summary" }, text: this.t("analysis_depth_summary") });
     modeSel.createEl("option", { attr: { value: "rich" }, text: this.t("analysis_depth_rich") });
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_cancel") }).addEventListener("click", () => this.close());
     const analyzeStartBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_analyze_start") });
     analyzeStartBtn.disabled = this.isAnythingBusy();
@@ -39719,23 +39718,23 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
     });
   }
   buildPathPane(container) {
-    container.createEl("div", {
+    container.createDiv({
       cls: "tb-popup-sub",
       text: this.t("path_sub")
     });
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("path_folder_label") });
-    const pathFolderList = container.createEl("div", { cls: "tb-popup-folder-list" });
-    const srcRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("path_folder_label") });
+    const pathFolderList = container.createDiv({ cls: "tb-popup-folder-list" });
+    const srcRow = container.createDiv({ cls: "tb-popup-select-row" });
     srcRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("path_src_label") });
     const srcSel = srcRow.createEl("select", { cls: "tb-popup-select" });
     srcSel.createEl("option", { attr: { value: "" }, text: this.t("path_src_placeholder") });
     srcSel.disabled = true;
-    const dstRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    const dstRow = container.createDiv({ cls: "tb-popup-select-row" });
     dstRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("path_dst_label") });
     const dstSel = dstRow.createEl("select", { cls: "tb-popup-select" });
     dstSel.createEl("option", { attr: { value: "" }, text: this.t("path_dst_placeholder") });
     dstSel.disabled = true;
-    const resultEl = container.createEl("div", { cls: "tb-path-result" });
+    const resultEl = container.createDiv({ cls: "tb-path-result" });
     const loadPathFolder = async (folder) => {
       srcSel.disabled = true;
       dstSel.disabled = true;
@@ -39765,8 +39764,8 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
-      label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-      label.createEl("span", { cls: "tb-popup-folder-name", text: name });
+      label.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+      label.createSpan({ cls: "tb-popup-folder-name", text: name });
       pathCbs.push({ folder: f, cb });
     }
     for (let i = 0; i < pathCbs.length; i++) {
@@ -39785,7 +39784,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
           void loadPathFolder(folder);
       });
     }
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
     const searchBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_search") });
     searchBtn.addEventListener("click", () => void (async () => {
@@ -39793,12 +39792,12 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       const dstId = dstSel.value;
       if (!srcId || !dstId) {
         resultEl.empty();
-        resultEl.createEl("div", { cls: "tb-path-empty", text: this.t("path_select_nodes") });
+        resultEl.createDiv({ cls: "tb-path-empty", text: this.t("path_select_nodes") });
         return;
       }
       if (srcId === dstId) {
         resultEl.empty();
-        resultEl.createEl("div", { cls: "tb-path-empty", text: this.t("path_same_node") });
+        resultEl.createDiv({ cls: "tb-path-empty", text: this.t("path_same_node") });
         return;
       }
       searchBtn.disabled = true;
@@ -39807,7 +39806,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       try {
         const nodes = this.loadedNodes;
         const tensor = buildTensor(nodes);
-        resultEl.createEl("div", {
+        resultEl.createDiv({
           cls: "tb-path-meta",
           text: `${nodes.length}${this.t("path_node_count_suffix")} / ${tensor.edges.length}${this.t("path_edge_count_suffix")}`
         });
@@ -39822,7 +39821,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
           } else {
             const srcTitle = nodes.find((n) => n.id === srcId)?.title ?? srcId;
             const dstTitle = nodes.find((n) => n.id === dstId)?.title ?? dstId;
-            resultEl.createEl("div", {
+            resultEl.createDiv({
               cls: "tb-path-empty",
               text: `"${srcTitle}" \u2192 "${dstTitle}" ${this.t("path_no_path")}`
             });
@@ -39830,7 +39829,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
         }
       } catch (err) {
         resultEl.empty();
-        resultEl.createEl("div", {
+        resultEl.createDiv({
           cls: "tb-path-empty",
           text: `${this.t("path_error_prefix")}${err instanceof Error ? err.message : String(err)}`
         });
@@ -39842,22 +39841,22 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
   }
   renderPathCard(container, path, nodes, tensor) {
     const titleById = new Map(nodes.map((n) => [n.id, n.title]));
-    const card = container.createEl("div", {
+    const card = container.createDiv({
       cls: path.isTransitive ? "tb-path-card tb-path-transitive" : "tb-path-card"
     });
-    const header = card.createEl("div", { cls: "tb-path-header" });
+    const header = card.createDiv({ cls: "tb-path-header" });
     if (path.isTransitive) {
-      header.createEl("span", { cls: "tb-path-transitive-badge", text: this.t("path_transitive_badge") });
+      header.createSpan({ cls: "tb-path-transitive-badge", text: this.t("path_transitive_badge") });
     }
-    header.createEl("span", {
+    header.createSpan({
       cls: "tb-path-meta-inline",
       text: `${path.nodes.length - 1}${this.t("path_hop")} \xB7 ${this.t("path_confidence")} ${(path.totalConfidence * 100).toFixed(0)}%`
     });
-    const chain = card.createEl("div", { cls: "tb-path-chain" });
+    const chain = card.createDiv({ cls: "tb-path-chain" });
     for (let i = 0; i < path.nodes.length; i++) {
       const nodeId = path.nodes[i];
       const nodeTitle = titleById.get(nodeId) ?? nodeId;
-      const nodeEl = chain.createEl("span", { cls: "tb-path-node", text: nodeTitle });
+      const nodeEl = chain.createSpan({ cls: "tb-path-node", text: nodeTitle });
       nodeEl.addEventListener("click", () => {
         const node = nodes.find((n) => n.id === nodeId);
         if (node?.filePath) {
@@ -39869,7 +39868,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       if (i < path.relations.length) {
         const rel = path.relations[i];
         const relStr = relLabel(rel, this.lang);
-        chain.createEl("span", { cls: "tb-path-arrow", text: `\u2192[${relStr}]\u2192` });
+        chain.createSpan({ cls: "tb-path-arrow", text: `\u2192[${relStr}]\u2192` });
       }
     }
     if (path.isTransitive && path.nodes.length >= 3) {
@@ -39910,16 +39909,16 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
     }
   }
   buildExpressionPane(container) {
-    container.createEl("div", { cls: "tb-popup-sub", text: this.t("expression_analysis_sub") });
+    container.createDiv({ cls: "tb-popup-sub", text: this.t("expression_analysis_sub") });
     if (this.folders.length === 0) {
-      container.createEl("div", { cls: "tb-popup-empty", text: this.t("analysis_no_folder") });
-      const footer2 = container.createEl("div", { cls: "tb-popup-footer" });
+      container.createDiv({ cls: "tb-popup-empty", text: this.t("analysis_no_folder") });
+      const footer2 = container.createDiv({ cls: "tb-popup-footer" });
       footer2.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
       return;
     }
-    container.createEl("div", { cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
+    container.createDiv({ cls: "tb-popup-select-label", text: this.t("analysis_folder_label") });
     const analysisFolders = this.folders.filter((f) => !f.endsWith("/_actions") && f !== "_actions");
-    const folderList = container.createEl("div", { cls: "tb-popup-folder-list" });
+    const folderList = container.createDiv({ cls: "tb-popup-folder-list" });
     const exprCbs = [];
     for (const f of analysisFolders) {
       const depth = f.split("/").length - 1;
@@ -39928,8 +39927,8 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       label.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
       const cb = label.createEl("input", { attr: { type: "checkbox" } });
       cb.addClass("tb-popup-cb");
-      label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-      label.createEl("span", { cls: "tb-popup-folder-name", text: name });
+      label.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+      label.createSpan({ cls: "tb-popup-folder-name", text: name });
       exprCbs.push({ folder: f, cb });
     }
     for (let i = 0; i < exprCbs.length; i++) {
@@ -39948,7 +39947,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       { id: "para", labelKey: "expression_mode4_label", descKey: "expression_mode4_desc" }
     ];
     let selectedMode = null;
-    const modeRow = container.createEl("div", { cls: "tb-popup-select-row" });
+    const modeRow = container.createDiv({ cls: "tb-popup-select-row" });
     modeRow.createEl("label", { cls: "tb-popup-select-label", text: this.t("expression_mode_title") });
     const modeSelect = modeRow.createEl("select", { cls: "tb-popup-select" });
     modeSelect.createEl("option", { attr: { value: "" }, text: this.t("expression_mode_placeholder") });
@@ -39958,8 +39957,8 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
     modeSelect.addEventListener("change", () => {
       selectedMode = modeSelect.value || null;
     });
-    const resultEl = container.createEl("div", { cls: "tb-expression-result" });
-    const footer = container.createEl("div", { cls: "tb-popup-footer" });
+    const resultEl = container.createDiv({ cls: "tb-expression-result" });
+    const footer = container.createDiv({ cls: "tb-popup-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
     const analyzeBtn = footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("expression_analyze_btn") });
     const setRunningUI = (on) => {
@@ -40004,11 +40003,11 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
     };
     if (this.transcriptJob?.running) {
       setRunningUI(true);
-      resultEl.createEl("div", { cls: "tb-popup-empty", text: this.t("expression_analyzing") });
+      resultEl.createDiv({ cls: "tb-popup-empty", text: this.t("expression_analyzing") });
     } else if (this.transcriptJob?.result) {
       showResult(this.transcriptJob.result);
     } else if (this.transcriptJob?.error) {
-      resultEl.createEl("div", { cls: "tb-path-empty", text: this.transcriptJob.error });
+      resultEl.createDiv({ cls: "tb-path-empty", text: this.transcriptJob.error });
     }
     analyzeBtn.addEventListener("click", () => {
       const selectedFolders = exprCbs.filter((c2) => c2.cb.checked).map((c2) => c2.folder);
@@ -40027,7 +40026,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
       this.onTranscriptJobUpdate(this.transcriptJob);
       setRunningUI(true);
       resultEl.empty();
-      resultEl.createEl("div", { cls: "tb-popup-empty", text: this.t("expression_analyzing") });
+      resultEl.createDiv({ cls: "tb-popup-empty", text: this.t("expression_analyzing") });
       void (async () => {
         try {
           const allNodes = [];
@@ -40043,7 +40042,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
             if (activeDocument.body.contains(resultEl)) {
               setRunningUI(false);
               resultEl.empty();
-              resultEl.createEl("div", { cls: "tb-popup-empty", text: msg });
+              resultEl.createDiv({ cls: "tb-popup-empty", text: msg });
             }
             return;
           }
@@ -40080,7 +40079,7 @@ var AnalysisTabbedModal = class extends import_obsidian10.Modal {
           if (activeDocument.body.contains(resultEl)) {
             setRunningUI(false);
             resultEl.empty();
-            resultEl.createEl("div", { cls: "tb-path-empty", text: msg });
+            resultEl.createDiv({ cls: "tb-path-empty", text: msg });
           } else {
             new import_obsidian10.Notice(msg, 8e3);
           }
@@ -40110,57 +40109,57 @@ var AnalysisResultModal = class extends import_obsidian10.Modal {
     contentEl.empty();
     contentEl.addClass("tb-analysis-result-modal");
     modalEl.addClass("tb-analysis-result-container");
-    const hdr = contentEl.createEl("div", { cls: "tb-ar-header" });
-    hdr.createEl("div", { cls: "tb-ar-folder", text: `\u{1F4CA} ${this.folderPath}` });
+    const hdr = contentEl.createDiv({ cls: "tb-ar-header" });
+    hdr.createDiv({ cls: "tb-ar-folder", text: `\u{1F4CA} ${this.folderPath}` });
     const modeLabel = this.mode === "rich" ? this.t("analysis_depth_rich") : this.t("analysis_depth_summary");
-    const metaRow = hdr.createEl("div", { cls: "tb-ar-meta" });
-    metaRow.createEl("span", { cls: "tb-ar-meta-mode", text: modeLabel });
+    const metaRow = hdr.createDiv({ cls: "tb-ar-meta" });
+    metaRow.createSpan({ cls: "tb-ar-meta-mode", text: modeLabel });
     if (this.intent) {
-      metaRow.createEl("span", { cls: "tb-ar-meta-sep", text: "\xB7" });
-      metaRow.createEl("span", { cls: "tb-ar-meta-intent", text: this.intent });
+      metaRow.createSpan({ cls: "tb-ar-meta-sep", text: "\xB7" });
+      metaRow.createSpan({ cls: "tb-ar-meta-intent", text: this.intent });
     }
-    const body = contentEl.createEl("div", { cls: "tb-ar-body" });
+    const body = contentEl.createDiv({ cls: "tb-ar-body" });
     if (this.result.synthesis) {
-      const synthCard = body.createEl("div", { cls: "tb-ar-synthesis-card" });
-      synthCard.createEl("div", { cls: "tb-ar-synthesis-label", text: this.t("ar_synthesis_label") });
-      synthCard.createEl("div", { cls: "tb-ar-synthesis-text", text: this.result.synthesis });
+      const synthCard = body.createDiv({ cls: "tb-ar-synthesis-card" });
+      synthCard.createDiv({ cls: "tb-ar-synthesis-label", text: this.t("ar_synthesis_label") });
+      synthCard.createDiv({ cls: "tb-ar-synthesis-text", text: this.result.synthesis });
     }
     if (this.result.overview) {
       this.makeSection(body, this.t("ar_overview_label"), (el) => {
-        el.createEl("div", { cls: "tb-ar-overview", text: this.result.overview });
+        el.createDiv({ cls: "tb-ar-overview", text: this.result.overview });
       }, true);
     }
     if (this.result.highlights.length > 0) {
       this.makeSection(body, `\u{1F4A1} ${this.t("ar_highlights_label")} \xB7 ${this.result.highlights.length}`, (el) => {
         for (const h of this.result.highlights) {
-          const row = el.createEl("div", { cls: "tb-ar-highlight" });
-          row.createEl("span", { cls: "tb-ar-bullet", text: "\xB7" });
-          row.createEl("span", { text: h });
+          const row = el.createDiv({ cls: "tb-ar-highlight" });
+          row.createSpan({ cls: "tb-ar-bullet", text: "\xB7" });
+          row.createSpan({ text: h });
         }
       }, true);
     }
     if (this.result.themes.length > 0) {
       this.makeSection(body, `\u{1F3F7} ${this.t("ar_themes_label")} \xB7 ${this.result.themes.length}`, (el) => {
         for (const theme of this.result.themes) {
-          const card = el.createEl("div", { cls: "tb-ar-theme-card" });
-          card.createEl("div", { cls: "tb-ar-theme-title", text: theme.title });
-          card.createEl("div", { cls: "tb-ar-theme-desc", text: theme.description });
+          const card = el.createDiv({ cls: "tb-ar-theme-card" });
+          card.createDiv({ cls: "tb-ar-theme-title", text: theme.title });
+          card.createDiv({ cls: "tb-ar-theme-desc", text: theme.description });
         }
       }, false);
     }
     if (this.result.link_contexts.length > 0) {
       this.makeSection(body, `\u{1F517} ${this.t("ar_link_contexts_label")} \xB7 ${this.result.link_contexts.length}`, (el) => {
         for (const lc of this.result.link_contexts) {
-          const row = el.createEl("div", { cls: "tb-ar-lc-row" });
-          const top = row.createEl("div", { cls: "tb-ar-lc-top" });
-          top.createEl("span", { cls: "tb-lc-node", text: shortText(lc.source, 16) });
-          top.createEl("span", { cls: "tb-lc-arrow", text: ` \u2015${lc.relation}\u2192 ` });
-          top.createEl("span", { cls: "tb-lc-node", text: shortText(lc.target, 16) });
-          row.createEl("div", { cls: "tb-lc-context", text: lc.context });
+          const row = el.createDiv({ cls: "tb-ar-lc-row" });
+          const top = row.createDiv({ cls: "tb-ar-lc-top" });
+          top.createSpan({ cls: "tb-lc-node", text: shortText(lc.source, 16) });
+          top.createSpan({ cls: "tb-lc-arrow", text: ` \u2015${lc.relation}\u2192 ` });
+          top.createSpan({ cls: "tb-lc-node", text: shortText(lc.target, 16) });
+          row.createDiv({ cls: "tb-lc-context", text: lc.context });
         }
       }, false);
     }
-    const footer = contentEl.createEl("div", { cls: "tb-ar-footer" });
+    const footer = contentEl.createDiv({ cls: "tb-ar-footer" });
     footer.createEl("button", { cls: "tb-btn", text: this.t("btn_close") }).addEventListener("click", () => this.close());
     footer.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_save") }).addEventListener("click", () => {
       this.close();
@@ -40168,11 +40167,11 @@ var AnalysisResultModal = class extends import_obsidian10.Modal {
     });
   }
   makeSection(parent, label, fill, open) {
-    const wrap = parent.createEl("div", { cls: "tb-ar-section" });
-    const toggler = wrap.createEl("div", { cls: `tb-ar-section-toggle${open ? " is-open" : ""}` });
-    toggler.createEl("span", { cls: "tb-ar-chevron", text: open ? "\u25BE" : "\u25B8" });
-    toggler.createEl("span", { text: label });
-    const content = wrap.createEl("div", { cls: "tb-ar-section-content" });
+    const wrap = parent.createDiv({ cls: "tb-ar-section" });
+    const toggler = wrap.createDiv({ cls: `tb-ar-section-toggle${open ? " is-open" : ""}` });
+    toggler.createSpan({ cls: "tb-ar-chevron", text: open ? "\u25BE" : "\u25B8" });
+    toggler.createSpan({ text: label });
+    const content = wrap.createDiv({ cls: "tb-ar-section-content" });
     if (!open)
       content.hide();
     fill(content);
@@ -40225,7 +40224,7 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
     contentEl.empty();
     contentEl.addClass("tb-popup-content", "tb-orphan-lint-modal");
     this.setTitle(this.isKo ? "\uACE0\uB9BD \uB178\uB4DC \uB9B0\uD305" : "Orphan Node Linting");
-    contentEl.createEl("div", {
+    contentEl.createDiv({
       cls: "tb-popup-sub",
       text: this.isKo ? "\uB9B0\uD305\uD560 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694. \uC120\uD0DD\uD55C \uD3F4\uB354 \uB0B4 \uACE0\uB9BD \uBA85\uC81C\uC5D0\uC11C \uC5F0\uACB0 \uD6C4\uBCF4\uB97C \uD0D0\uC0C9\uD569\uB2C8\uB2E4." : "Select a folder to lint. AI will search for connections within that folder."
     });
@@ -40234,13 +40233,13 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
       (f) => f !== rootFolder && !f.split("/").includes("raw") && !f.split("/").includes("_actions") && !f.split("/").includes("_problems")
     );
     if (eligible.length === 0) {
-      contentEl.createEl("div", {
+      contentEl.createDiv({
         cls: "tb-manual-conflict-empty",
         text: this.isKo ? "\uD3F4\uB354\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." : "No folders found."
       });
       return;
     }
-    const list = contentEl.createEl("div", { cls: "tb-popup-folder-list" });
+    const list = contentEl.createDiv({ cls: "tb-popup-folder-list" });
     let selected = null;
     for (const folder of eligible) {
       const depth = folder.split("/").length - 1;
@@ -40252,8 +40251,8 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
       radio.addEventListener("change", () => {
         selected = folder;
       });
-      label.createEl("span", { cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
-      label.createEl("span", { cls: "tb-popup-folder-name", text: name });
+      label.createSpan({ cls: "tb-popup-folder-icon", text: depth > 0 ? "\u21B3" : "\u{1F4C1}" });
+      label.createSpan({ cls: "tb-popup-folder-name", text: name });
     }
     const startBtn = contentEl.createEl("button", {
       cls: "tb-btn tb-orphan-start-btn",
@@ -40272,7 +40271,7 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
     const { contentEl } = this;
     contentEl.empty();
     this.setTitle(this.isKo ? `\uACE0\uB9BD \uB178\uB4DC \uB9B0\uD305 \u2014 ${folderPath}` : `Orphan Linting \u2014 ${folderPath}`);
-    const loading = contentEl.createEl("div", {
+    const loading = contentEl.createDiv({
       cls: "tb-manual-conflict-empty",
       text: this.isKo ? "\uC2A4\uCE94 \uC911..." : "Scanning\u2026"
     });
@@ -40301,7 +40300,7 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
       }
     });
     if (orphans.length === 0) {
-      contentEl.createEl("div", {
+      contentEl.createDiv({
         cls: "tb-manual-conflict-empty",
         text: this.isKo ? "\u2713 \uC774 \uD3F4\uB354\uC5D0 \uACE0\uB9BD \uBA85\uC81C \uC5C6\uC74C" : "\u2713 No isolated propositions in this folder"
       });
@@ -40319,7 +40318,7 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
       this.close();
       return;
     }
-    const desc = contentEl.createEl("div", { cls: "tb-manual-conflict-count" });
+    const desc = contentEl.createDiv({ cls: "tb-manual-conflict-count" });
     let descText = this.isKo ? `${totalCount}\uAC1C\uC758 \uACE0\uB9BD \uBA85\uC81C\uB97C \uBC1C\uACAC\uD588\uC2B5\uB2C8\uB2E4.` : `Found ${totalCount} isolated propositions.`;
     if (candidates.length === 0) {
       descText += this.isKo ? " \uC5F0\uACB0 \uD6C4\uBCF4 \uB178\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4 (\uD3F4\uB354\uC5D0 \uC5F0\uACB0\uB41C \uB178\uB4DC\uAC00 \uC5C6\uC74C)." : " No candidate nodes found (no connected nodes in folder yet).";
@@ -40330,30 +40329,30 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
       descText += this.isKo ? ` (\uC0C1\uC704 ${MAX_ORPHANS}\uAC1C \uD45C\uC2DC)` : ` (showing top ${MAX_ORPHANS})`;
     }
     desc.textContent = descText;
-    const listEl = contentEl.createEl("div", { cls: "tb-manual-conflict-list" });
+    const listEl = contentEl.createDiv({ cls: "tb-manual-conflict-list" });
     for (const orphan of orphans) {
       this.renderOrphanCard(listEl, orphan, candidates);
     }
   }
   renderOrphanCard(container, orphan, candidates) {
-    const card = container.createEl("div", { cls: "tb-orphan-card" });
-    const header = card.createEl("div", { cls: "tb-orphan-card-header" });
-    header.createEl("div", { cls: "tb-orphan-card-title", text: orphan.title });
+    const card = container.createDiv({ cls: "tb-orphan-card" });
+    const header = card.createDiv({ cls: "tb-orphan-card-header" });
+    header.createDiv({ cls: "tb-orphan-card-title", text: orphan.title });
     if (orphan.content) {
-      header.createEl("div", {
+      header.createDiv({
         cls: "tb-orphan-card-preview",
         text: orphan.content.slice(0, 100) + (orphan.content.length > 100 ? "\u2026" : "")
       });
     }
-    const suggestArea = card.createEl("div", { cls: "tb-orphan-suggest-area" });
+    const suggestArea = card.createDiv({ cls: "tb-orphan-suggest-area" });
     if (candidates.length === 0) {
-      suggestArea.createEl("div", {
+      suggestArea.createDiv({
         cls: "tb-orphan-no-result",
         text: this.isKo ? "\uC5F0\uACB0 \uAC00\uB2A5\uD55C \uB178\uB4DC \uC5C6\uC74C" : "No connectable nodes in this folder"
       });
       return;
     }
-    const loadingEl = suggestArea.createEl("div", {
+    const loadingEl = suggestArea.createDiv({
       cls: "tb-orphan-loading",
       text: this.isKo ? "AI \uD0D0\uC0C9 \uC911..." : "Searching\u2026"
     });
@@ -40371,7 +40370,7 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
         return;
       loadingEl.remove();
       if (results.length === 0) {
-        suggestArea.createEl("div", {
+        suggestArea.createDiv({
           cls: "tb-orphan-no-result",
           text: this.isKo ? "\uC5F0\uACB0 \uD6C4\uBCF4 \uC5C6\uC74C" : "No connection candidates found"
         });
@@ -40383,11 +40382,11 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
     })();
   }
   renderSuggestion(container, orphan, res) {
-    const row = container.createEl("div", { cls: "tb-orphan-suggest-row" });
-    const topLine = row.createEl("div", { cls: "tb-orphan-suggest-top" });
-    topLine.createEl("span", { cls: "tb-orphan-suggest-target", text: res.targetTitle });
-    topLine.createEl("span", { cls: "tb-orphan-suggest-relation", text: res.relation });
-    topLine.createEl("span", {
+    const row = container.createDiv({ cls: "tb-orphan-suggest-row" });
+    const topLine = row.createDiv({ cls: "tb-orphan-suggest-top" });
+    topLine.createSpan({ cls: "tb-orphan-suggest-target", text: res.targetTitle });
+    topLine.createSpan({ cls: "tb-orphan-suggest-relation", text: res.relation });
+    topLine.createSpan({
       cls: "tb-orphan-suggest-conf",
       text: `${Math.round(res.confidence * 100)}%`
     });
@@ -40395,8 +40394,8 @@ var OrphanQueueModal = class extends import_obsidian11.Modal {
       cls: "tb-btn tb-orphan-accept-btn",
       text: this.isKo ? "\uC5F0\uACB0" : "Connect"
     });
-    const doneMsg = topLine.createEl("span", { cls: "tb-orphan-done-msg" });
-    row.createEl("div", { cls: "tb-orphan-suggest-reason", text: res.reason });
+    const doneMsg = topLine.createSpan({ cls: "tb-orphan-done-msg" });
+    row.createDiv({ cls: "tb-orphan-suggest-reason", text: res.reason });
     acceptBtn.addEventListener("click", () => {
       void (async () => {
         acceptBtn.disabled = true;
@@ -40470,31 +40469,31 @@ var ConflictResolutionModal = class extends import_obsidian12.Modal {
     const descKey = dim === "fact_vs_fact" ? "conflict_desc_fact_fact" : dim === "claim_vs_claim" ? "conflict_desc_claim_claim" : "conflict_desc_fact_claim";
     contentEl.createEl("h3", { text: this.t(titleKey), cls: "tb-conflict-modal-title" });
     contentEl.createEl("p", { text: this.t(descKey), cls: "tb-conflict-modal-desc" });
-    const summary = contentEl.createEl("div", { cls: "tb-conflict-summary" });
+    const summary = contentEl.createDiv({ cls: "tb-conflict-summary" });
     const renderSide = (node, cls) => {
-      const box = summary.createEl("div", { cls: `tb-conflict-side ${cls}` });
-      box.createEl("div", { cls: "tb-conflict-side-title", text: node.title });
+      const box = summary.createDiv({ cls: `tb-conflict-side ${cls}` });
+      box.createDiv({ cls: "tb-conflict-side-title", text: node.title });
       const { claim, quote } = conflictNodeDetail(node);
       if (claim)
-        box.createEl("div", { cls: "tb-conflict-side-claim", text: claim });
+        box.createDiv({ cls: "tb-conflict-side-claim", text: claim });
       if (quote)
-        box.createEl("div", { cls: "tb-conflict-side-quote", text: quote });
+        box.createDiv({ cls: "tb-conflict-side-quote", text: quote });
     };
     renderSide(this.conflict.nodeA, "tb-conflict-node-a");
-    summary.createEl("div", { cls: "tb-conflict-vs", text: "\u27F7" });
+    summary.createDiv({ cls: "tb-conflict-vs", text: "\u27F7" });
     renderSide(this.conflict.nodeB, "tb-conflict-node-b");
     if (this.conflict.evidence) {
       const evidenceLabel = this.settings.lang === "en" ? "Evidence: " : "\uADFC\uAC70: ";
-      contentEl.createEl("div", { cls: "tb-conflict-evidence", text: `${evidenceLabel}${this.conflict.evidence}` });
+      contentEl.createDiv({ cls: "tb-conflict-evidence", text: `${evidenceLabel}${this.conflict.evidence}` });
     }
     contentEl.createEl("hr");
     const opt1Label = this.settings.lang === "en" ? "Option 1 \u2014 Reclassify with a more accurate edge" : "\uC635\uC158 1 \u2014 \uB354 \uC815\uD655\uD55C \uC5E3\uC9C0\uB85C \uC7AC\uBD84\uB958";
-    contentEl.createEl("div", { cls: "tb-conflict-section-title", text: opt1Label });
-    const rankArea = contentEl.createEl("div", { cls: "tb-conflict-rank-area" });
+    contentEl.createDiv({ cls: "tb-conflict-section-title", text: opt1Label });
+    const rankArea = contentEl.createDiv({ cls: "tb-conflict-rank-area" });
     const loadingText = this.settings.lang === "en" ? "AI is analyzing the relation..." : "AI\uAC00 \uAD00\uACC4\uB97C \uBD84\uC11D \uC911...";
     const noRankText = this.settings.lang === "en" ? "No recommendation (conflict may be genuine)" : "\uCD94\uCC9C \uAD00\uACC4 \uC5C6\uC74C (\uBAA8\uC21C\uC774 \uC2E4\uC81C\uC77C \uC218 \uC788\uC74C)";
     const aiFailText = this.settings.lang === "en" ? "AI analysis failed" : "AI \uBD84\uC11D \uC2E4\uD328";
-    const loadingEl = rankArea.createEl("div", { cls: "tb-conflict-loading", text: loadingText });
+    const loadingEl = rankArea.createDiv({ cls: "tb-conflict-loading", text: loadingText });
     const relLabels = this.settings.lang === "en" ? { causes: "Causes", precedes: "Precedes", precondition_of: "Precondition", supports: "Supports", contrasts_with: "Contrasts", exemplifies: "Exemplifies", applies_to: "Applies to", analogous_to: "Analogous", isomorphic_to: "Isomorphic" } : { causes: "\uC720\uBC1C", precedes: "\uC120\uD589", precondition_of: "\uC804\uC81C\uC870\uAC74", supports: "\uB4B7\uBC1B\uCE68", contrasts_with: "\uB300\uC870", exemplifies: "\uC608\uC2DC", applies_to: "\uC801\uC6A9", analogous_to: "\uC720\uC0AC", isomorphic_to: "\uB3D9\uD615" };
     rankEdgeRelations(
       { title: this.conflict.nodeA.title, content: this.conflict.nodeA.edges.map((e) => e.reason).join(" ") },
@@ -40506,16 +40505,16 @@ var ConflictResolutionModal = class extends import_obsidian12.Modal {
       this.rankLoading = false;
       loadingEl.remove();
       if (ranks.length === 0) {
-        rankArea.createEl("div", { cls: "tb-conflict-no-rank", text: noRankText });
+        rankArea.createDiv({ cls: "tb-conflict-no-rank", text: noRankText });
         return;
       }
       for (const r of ranks) {
-        const chip = rankArea.createEl("div", { cls: "tb-conflict-rank-chip" });
+        const chip = rankArea.createDiv({ cls: "tb-conflict-rank-chip" });
         const pct = Math.round(r.confidence * 100);
-        chip.createEl("span", { cls: "tb-rank-label", text: relLabels[r.relation] ?? r.relation });
-        chip.createEl("span", { cls: "tb-rank-pct", text: `${pct}%` });
+        chip.createSpan({ cls: "tb-rank-label", text: relLabels[r.relation] ?? r.relation });
+        chip.createSpan({ cls: "tb-rank-pct", text: `${pct}%` });
         if (r.reason)
-          chip.createEl("span", { cls: "tb-rank-reason", text: r.reason });
+          chip.createSpan({ cls: "tb-rank-reason", text: r.reason });
         chip.addEventListener("click", () => {
           void this.applyReclassify(r.relation, r.reason);
         });
@@ -40526,13 +40525,13 @@ var ConflictResolutionModal = class extends import_obsidian12.Modal {
     contentEl.createEl("hr");
     const ko = this.settings.lang !== "en";
     const opt2Label = ko ? "\uC635\uC158 2 \u2014 \uC0C1\uC704 \uAC1C\uB150 \uB178\uD2B8 \uCD94\uAC00 (precondition_of)" : "Option 2 \u2014 Add parent premise (precondition_of)";
-    contentEl.createEl("div", { cls: "tb-conflict-section-title", text: opt2Label });
-    const parentArea = contentEl.createEl("div", { cls: "tb-conflict-parent-area" });
+    contentEl.createDiv({ cls: "tb-conflict-section-title", text: opt2Label });
+    const parentArea = contentEl.createDiv({ cls: "tb-conflict-parent-area" });
     const contentTextarea = parentArea.createEl("textarea", {
       cls: "tb-conflict-parent-textarea",
       placeholder: ko ? "\uC0C1\uC704 \uAC1C\uB150\uC758 \uB0B4\uC6A9\uC744 \uC785\uB825\uD558\uC138\uC694..." : "Describe the parent concept..."
     });
-    const titleRow = parentArea.createEl("div", { cls: "tb-conflict-parent-title-row" });
+    const titleRow = parentArea.createDiv({ cls: "tb-conflict-parent-title-row" });
     const titleInput = titleRow.createEl("input", {
       type: "text",
       cls: "tb-conflict-parent-input",
@@ -40583,8 +40582,8 @@ Return only JSON: {"title":"title"}`;
     });
     contentEl.createEl("hr");
     const opt3Label = this.settings.lang === "en" ? "Option 3 \u2014 Discard a proposition" : "\uC635\uC158 3 \u2014 \uD55C\uCABD \uBA85\uC81C \uD3D0\uAE30";
-    contentEl.createEl("div", { cls: "tb-conflict-section-title", text: opt3Label });
-    const deleteArea = contentEl.createEl("div", { cls: "tb-conflict-delete-area" });
+    contentEl.createDiv({ cls: "tb-conflict-section-title", text: opt3Label });
+    const deleteArea = contentEl.createDiv({ cls: "tb-conflict-delete-area" });
     const aIsFact = this.conflict.nodeA.proposition_type === "fact";
     const bIsFact = this.conflict.nodeB.proposition_type === "fact";
     const delPrefixA = aIsFact ? this.t("conflict_delete_bad_data") : bIsFact ? this.t("conflict_delete_claim") : this.t("conflict_delete_node");
@@ -40599,7 +40598,7 @@ Return only JSON: {"title":"title"}`;
     });
     contentEl.createEl("hr");
     const footerText = this.settings.lang === "en" ? "Closing without action keeps the conflict edge in the graph." : "\uB2EB\uAE30 \uC2DC \uBAA8\uC21C \uC5E3\uC9C0\uAC00 \uADF8\uB798\uD504\uC5D0 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.";
-    contentEl.createEl("div", { cls: "tb-conflict-footer", text: footerText });
+    contentEl.createDiv({ cls: "tb-conflict-footer", text: footerText });
   }
   async applyReclassify(relation, reason) {
     const nodeAFile = this.app.vault.getAbstractFileByPath(this.conflict.nodeA.filePath);
@@ -40702,29 +40701,29 @@ var BrainStatusModal = class extends import_obsidian12.Modal {
     } catch {
     }
     if (status.length === 0) {
-      contentEl.createEl("div", {
+      contentEl.createDiv({
         cls: "tb-mission-empty",
         text: this.ko ? "\u2713 \uBAA8\uB4E0 \uD3F4\uB354\uAC00 \uC815\uB9AC\uB428 \u2014 \uBBF8\uC158\xB7\uBBF8\uC5F0\uACB0\xB7\uBAA8\uC21C \uC5C6\uC74C" : "\u2713 All folders clear \u2014 no missions, unlinked nodes or conflicts"
       });
       return;
     }
-    contentEl.createEl("div", {
+    contentEl.createDiv({
       cls: "tb-mission-sub",
       text: this.ko ? "\uD3F4\uB354\uB97C \uB20C\uB7EC \uADF8 \uC548\uC758 \uBBF8\uC158\xB7\uBBF8\uC5F0\uACB0\xB7\uBAA8\uC21C\uC744 \uCC98\uB9AC\uD558\uC138\uC694." : "Open a folder to work on its missions, unlinked nodes and conflicts."
     });
     for (const st of status) {
       const name = st.sessionFolder.split("/").pop() ?? st.sessionFolder;
       const row = contentEl.createEl("button", { cls: "tb-brain-folder-row" });
-      row.createEl("span", { cls: "tb-brain-folder-name", text: `\u{1F4C1} ${name}` });
-      const badges = row.createEl("span", { cls: "tb-brain-folder-badges" });
+      row.createSpan({ cls: "tb-brain-folder-name", text: `\u{1F4C1} ${name}` });
+      const badges = row.createSpan({ cls: "tb-brain-folder-badges" });
       if (st.conflicts.length > 0) {
-        badges.createEl("span", { cls: "tb-brain-badge is-conflict", text: this.ko ? `\u26A0 \uBAA8\uC21C ${st.conflicts.length}` : `\u26A0 ${st.conflicts.length}` });
+        badges.createSpan({ cls: "tb-brain-badge is-conflict", text: this.ko ? `\u26A0 \uBAA8\uC21C ${st.conflicts.length}` : `\u26A0 ${st.conflicts.length}` });
       }
       if (st.missions.length > 0) {
-        badges.createEl("span", { cls: "tb-brain-badge is-mission", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${st.missions.length}` : `\u{1F3AF} ${st.missions.length}` });
+        badges.createSpan({ cls: "tb-brain-badge is-mission", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${st.missions.length}` : `\u{1F3AF} ${st.missions.length}` });
       }
       if (st.orphanCount > 0) {
-        badges.createEl("span", { cls: "tb-brain-badge is-orphan", text: this.ko ? `\u25C8 \uBBF8\uC5F0\uACB0 ${st.orphanCount}` : `\u25C8 ${st.orphanCount}` });
+        badges.createSpan({ cls: "tb-brain-badge is-orphan", text: this.ko ? `\u25C8 \uBBF8\uC5F0\uACB0 ${st.orphanCount}` : `\u25C8 ${st.orphanCount}` });
       }
       row.addEventListener("click", () => {
         this.renderFolderDetail(st);
@@ -40742,18 +40741,18 @@ var BrainStatusModal = class extends import_obsidian12.Modal {
       void this.renderFolderList();
     });
     if (st.conflicts.length > 0) {
-      contentEl.createEl("div", { cls: "tb-brain-section-title", text: this.ko ? `\u26A0 \uBBF8\uD574\uC18C \uBAA8\uC21C ${st.conflicts.length}\uAC74` : `\u26A0 Unresolved conflicts (${st.conflicts.length})` });
+      contentEl.createDiv({ cls: "tb-brain-section-title", text: this.ko ? `\u26A0 \uBBF8\uD574\uC18C \uBAA8\uC21C ${st.conflicts.length}\uAC74` : `\u26A0 Unresolved conflicts (${st.conflicts.length})` });
       for (const c2 of st.conflicts)
         this.renderConflictCard(contentEl, c2, st);
     }
     if (st.missions.length > 0) {
-      contentEl.createEl("div", { cls: "tb-brain-section-title", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${st.missions.length}\uAC74` : `\u{1F3AF} Missions (${st.missions.length})` });
+      contentEl.createDiv({ cls: "tb-brain-section-title", text: this.ko ? `\u{1F3AF} \uBBF8\uC158 ${st.missions.length}\uAC74` : `\u{1F3AF} Missions (${st.missions.length})` });
       for (const p of st.missions)
         this.renderMissionCard(contentEl, p, st);
     }
     if (st.orphanCount > 0) {
-      contentEl.createEl("div", { cls: "tb-brain-section-title", text: this.ko ? `\u25C8 \uBBF8\uC5F0\uACB0 \uBA85\uC81C ${st.orphanCount}\uAC74` : `\u25C8 Unlinked propositions (${st.orphanCount})` });
-      contentEl.createEl("div", {
+      contentEl.createDiv({ cls: "tb-brain-section-title", text: this.ko ? `\u25C8 \uBBF8\uC5F0\uACB0 \uBA85\uC81C ${st.orphanCount}\uAC74` : `\u25C8 Unlinked propositions (${st.orphanCount})` });
+      contentEl.createDiv({
         cls: "tb-mission-sub",
         text: this.ko ? "\uAC19\uC740 \uD3F4\uB354 \uC548\uC5D0\uC11C AI\uAC00 \uC5F0\uACB0 \uD6C4\uBCF4\uB97C \uCC3E\uC544 \uBD99\uC5EC\uC90D\uB2C8\uB2E4." : "AI finds connection candidates within this folder."
       });
@@ -40773,12 +40772,12 @@ var BrainStatusModal = class extends import_obsidian12.Modal {
     }
   }
   renderConflictCard(container, c2, st) {
-    const card = container.createEl("div", { cls: "tb-conflict-notice-row" });
-    card.createEl("span", { cls: "tb-conflict-notice-a", text: c2.nodeA.title });
-    card.createEl("span", { cls: "tb-conflict-notice-vs", text: "\u27F7" });
-    card.createEl("span", { cls: "tb-conflict-notice-b", text: c2.nodeB.title });
+    const card = container.createDiv({ cls: "tb-conflict-notice-row" });
+    card.createSpan({ cls: "tb-conflict-notice-a", text: c2.nodeA.title });
+    card.createSpan({ cls: "tb-conflict-notice-vs", text: "\u27F7" });
+    card.createSpan({ cls: "tb-conflict-notice-b", text: c2.nodeB.title });
     const btn = card.createEl("button", { cls: "tb-btn tb-conflict-resolve-btn", text: this.ko ? "\uD574\uC18C\uD558\uAE30" : "Resolve" });
-    const resolvedMsg = card.createEl("span", { cls: "tb-conflict-resolved-msg" });
+    const resolvedMsg = card.createSpan({ cls: "tb-conflict-resolved-msg" });
     btn.addEventListener("click", () => {
       new ConflictResolutionModal(this.app, c2, this.store, this.settings, (msg) => {
         btn.remove();
@@ -40790,14 +40789,14 @@ var BrainStatusModal = class extends import_obsidian12.Modal {
   }
   renderMissionCard(container, p, st) {
     const species = p.problem_species ?? "obstacle";
-    const card = container.createEl("div", { cls: `tb-problem-card is-${species}` });
-    const head = card.createEl("div", { cls: "tb-problem-card-head" });
-    head.createEl("span", { cls: `tb-problem-species is-${species}`, text: species });
-    head.createEl("span", { cls: "tb-problem-title", text: p.title });
+    const card = container.createDiv({ cls: `tb-problem-card is-${species}` });
+    const head = card.createDiv({ cls: "tb-problem-card-head" });
+    head.createSpan({ cls: `tb-problem-species is-${species}`, text: species });
+    head.createSpan({ cls: "tb-problem-title", text: p.title });
     const desc = ((p.content.split("\n---\n")[0] ?? "").trim().split("\n")[0] ?? "").trim();
     if (desc)
-      card.createEl("div", { cls: "tb-problem-desc", text: desc });
-    const btnRow = card.createEl("div", { cls: "tb-problem-card-btns" });
+      card.createDiv({ cls: "tb-problem-desc", text: desc });
+    const btnRow = card.createDiv({ cls: "tb-problem-card-btns" });
     const workbenchBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-workbench-btn", text: this.ko ? "\u{1F3AF} \uC791\uC5C5\uB300" : "\u{1F3AF} Workbench" });
     workbenchBtn.addEventListener("click", () => {
       this.close();
@@ -40889,15 +40888,15 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     root2.empty();
     root2.addClass("tb-root");
     this.buildHeader(root2);
-    this.ingestContainer = root2.createEl("div", { cls: "tb-ingest-container" });
-    const inputPane = this.ingestContainer.createEl("div", { cls: "tb-input-pane" });
+    this.ingestContainer = root2.createDiv({ cls: "tb-ingest-container" });
+    const inputPane = this.ingestContainer.createDiv({ cls: "tb-input-pane" });
     this.buildIngestPanel(inputPane);
     this.buildProgressBar(inputPane);
     this.syncIngestBtnState();
     void this.refreshConflictBubble();
     this.registerEvent(this.app.vault.on("delete", () => this.scheduleBadgeRefresh()));
     this.registerEvent(this.app.vault.on("rename", () => this.scheduleBadgeRefresh()));
-    this.resultsEl = this.ingestContainer.createEl("div", { cls: "tb-results" });
+    this.resultsEl = this.ingestContainer.createDiv({ cls: "tb-results" });
   }
   async onClose() {
     if (this.badgeRefreshTimer !== null) {
@@ -40907,13 +40906,13 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
   }
   // ── 헤더 ─────────────────────────────────────────────
   buildHeader(root2) {
-    const hdr = root2.createEl("div", { cls: "tb-header" });
-    const titleRow = hdr.createEl("div", { cls: "tb-header-title" });
-    titleRow.createEl("span", { cls: "tb-header-name", text: "ThirdBrain" });
-    const donateWrap = titleRow.createEl("div", { cls: "tb-donate-wrap" });
+    const hdr = root2.createDiv({ cls: "tb-header" });
+    const titleRow = hdr.createDiv({ cls: "tb-header-title" });
+    titleRow.createSpan({ cls: "tb-header-name", text: "ThirdBrain" });
+    const donateWrap = titleRow.createDiv({ cls: "tb-donate-wrap" });
     const donateBtn = donateWrap.createEl("button", { cls: "tb-donate-btn", text: "\u{1F366}" });
-    const donatePopup = donateWrap.createEl("div", { cls: "tb-donate-popup" });
-    donatePopup.createEl("div", { cls: "tb-donate-msg", text: this.t("donate_msg") });
+    const donatePopup = donateWrap.createDiv({ cls: "tb-donate-popup" });
+    donatePopup.createDiv({ cls: "tb-donate-msg", text: this.t("donate_msg") });
     if (DONATE_QR_BASE64) {
       const img = donatePopup.createEl("img", { cls: "tb-donate-qr", attr: { src: DONATE_QR_BASE64, alt: "KakaoPay QR" } });
       img.draggable = false;
@@ -40923,15 +40922,15 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
       donatePopup.toggleClass("is-visible", !donatePopup.hasClass("is-visible"));
     });
     this.registerDomEvent(activeDocument, "click", () => donatePopup.removeClass("is-visible"), { passive: true });
-    hdr.createEl("div", { cls: "tb-header-subtitle", text: this.t("subtitle") });
-    this.usageEl = hdr.createEl("div", { cls: "tb-usage-bar", text: "\u2500" });
+    hdr.createDiv({ cls: "tb-header-subtitle", text: this.t("subtitle") });
+    this.usageEl = hdr.createDiv({ cls: "tb-usage-bar", text: "\u2500" });
   }
   // ── 인제스트 패널 ─────────────────────────────────────
   buildIngestPanel(parent) {
-    const panel = parent.createEl("div", { cls: "tb-ingest" });
-    const dropZone = panel.createEl("div", { cls: "tb-dropzone" });
+    const panel = parent.createDiv({ cls: "tb-ingest" });
+    const dropZone = panel.createDiv({ cls: "tb-dropzone" });
     this.dropZoneEl = dropZone;
-    const faceEl = dropZone.createEl("div", { cls: "tb-dropzone-face is-clickable" });
+    const faceEl = dropZone.createDiv({ cls: "tb-dropzone-face is-clickable" });
     faceEl.appendChild((0, import_obsidian13.sanitizeHTMLToDom)(SOOTBALL_WAITING));
     faceEl.setAttribute("title", this.plugin.settings.lang === "ko" ? "\uD074\uB9AD \u2014 \uB1CC \uC0C1\uD0DC (\uD3F4\uB354\uBCC4 \uBBF8\uC158\xB7\uBBF8\uC5F0\uACB0\xB7\uBAA8\uC21C)" : "Click \u2014 Brain status (missions, unlinked & conflicts by folder)");
     const openBrainStatus = () => {
@@ -40950,14 +40949,14 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
       e.stopPropagation();
       openBrainStatus();
     });
-    this.conflictBubbleEl = dropZone.createEl("div", { cls: "tb-conflict-bubble", text: "!" });
+    this.conflictBubbleEl = dropZone.createDiv({ cls: "tb-conflict-bubble", text: "!" });
     this.conflictBubbleEl.setAttribute("title", this.plugin.settings.lang === "ko" ? "\uBBF8\uD574\uC18C \uBAA8\uC21C \uC788\uC74C \u2014 \uD074\uB9AD\uD574\uC11C \uD655\uC778" : "Unresolved conflicts \u2014 click to review");
     this.conflictBubbleEl.hide();
     this.conflictBubbleEl.addEventListener("click", (e) => {
       e.stopPropagation();
       openBrainStatus();
     });
-    const dropLabel = dropZone.createEl("div", { cls: "tb-dropzone-label", text: this.t("dropzone_label") });
+    const dropLabel = dropZone.createDiv({ cls: "tb-dropzone-label", text: this.t("dropzone_label") });
     const fileInput = dropZone.createEl("input", {
       attr: { type: "file", accept: ".md,.txt,.pdf,.mp3", multiple: true }
     });
@@ -40967,7 +40966,7 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     this.fileBtnEl = fileBtn;
     fileBtn.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", (e) => this.handleFileSelect(e));
-    dropZone.createEl("div", { cls: "tb-dropzone-raw-hint", text: this.t("dropzone_raw_hint") });
+    dropZone.createDiv({ cls: "tb-dropzone-raw-hint", text: this.t("dropzone_raw_hint") });
     let dragDepth = 0;
     const setFaceHungry = (hungry) => {
       faceEl.empty();
@@ -40998,20 +40997,20 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
       setFaceHungry(false);
       this.handleFileDrop(e);
     });
-    const sep = panel.createEl("div", { cls: "tb-or-sep" });
-    sep.createEl("span", { cls: "tb-or-line" });
-    sep.createEl("span", { cls: "tb-or-text", text: this.t("or_sep") });
-    sep.createEl("span", { cls: "tb-or-line" });
+    const sep = panel.createDiv({ cls: "tb-or-sep" });
+    sep.createSpan({ cls: "tb-or-line" });
+    sep.createSpan({ cls: "tb-or-text", text: this.t("or_sep") });
+    sep.createSpan({ cls: "tb-or-line" });
     this.ingestTextarea = panel.createEl("textarea", {
       cls: "tb-ingest-textarea",
       attr: { placeholder: this.t("ingest_placeholder") }
     });
-    this.charCountEl = panel.createEl("div", { cls: "tb-char-count", text: `0${this.t("char_suffix")}` });
+    this.charCountEl = panel.createDiv({ cls: "tb-char-count", text: `0${this.t("char_suffix")}` });
     this.ingestTextarea.addEventListener("input", () => {
       this.updateCharCount();
       this.syncIngestBtnState();
     });
-    const actions = parent.createEl("div", { cls: "tb-action-group" });
+    const actions = parent.createDiv({ cls: "tb-action-group" });
     this.ingestBtn = actions.createEl("button", { cls: "tb-btn-primary", text: this.t("btn_generate") });
     this.ingestBtn.addEventListener("click", () => {
       void this.runIngest();
@@ -41055,7 +41054,7 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     this.bridgeBtn.addEventListener("click", () => {
       this.openMissionControl();
     });
-    this.fileCountEl = actions.createEl("div", { cls: "tb-file-count", text: this.vaultCountText() });
+    this.fileCountEl = actions.createDiv({ cls: "tb-file-count", text: this.vaultCountText() });
   }
   /** 🎯 미션 컨트롤 열기 — initial을 주면 해당 폴더·미션 작업대로 바로 진입 (구 작업대 대체) */
   openMissionControl(initial) {
@@ -41267,12 +41266,12 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     }
   }
   buildProgressBar(parent) {
-    this.progressEl = parent.createEl("div", { cls: "tb-progress" });
-    const sootball = this.progressEl.createEl("span", { cls: "tb-progress-sootball" });
+    this.progressEl = parent.createDiv({ cls: "tb-progress" });
+    const sootball = this.progressEl.createSpan({ cls: "tb-progress-sootball" });
     sootball.appendChild((0, import_obsidian13.sanitizeHTMLToDom)(SOOTBALL_LOGO));
-    this.progressBarEl = this.progressEl.createEl("span", { cls: "tb-progress-bar", text: progressBar(0) });
-    this.progressMsgEl = this.progressEl.createEl("span", { cls: "tb-progress-msg", text: "" });
-    this.stepLogEl = parent.createEl("div", { cls: "tb-step-log" });
+    this.progressBarEl = this.progressEl.createSpan({ cls: "tb-progress-bar", text: progressBar(0) });
+    this.progressMsgEl = this.progressEl.createSpan({ cls: "tb-progress-msg", text: "" });
+    this.stepLogEl = parent.createDiv({ cls: "tb-step-log" });
   }
   appendStepStat(label, elapsedMs, snapBefore) {
     const after = getSessionStats();
@@ -41280,11 +41279,11 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     const outTok = after.outputTokens - snapBefore.outputTokens;
     const sec = (elapsedMs / 1e3).toFixed(1);
     const fmt = (n) => n > 0 ? n.toLocaleString() : "\u2500";
-    const row = this.stepLogEl.createEl("div", { cls: "tb-step-row" });
-    row.createEl("span", { cls: "tb-step-name", text: label });
-    row.createEl("span", { cls: "tb-step-time", text: `${sec}s` });
-    row.createEl("span", { cls: "tb-step-in", text: `\u2191${fmt(inTok)}` });
-    row.createEl("span", { cls: "tb-step-out", text: `\u2193${fmt(outTok)}` });
+    const row = this.stepLogEl.createDiv({ cls: "tb-step-row" });
+    row.createSpan({ cls: "tb-step-name", text: label });
+    row.createSpan({ cls: "tb-step-time", text: `${sec}s` });
+    row.createSpan({ cls: "tb-step-in", text: `\u2191${fmt(inTok)}` });
+    row.createSpan({ cls: "tb-step-out", text: `\u2193${fmt(outTok)}` });
   }
   // 외부 호출용 (NodeTransplantModal → raw 파일 인제스트)
   async ingestContent(content, targetFolder) {
@@ -41515,7 +41514,7 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
         const diagMsg = propErr instanceof Error ? propErr.message : String(propErr);
         new import_obsidian13.Notice(`[ThirdBrain] ${chunkLabel ? chunkLabel + " " : ""}\uBA85\uC81C \uCD94\uCD9C \uC2E4\uD328
 ${diagMsg}`, 15e3);
-        this.resultsEl.createEl("div", {
+        this.resultsEl.createDiv({
           cls: "tb-error-msg",
           text: `\uBA85\uC81C \uCD94\uCD9C \uC2E4\uD328 (${chunkLabel ?? "\uB2E8\uC77C \uCCAD\uD06C"}):
 ${diagMsg}`
@@ -41613,17 +41612,17 @@ ${diagMsg}`
       const msg = e instanceof Error ? e.message : String(e);
       const stack = e instanceof Error ? e.stack : "";
       this.resultsEl.empty();
-      const errorDiv = this.resultsEl.createEl("div", { cls: "tb-error-container" });
-      errorDiv.createEl("div", { cls: "tb-error-title", text: this.t("error_title") });
-      errorDiv.createEl("div", { cls: "tb-error-message", text: msg });
+      const errorDiv = this.resultsEl.createDiv({ cls: "tb-error-container" });
+      errorDiv.createDiv({ cls: "tb-error-title", text: this.t("error_title") });
+      errorDiv.createDiv({ cls: "tb-error-message", text: msg });
       if (stack) {
-        const detailsDiv = errorDiv.createEl("div", { cls: "tb-error-details" });
-        detailsDiv.createEl("div", { cls: "tb-error-label", text: this.t("error_detail_label") });
+        const detailsDiv = errorDiv.createDiv({ cls: "tb-error-details" });
+        detailsDiv.createDiv({ cls: "tb-error-label", text: this.t("error_detail_label") });
         detailsDiv.createEl("pre", { cls: "tb-error-stack", text: stack.split("\n").slice(0, 5).join("\n") });
       }
       if (msg.includes("Claude API")) {
-        const helpDiv = errorDiv.createEl("div", { cls: "tb-error-help" });
-        helpDiv.createEl("div", { cls: "tb-error-label", text: this.t("error_help_label") });
+        const helpDiv = errorDiv.createDiv({ cls: "tb-error-help" });
+        helpDiv.createDiv({ cls: "tb-error-label", text: this.t("error_help_label") });
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_1") });
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_2") });
         helpDiv.createEl("ul", {}).createEl("li", { text: this.t("error_help_3") });
@@ -41639,17 +41638,17 @@ ${diagMsg}`
       true
     );
     for (const ctx of contexts) {
-      const card = content.createEl("div", { cls: "tb-card is-summary" });
-      const head = card.createEl("div", { cls: "tb-card-head" });
-      head.createEl("span", { cls: "tb-tag is-summary", text: `CTX \xB7 ${ctx.date}` });
-      head.createEl("span", { cls: "tb-card-title", text: ctx.title });
-      card.createEl("div", { cls: "tb-card-body", text: ctx.summary });
+      const card = content.createDiv({ cls: "tb-card is-summary" });
+      const head = card.createDiv({ cls: "tb-card-head" });
+      head.createSpan({ cls: "tb-tag is-summary", text: `CTX \xB7 ${ctx.date}` });
+      head.createSpan({ cls: "tb-card-title", text: ctx.title });
+      card.createDiv({ cls: "tb-card-body", text: ctx.summary });
       if (ctx.tags.length || ctx.keywords.length) {
-        const tagRow = card.createEl("div", { cls: "tb-tagrow" });
+        const tagRow = card.createDiv({ cls: "tb-tagrow" });
         for (const t of ctx.tags)
-          tagRow.createEl("span", { cls: "tb-keyword", text: `#${t}` });
+          tagRow.createSpan({ cls: "tb-keyword", text: `#${t}` });
         for (const k of ctx.keywords)
-          tagRow.createEl("span", { cls: "tb-keyword is-kw", text: k });
+          tagRow.createSpan({ cls: "tb-keyword is-kw", text: k });
       }
       if (contexts.length > 1)
         card.addClass("is-collapsed");
@@ -41668,11 +41667,11 @@ ${diagMsg}`
       false
     );
     for (const ins of insights) {
-      const card = content.createEl("div", { cls: "tb-card is-insight" });
-      const head = card.createEl("div", { cls: "tb-card-head" });
-      head.createEl("span", { cls: "tb-insight-badge", text: "\u2B21 \uC778\uC0AC\uC774\uD2B8" });
-      head.createEl("span", { cls: "tb-card-title", text: ins.title });
-      card.createEl("div", { cls: "tb-card-body", text: ins.why_central });
+      const card = content.createDiv({ cls: "tb-card is-insight" });
+      const head = card.createDiv({ cls: "tb-card-head" });
+      head.createSpan({ cls: "tb-insight-badge", text: "\u2B21 \uC778\uC0AC\uC774\uD2B8" });
+      head.createSpan({ cls: "tb-card-title", text: ins.title });
+      card.createDiv({ cls: "tb-card-body", text: ins.why_central });
       head.addEventListener(
         "click",
         () => card.toggleClass("is-collapsed", !card.hasClass("is-collapsed"))
@@ -41691,25 +41690,25 @@ ${diagMsg}`
     for (const p of sorted) {
       const isInsight = p.role === "insight";
       const hasSource = !!p.source_span?.text;
-      const card = content.createEl("div", {
+      const card = content.createDiv({
         cls: `tb-card is-${p.role}${p.is_core_concept ? " is-core-concept" : ""}${isInsight ? " is-hub" : ""}`
       });
-      const head = card.createEl("div", { cls: "tb-card-head" });
+      const head = card.createDiv({ cls: "tb-card-head" });
       if (isInsight) {
-        head.createEl("span", { cls: "tb-hub-badge", text: this.t("badge_insight") });
+        head.createSpan({ cls: "tb-hub-badge", text: this.t("badge_insight") });
       } else if (p.is_core_concept) {
-        head.createEl("span", { cls: "tb-core-badge", text: this.t("badge_core") });
+        head.createSpan({ cls: "tb-core-badge", text: this.t("badge_core") });
       }
-      head.createEl("span", { cls: `tb-tag is-${p.role}`, text: p.role.toUpperCase() });
-      head.createEl("span", { cls: "tb-card-title", text: p.title });
+      head.createSpan({ cls: `tb-tag is-${p.role}`, text: p.role.toUpperCase() });
+      head.createSpan({ cls: "tb-card-title", text: p.title });
       if (!hasSource) {
-        head.createEl("span", { cls: "tb-no-source-badge", text: this.t("badge_no_source") });
+        head.createSpan({ cls: "tb-no-source-badge", text: this.t("badge_no_source") });
       }
-      card.createEl("div", { cls: "tb-card-body", text: p.text });
+      card.createDiv({ cls: "tb-card-body", text: p.text });
       if (hasSource) {
-        const footer = card.createEl("div", { cls: "tb-card-footer" });
+        const footer = card.createDiv({ cls: "tb-card-footer" });
         const srcToggle = footer.createEl("button", { cls: "tb-source-toggle", text: this.t("source_toggle") });
-        const srcBox = card.createEl("div", { cls: "tb-source-box" });
+        const srcBox = card.createDiv({ cls: "tb-source-box" });
         srcBox.createEl("p", { cls: "tb-source-text", text: p.source_span.text });
         srcToggle.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -41724,23 +41723,23 @@ ${diagMsg}`
       );
     }
     if (logic.edges.length > 0) {
-      content.createEl("div", { cls: "tb-block-label", text: this.t("label_logic_edge") });
-      const list = content.createEl("div", { cls: "tb-edgelist" });
+      content.createDiv({ cls: "tb-block-label", text: this.t("label_logic_edge") });
+      const list = content.createDiv({ cls: "tb-edgelist" });
       for (const e of logic.edges) {
         const s = byId.get(e.source);
         const t = byId.get(e.target);
         if (!s || !t)
           continue;
         const rel = relLabel(e.relation, this.plugin.settings.lang);
-        const row = list.createEl("div", { cls: "tb-edge-row" });
-        row.createEl("span", { cls: "tb-edge-node", text: shortText(s.text, 24) });
-        const relChip = row.createEl("span", {
+        const row = list.createDiv({ cls: "tb-edge-row" });
+        row.createSpan({ cls: "tb-edge-node", text: shortText(s.text, 24) });
+        const relChip = row.createSpan({
           cls: `tb-edge-rel tb-edge-${e.relation}`,
           text: ` \u2015${rel}\u2192 `
         });
         if (e.axiom_basis)
           relChip.setAttr("title", `\uADFC\uAC70: ${e.axiom_basis}`);
-        row.createEl("span", { cls: "tb-edge-node", text: shortText(t.text, 24) });
+        row.createSpan({ cls: "tb-edge-node", text: shortText(t.text, 24) });
       }
     }
   }
@@ -41752,27 +41751,27 @@ ${diagMsg}`
     );
     const connectBtns = [];
     if (recs.length === 0) {
-      content.createEl("div", { cls: "tb-empty", text: this.t("label_no_vault_nodes") });
+      content.createDiv({ cls: "tb-empty", text: this.t("label_no_vault_nodes") });
     } else {
-      content.createEl("div", {
+      content.createDiv({
         cls: "tb-hint",
         text: this.t("label_graph_save_hint")
       });
-      const chipRow = content.createEl("div", { cls: "tb-edge-chips" });
+      const chipRow = content.createDiv({ cls: "tb-edge-chips" });
       for (const rec of recs) {
-        const chip = chipRow.createEl("div", { cls: "tb-chip" });
-        const top = chip.createEl("div", { cls: "tb-chip-top" });
-        top.createEl("span", { cls: "tb-chip-icon", text: "\u25CE" });
+        const chip = chipRow.createDiv({ cls: "tb-chip" });
+        const top = chip.createDiv({ cls: "tb-chip-top" });
+        top.createSpan({ cls: "tb-chip-icon", text: "\u25CE" });
         const rel = relLabel(rec.label, this.plugin.settings.lang);
         if (rec.source_node) {
-          top.createEl("span", { cls: "tb-chip-source", text: shortText(rec.source_node, 16) });
-          top.createEl("span", { cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
-          top.createEl("span", { cls: "tb-chip-target", text: rec.target_file.replace(/\.md$/, "") });
+          top.createSpan({ cls: "tb-chip-source", text: shortText(rec.source_node, 16) });
+          top.createSpan({ cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
+          top.createSpan({ cls: "tb-chip-target", text: rec.target_file.replace(/\.md$/, "") });
         } else {
-          top.createEl("span", { cls: "tb-chip-target", text: rec.target_file.replace(/\.md$/, "") });
-          top.createEl("span", { cls: "tb-chip-arrow", text: ` (${rel})` });
+          top.createSpan({ cls: "tb-chip-target", text: rec.target_file.replace(/\.md$/, "") });
+          top.createSpan({ cls: "tb-chip-arrow", text: ` (${rel})` });
         }
-        chip.createEl("div", { cls: "tb-chip-reason", text: rec.reason });
+        chip.createDiv({ cls: "tb-chip-reason", text: rec.reason });
         const btn = chip.createEl("button", {
           cls: "tb-chip-connect-btn",
           text: this.t("label_connect"),
@@ -41824,10 +41823,10 @@ ${diagMsg}`
   }
   // ── ④ 그래프 저장 전용 섹션 ────────────────────────────
   renderSaveSection(onSave, onSaveReport, onSaved) {
-    const block = this.resultsEl.createEl("div", { cls: "tb-block tb-save-block" });
-    const btnRow = block.createEl("div", { cls: "tb-save-btn-row" });
+    const block = this.resultsEl.createDiv({ cls: "tb-block tb-save-block" });
+    const btnRow = block.createDiv({ cls: "tb-save-btn-row" });
     const saveBtn = btnRow.createEl("button", { cls: "tb-btn is-primary tb-save-main", text: this.t("btn_save_graph") });
-    const resultArea = block.createEl("div", { cls: "tb-save-result-area" });
+    const resultArea = block.createDiv({ cls: "tb-save-result-area" });
     const doSave = async (folder) => {
       saveBtn.disabled = true;
       saveBtn.textContent = this.t("btn_saving");
@@ -41839,12 +41838,12 @@ ${diagMsg}`
         new import_obsidian13.Notice(`[ThirdBrain] ${files.length}${this.t("notice_graph_save_done_suffix")} ${dest}`);
         if (files.length > 0) {
           const destLabel = dest === this.t("fallback_folder_root") ? this.t("label_vault_root") : `${dest}/`;
-          resultArea.createEl("div", { cls: "tb-save-result-label", text: `\u2713 ${destLabel}${this.t("label_saved_in_suffix")}` });
-          const list = resultArea.createEl("div", { cls: "tb-save-result-list" });
+          resultArea.createDiv({ cls: "tb-save-result-label", text: `\u2713 ${destLabel}${this.t("label_saved_in_suffix")}` });
+          const list = resultArea.createDiv({ cls: "tb-save-result-list" });
           for (const file of files) {
-            const item = list.createEl("div", { cls: "tb-save-result-item" });
-            item.createEl("span", { cls: "tb-save-result-icon", text: "\u25B8" });
-            const link = item.createEl("span", { cls: "tb-save-result-name", text: file.basename });
+            const item = list.createDiv({ cls: "tb-save-result-item" });
+            item.createSpan({ cls: "tb-save-result-icon", text: "\u25B8" });
+            const link = item.createSpan({ cls: "tb-save-result-name", text: file.basename });
             link.addEventListener("click", () => {
               void this.app.workspace.getLeaf("tab").openFile(file);
             });
@@ -41855,7 +41854,7 @@ ${diagMsg}`
       } catch (e) {
         saveBtn.textContent = this.t("btn_save_graph");
         saveBtn.disabled = false;
-        resultArea.createEl("div", { cls: "tb-save-result-error", text: `${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}` });
+        resultArea.createDiv({ cls: "tb-save-result-error", text: `${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}` });
         new import_obsidian13.Notice(`${this.t("save_error_prefix")}${e instanceof Error ? e.message : String(e)}`);
       }
     };
@@ -41912,19 +41911,19 @@ ${diagMsg}`
   }
   // ── Phase 8: 액션 레이어 결과 렌더 ─────────────────────────
   renderActionCard(parent, node, propById) {
-    const card = parent.createEl("div", { cls: `tb-action-card is-${node.status}` });
-    const head = card.createEl("div", { cls: "tb-action-card-head" });
+    const card = parent.createDiv({ cls: `tb-action-card is-${node.status}` });
+    const head = card.createDiv({ cls: "tb-action-card-head" });
     if (node.meeting_type) {
       const mtKey = `action_meeting_${node.meeting_type}`;
-      head.createEl("span", { cls: `tb-action-meeting-badge is-${node.meeting_type}`, text: this.t(mtKey) });
+      head.createSpan({ cls: `tb-action-meeting-badge is-${node.meeting_type}`, text: this.t(mtKey) });
     }
     if (node.origin === "from_resolution") {
-      head.createEl("span", { cls: "tb-action-badge-conflict", text: this.t("badge_conflict_resolved") });
+      head.createSpan({ cls: "tb-action-badge-conflict", text: this.t("badge_conflict_resolved") });
     } else if (node.origin === "extracted") {
-      head.createEl("span", { cls: "tb-action-origin", text: this.t("badge_ai_extracted") });
+      head.createSpan({ cls: "tb-action-origin", text: this.t("badge_ai_extracted") });
     }
-    head.createEl("span", { cls: "tb-action-title", text: node.title });
-    const statusRow = card.createEl("div", { cls: "tb-action-meta-row" });
+    head.createSpan({ cls: "tb-action-title", text: node.title });
+    const statusRow = card.createDiv({ cls: "tb-action-meta-row" });
     const statusSel = statusRow.createEl("select", { cls: `tb-action-status-sel is-${node.status}` });
     ["pending", "in_progress", "done", "blocked"].forEach((s) => {
       const labels = {
@@ -41938,9 +41937,9 @@ ${diagMsg}`
         opt.selected = true;
     });
     if (node.owner)
-      statusRow.createEl("span", { cls: "tb-action-owner", text: node.owner });
+      statusRow.createSpan({ cls: "tb-action-owner", text: node.owner });
     if (node.deadline)
-      statusRow.createEl("span", { cls: "tb-action-deadline", text: node.deadline.slice(0, 10) });
+      statusRow.createSpan({ cls: "tb-action-deadline", text: node.deadline.slice(0, 10) });
     statusSel.addEventListener("change", () => void (async () => {
       const newStatus = statusSel.value;
       card.classList.remove("is-pending", "is-in_progress", "is-done", "is-blocked");
@@ -41952,14 +41951,14 @@ ${diagMsg}`
         await this.store.updateActionStatus(file, newStatus);
     })());
     if (node.content) {
-      card.createEl("div", { cls: "tb-action-content", text: node.content.slice(0, 120) });
+      card.createDiv({ cls: "tb-action-content", text: node.content.slice(0, 120) });
     }
     if (node.motivation_ids.length > 0) {
-      const motivRow = card.createEl("div", { cls: "tb-action-motiv" });
-      motivRow.createEl("span", { cls: "tb-action-motiv-label", text: this.t("label_motiv") });
+      const motivRow = card.createDiv({ cls: "tb-action-motiv" });
+      motivRow.createSpan({ cls: "tb-action-motiv-label", text: this.t("label_motiv") });
       for (const id2 of node.motivation_ids) {
         const label = propById?.get(id2)?.title ?? id2;
-        const chip = motivRow.createEl("span", { cls: "tb-action-motiv-chip", text: label });
+        const chip = motivRow.createSpan({ cls: "tb-action-motiv-chip", text: label });
         chip.addEventListener("click", () => {
           const f = this.app.vault.getMarkdownFiles().find(
             (f2) => this.app.metadataCache.getFileCache(f2)?.frontmatter?.tb_id === id2
@@ -42028,7 +42027,7 @@ ${diagMsg}`
         if (!group || group.length === 0)
           continue;
         const labelKey = key === "none" ? "action_meeting_none" : `action_meeting_${key}`;
-        content.createEl("div", { cls: "tb-action-group-header", text: this.t(labelKey) });
+        content.createDiv({ cls: "tb-action-group-header", text: this.t(labelKey) });
         for (const a2 of group)
           this.renderActionCard(content, a2, propById);
       }
@@ -42114,21 +42113,21 @@ ${quotes}` : p.description,
       false
     );
     for (const { file, problem } of items) {
-      const card = content.createEl("div", { cls: `tb-problem-card is-${problem.species}` });
-      const head = card.createEl("div", { cls: "tb-problem-card-head" });
-      head.createEl("span", {
+      const card = content.createDiv({ cls: `tb-problem-card is-${problem.species}` });
+      const head = card.createDiv({ cls: "tb-problem-card-head" });
+      head.createSpan({
         cls: `tb-problem-species is-${problem.species}`,
         text: this.t(`problem_species_${problem.species}`)
       });
-      head.createEl("span", { cls: "tb-problem-title", text: problem.title });
+      head.createSpan({ cls: "tb-problem-title", text: problem.title });
       if (problem.description) {
-        card.createEl("div", { cls: "tb-problem-desc", text: problem.description });
+        card.createDiv({ cls: "tb-problem-desc", text: problem.description });
       }
-      card.createEl("div", {
+      card.createDiv({
         cls: "tb-problem-evidence",
         text: `${this.t("problem_evidence_label")}${problem.evidence_ids.join(", ")}`
       });
-      const btnRow = card.createEl("div", { cls: "tb-problem-card-btns" });
+      const btnRow = card.createDiv({ cls: "tb-problem-card-btns" });
       const workbenchBtn = btnRow.createEl("button", { cls: "tb-btn tb-btn-sm tb-problem-workbench-btn", text: "\u{1F3AF} \uC791\uC5C5\uB300" });
       workbenchBtn.addEventListener("click", () => {
         this.openMissionControl({ folder: sessionFolderOfProblem(file), missionId: file.basename });
@@ -42147,26 +42146,26 @@ ${quotes}` : p.description,
       `\u26A0 \uB17C\uB9AC \uBAA8\uC21C \xB7 ${conflicts.length}\uAC1C (\uADF8\uB798\uD504\uC5D0 \uBCF4\uC874\uB428)`,
       false
     );
-    content.createEl("div", {
+    content.createDiv({
       cls: "tb-conflict-notice-hint",
       text: this.t("label_conflict_notice")
     });
     for (const c2 of conflicts) {
-      const row = content.createEl("div", { cls: "tb-conflict-notice-row" });
-      row.createEl("span", { cls: "tb-conflict-notice-a", text: c2.nodeA.title });
-      row.createEl("span", { cls: "tb-conflict-notice-vs", text: "\u27F7" });
-      row.createEl("span", { cls: "tb-conflict-notice-b", text: c2.nodeB.title });
+      const row = content.createDiv({ cls: "tb-conflict-notice-row" });
+      row.createSpan({ cls: "tb-conflict-notice-a", text: c2.nodeA.title });
+      row.createSpan({ cls: "tb-conflict-notice-vs", text: "\u27F7" });
+      row.createSpan({ cls: "tb-conflict-notice-b", text: c2.nodeB.title });
       const dA = conflictNodeDetail(c2.nodeA);
       const dB = conflictNodeDetail(c2.nodeB);
       if (dA.claim || dB.claim) {
-        const detail = content.createEl("div", { cls: "tb-conflict-notice-detail" });
+        const detail = content.createDiv({ cls: "tb-conflict-notice-detail" });
         if (dA.claim)
-          detail.createEl("div", { cls: "tb-conflict-notice-claim", text: `A \xB7 ${dA.claim}` });
+          detail.createDiv({ cls: "tb-conflict-notice-claim", text: `A \xB7 ${dA.claim}` });
         if (dB.claim)
-          detail.createEl("div", { cls: "tb-conflict-notice-claim", text: `B \xB7 ${dB.claim}` });
+          detail.createDiv({ cls: "tb-conflict-notice-claim", text: `B \xB7 ${dB.claim}` });
       }
       const btn = row.createEl("button", { cls: "tb-btn tb-conflict-resolve-btn", text: "\uD574\uC18C\uD558\uAE30" });
-      const resolvedMsg = row.createEl("span", { cls: "tb-conflict-resolved-msg" });
+      const resolvedMsg = row.createSpan({ cls: "tb-conflict-resolved-msg" });
       btn.addEventListener("click", () => {
         new ConflictResolutionModal(this.app, c2, this.store, this.plugin.settings, (msg) => {
           btn.remove();
@@ -42246,11 +42245,11 @@ ${quotes}` : p.description,
   // ⑨ 자동 저장(≥0.75) 로그 — 접을 수 있는 저장 내역 표시
   renderCrossConnectionSavedLog(saved) {
     const container = this.pipelineModal?.contentEl ?? this.resultsEl;
-    const block = container.createEl("div", { cls: "tb-block" });
-    const toggle = block.createEl("div", { cls: "tb-section-toggle" });
-    toggle.createEl("span", { cls: "tb-section-chevron", text: "\u25BE" });
-    toggle.createEl("span", { cls: "tb-section-label", text: `\u2713 \u2468 ${saved.length}${this.t("conn_auto_saved_suffix")}` });
-    const content = block.createEl("div", { cls: "tb-section-content" });
+    const block = container.createDiv({ cls: "tb-block" });
+    const toggle = block.createDiv({ cls: "tb-section-toggle" });
+    toggle.createSpan({ cls: "tb-section-chevron", text: "\u25BE" });
+    toggle.createSpan({ cls: "tb-section-label", text: `\u2713 \u2468 ${saved.length}${this.t("conn_auto_saved_suffix")}` });
+    const content = block.createDiv({ cls: "tb-section-content" });
     toggle.addEventListener("click", () => {
       const collapsed = content.hasClass("is-collapsed");
       content.toggleClass("is-collapsed", !collapsed);
@@ -42259,42 +42258,42 @@ ${quotes}` : p.description,
     for (const conn of saved) {
       const rel = relLabel(conn.relation, this.plugin.settings.lang);
       const pct = Math.round((conn.confidence ?? 0.5) * 100);
-      const chip = content.createEl("div", { cls: "tb-chip is-saved", text: `[${pct}%] ${conn.new_title} \u2015${rel}\u2192 ${conn.existing_title}` });
+      const chip = content.createDiv({ cls: "tb-chip is-saved", text: `[${pct}%] ${conn.new_title} \u2015${rel}\u2192 ${conn.existing_title}` });
       if (conn.reason)
-        chip.createEl("div", { cls: "tb-chip-reason", text: conn.reason });
+        chip.createDiv({ cls: "tb-chip-reason", text: conn.reason });
     }
   }
   // 인제스트 후 기존 노드 연결 후보 칩 UI — <0.75 후보만 도착하므로 사전선택 없이 유저가 직접 고른다
   renderCrossConnectionChips(connections, newTitleToFile, existingTitleToFile) {
     const pending = connections;
     const container = this.pipelineModal?.contentEl ?? this.resultsEl;
-    const block = container.createEl("div", { cls: "tb-block" });
-    const toggle = block.createEl("div", { cls: "tb-section-toggle" });
-    toggle.createEl("span", { cls: "tb-section-chevron", text: "\u25BE" });
-    const labelEl = toggle.createEl("span", { cls: "tb-section-label", text: `${this.t("conn_pending_prefix")}${pending.length}${this.t("conn_pending_suffix")}` });
-    const content = block.createEl("div", { cls: "tb-section-content" });
+    const block = container.createDiv({ cls: "tb-block" });
+    const toggle = block.createDiv({ cls: "tb-section-toggle" });
+    toggle.createSpan({ cls: "tb-section-chevron", text: "\u25BE" });
+    const labelEl = toggle.createSpan({ cls: "tb-section-label", text: `${this.t("conn_pending_prefix")}${pending.length}${this.t("conn_pending_suffix")}` });
+    const content = block.createDiv({ cls: "tb-section-content" });
     toggle.addEventListener("click", () => {
       const collapsed = content.hasClass("is-collapsed");
       content.toggleClass("is-collapsed", !collapsed);
       toggle.querySelector(".tb-section-chevron").textContent = collapsed ? "\u25BE" : "\u25B8";
     });
-    content.createEl("div", { cls: "tb-hint", text: this.t("conn_manual_hint") });
-    const chipRow = content.createEl("div", { cls: "tb-edge-chips" });
+    content.createDiv({ cls: "tb-hint", text: this.t("conn_manual_hint") });
+    const chipRow = content.createDiv({ cls: "tb-edge-chips" });
     const states = [];
     let locked = false;
     for (let i = 0; i < pending.length; i++) {
       const conn = pending[i];
       const rel = relLabel(conn.relation, this.plugin.settings.lang);
       const pct = Math.round((conn.confidence ?? 0.5) * 100);
-      const chip = chipRow.createEl("div", { cls: "tb-chip" });
-      const top = chip.createEl("div", { cls: "tb-chip-top" });
-      const icon = top.createEl("span", { cls: "tb-chip-icon", text: "\u25CE" });
-      top.createEl("span", { cls: "tb-chip-conf", text: `[${pct}%]` });
-      top.createEl("span", { cls: "tb-chip-source", text: shortText(conn.new_title, 14) });
-      top.createEl("span", { cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
-      top.createEl("span", { cls: "tb-chip-target", text: conn.existing_title });
+      const chip = chipRow.createDiv({ cls: "tb-chip" });
+      const top = chip.createDiv({ cls: "tb-chip-top" });
+      const icon = top.createSpan({ cls: "tb-chip-icon", text: "\u25CE" });
+      top.createSpan({ cls: "tb-chip-conf", text: `[${pct}%]` });
+      top.createSpan({ cls: "tb-chip-source", text: shortText(conn.new_title, 14) });
+      top.createSpan({ cls: "tb-chip-arrow", text: ` \u2015${rel}\u2192 ` });
+      top.createSpan({ cls: "tb-chip-target", text: conn.existing_title });
       if (conn.reason)
-        chip.createEl("div", { cls: "tb-chip-reason", text: conn.reason });
+        chip.createDiv({ cls: "tb-chip-reason", text: conn.reason });
       const state = { conn, selected: false };
       states.push(state);
       chip.addEventListener("click", () => {
@@ -42305,7 +42304,7 @@ ${quotes}` : p.description,
         icon.textContent = state.selected ? "\u2713" : "\u25CE";
       });
     }
-    const bar = block.createEl("div", { cls: "tb-savebar" });
+    const bar = block.createDiv({ cls: "tb-savebar" });
     const saveBtn = bar.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_save_connection") });
     saveBtn.addEventListener("click", () => void (async () => {
       const selected = states.filter((s) => s.selected);
@@ -42508,12 +42507,12 @@ ${quotes}` : p.description,
   // ── 8-2: 폴더 분석 결과 렌더링 ─────────────────────────
   renderSummaryResult(result, folderPath, mode, intent) {
     this.resultsEl.empty();
-    const doneCard = this.resultsEl.createEl("div", { cls: "tb-block tb-analysis-done-card" });
-    doneCard.createEl("div", { cls: "tb-analysis-done-folder", text: `\u{1F4CA} ${folderPath}` });
+    const doneCard = this.resultsEl.createDiv({ cls: "tb-block tb-analysis-done-card" });
+    doneCard.createDiv({ cls: "tb-analysis-done-folder", text: `\u{1F4CA} ${folderPath}` });
     if (result.synthesis) {
-      doneCard.createEl("div", { cls: "tb-analysis-done-synthesis", text: result.synthesis });
+      doneCard.createDiv({ cls: "tb-analysis-done-synthesis", text: result.synthesis });
     }
-    const btnRow = doneCard.createEl("div", { cls: "tb-analysis-done-actions" });
+    const btnRow = doneCard.createDiv({ cls: "tb-analysis-done-actions" });
     const openBtn = btnRow.createEl("button", { cls: "tb-btn is-primary", text: this.t("btn_view_all") });
     const openModal = () => {
       new AnalysisResultModal(this.app, result, folderPath, mode, intent, () => {
@@ -42612,11 +42611,11 @@ ${theme.description}
   /** 접기/펼치기 섹션 블록 생성 — 모달이 열려 있으면 모달에, 없으면 resultsEl에 */
   makeSectionToggle(label, collapsed) {
     const container = this.pipelineModal?.contentEl ?? this.resultsEl;
-    const block = container.createEl("div", { cls: "tb-block" });
-    const toggle = block.createEl("div", { cls: "tb-section-toggle" });
-    const chevron = toggle.createEl("span", { cls: "tb-section-chevron", text: collapsed ? "\u25B8" : "\u25BE" });
-    toggle.createEl("span", { cls: "tb-section-label", text: label });
-    const content = block.createEl("div", { cls: "tb-section-content" });
+    const block = container.createDiv({ cls: "tb-block" });
+    const toggle = block.createDiv({ cls: "tb-section-toggle" });
+    const chevron = toggle.createSpan({ cls: "tb-section-chevron", text: collapsed ? "\u25B8" : "\u25BE" });
+    toggle.createSpan({ cls: "tb-section-label", text: label });
+    const content = block.createDiv({ cls: "tb-section-content" });
     if (collapsed)
       content.addClass("is-collapsed");
     toggle.addEventListener("click", () => {
@@ -42628,7 +42627,7 @@ ${theme.description}
   }
   /** 단순 저장 바 (skip + save 버튼) */
   makeSaveBar(parent, skipLabel, saveLabel, onSave) {
-    const bar = parent.createEl("div", { cls: "tb-savebar" });
+    const bar = parent.createDiv({ cls: "tb-savebar" });
     const skipBtn = bar.createEl("button", { cls: "tb-btn", text: skipLabel });
     const saveBtn = bar.createEl("button", { cls: "tb-btn is-primary", text: saveLabel });
     skipBtn.addEventListener("click", () => {
@@ -42986,7 +42985,7 @@ ${query}`);
         Promise.all(foldersB.map((f) => this.store.loadNodesInFolder(f))).then((r) => r.flat())
       ]);
       if (tbNodesA.length === 0 || tbNodesB.length === 0) {
-        this.resultsEl.createEl("div", {
+        this.resultsEl.createDiv({
           cls: "tb-error-msg",
           text: this.t("label_no_propositions")
         });
@@ -43053,7 +43052,7 @@ ${query}`);
       this.setBridgeBusy(false);
       const msg = e instanceof Error ? e.message : String(e);
       new import_obsidian13.Notice(`[ThirdBrain] ${this.t("save_error_prefix")}${msg}`);
-      this.resultsEl.createEl("div", { cls: "tb-error-msg", text: `${this.t("error_title")}: ${msg}` });
+      this.resultsEl.createDiv({ cls: "tb-error-msg", text: `${this.t("error_title")}: ${msg}` });
     }
   }
   // ── 단일 노드 브릿지 결과 렌더 ──────────────────────────
@@ -43077,89 +43076,155 @@ var ThirdBrainSettingTab = class extends import_obsidian14.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
+  // 선언형 설정 API (Obsidian 1.13+) — 값 읽기/쓰기는 아래 get/setControlValue가 담당하고,
+  // 여기서는 구조만 선언한다. visible 콜백은 매 렌더마다 재평가되므로 프로바이더 전환 시
+  // API 키 필드가 자동으로 나타나고 사라진다 (기존 display() 수동 재렌더 대체).
+  getSettingDefinitions() {
     const t = getT(this.plugin.settings.lang);
-    const header = containerEl.createDiv({ cls: "tb-settings-header" });
-    const logoEl = header.createEl("div", { cls: "tb-settings-logo" });
-    logoEl.appendChild((0, import_obsidian14.sanitizeHTMLToDom)(SOOTBALL_LOGO));
-    header.createEl("div", { cls: "tb-settings-title", text: "ThirdBrain" });
-    new import_obsidian14.Setting(containerEl).setName(t("settings_lang_name")).setDesc(t("settings_lang_desc")).addDropdown(
-      (dropdown) => dropdown.addOption("ko", "\uD55C\uAD6D\uC5B4").addOption("en", "English").setValue(this.plugin.settings.lang ?? "en").onChange(async (value) => {
-        this.plugin.settings.lang = value;
-        await this.plugin.saveSettings();
-        this.display();
-        void this.plugin.refreshView();
-      })
-    );
     const ko = this.plugin.settings.lang === "ko";
-    new import_obsidian14.Setting(containerEl).setName(ko ? "AI \uC2E4\uD589 \uC804 \uBE44\uC6A9 \uD655\uC778" : "Confirm cost before AI runs").setDesc(ko ? "\uC0DD\uC131\xB7\uBD84\uC11D\xB7\uC5F0\uACB0 \uB4F1 AI \uC791\uC5C5 \uC804\uC5D0 \uC608\uC0C1 \uD1A0\uD070\xB7\uBE44\uC6A9\xB7\uC2DC\uAC04\uC744 \uBCF4\uC5EC\uC8FC\uACE0 \uC9C4\uD589 \uC5EC\uBD80\uB97C \uD655\uC778\uD569\uB2C8\uB2E4." : "Before any AI operation, show estimated tokens, cost, and time and ask to proceed.").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.showCostPreflight !== false).onChange(async (value) => {
-        this.plugin.settings.showCostPreflight = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian14.Setting(containerEl).setName(t("settings_root_folder_name")).setDesc(t("settings_root_folder_desc")).addText(
-      (text) => text.setPlaceholder("ThirdBrainRoot").setValue(this.plugin.settings.rootFolder).onChange(async (value) => {
-        this.plugin.settings.rootFolder = value || "ThirdBrainRoot";
-        await this.plugin.saveSettings();
-      })
-    );
+    const en = this.plugin.settings.lang === "en";
+    const providerOptions = {};
     if (!import_obsidian14.Platform.isMobile) {
-      new import_obsidian14.Setting(containerEl).setName(t("settings_cli_name")).setDesc(t("settings_cli_desc")).addText(
-        (text) => text.setPlaceholder("claude").setValue(this.plugin.settings.cliBin).onChange(async (value) => {
-          this.plugin.settings.cliBin = value || "claude";
-          await this.plugin.saveSettings();
-        })
-      );
+      providerOptions["claude-cli"] = en ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)";
     }
-    new import_obsidian14.Setting(containerEl).setName(t("settings_max_edge_name")).setDesc(t("settings_max_edge_desc")).addSlider(
-      (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.maxEdgeCandidates).onChange(async (value) => {
-        this.plugin.settings.maxEdgeCandidates = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian14.Setting(containerEl).setName(t("settings_bridge_top_k_name")).setDesc(t("settings_bridge_top_k_desc")).addSlider(
-      (slider) => slider.setLimits(1, 5, 1).setValue(this.plugin.settings.bridgeTopKPerNode ?? 3).onChange(async (value) => {
-        this.plugin.settings.bridgeTopKPerNode = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian14.Setting(containerEl).setName(t("settings_ai_provider_name")).setDesc(t("settings_ai_provider_desc")).addDropdown((dropdown) => {
-      if (!import_obsidian14.Platform.isMobile) {
-        dropdown.addOption("claude-cli", this.plugin.settings.lang === "en" ? "Claude CLI (local, default)" : "Claude CLI (\uB85C\uCEEC, \uAE30\uBCF8\uAC12)");
+    providerOptions["claude-api"] = en ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)";
+    providerOptions["gemini"] = en ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)";
+    providerOptions["openai"] = en ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)";
+    return [
+      {
+        name: "ThirdBrain",
+        searchable: false,
+        render: (setting) => {
+          setting.settingEl.empty();
+          const header = setting.settingEl.createDiv({ cls: "tb-settings-header" });
+          const logoEl = header.createDiv({ cls: "tb-settings-logo" });
+          logoEl.appendChild((0, import_obsidian14.sanitizeHTMLToDom)(SOOTBALL_LOGO));
+          header.createDiv({ cls: "tb-settings-title", text: "ThirdBrain" });
+        }
+      },
+      {
+        name: t("settings_lang_name"),
+        desc: t("settings_lang_desc"),
+        control: { type: "dropdown", key: "lang", options: { ko: "\uD55C\uAD6D\uC5B4", en: "English" } }
+      },
+      {
+        name: ko ? "AI \uC2E4\uD589 \uC804 \uBE44\uC6A9 \uD655\uC778" : "Confirm cost before AI runs",
+        desc: ko ? "\uC0DD\uC131\xB7\uBD84\uC11D\xB7\uC5F0\uACB0 \uB4F1 AI \uC791\uC5C5 \uC804\uC5D0 \uC608\uC0C1 \uD1A0\uD070\xB7\uBE44\uC6A9\xB7\uC2DC\uAC04\uC744 \uBCF4\uC5EC\uC8FC\uACE0 \uC9C4\uD589 \uC5EC\uBD80\uB97C \uD655\uC778\uD569\uB2C8\uB2E4." : "Before any AI operation, show estimated tokens, cost, and time and ask to proceed.",
+        control: { type: "toggle", key: "showCostPreflight", defaultValue: true }
+      },
+      {
+        name: t("settings_root_folder_name"),
+        desc: t("settings_root_folder_desc"),
+        control: { type: "text", key: "rootFolder", placeholder: "ThirdBrainRoot" }
+      },
+      {
+        name: t("settings_cli_name"),
+        desc: t("settings_cli_desc"),
+        visible: () => !import_obsidian14.Platform.isMobile,
+        control: { type: "text", key: "cliBin", placeholder: "claude" }
+      },
+      {
+        name: t("settings_max_edge_name"),
+        desc: t("settings_max_edge_desc"),
+        control: { type: "slider", key: "maxEdgeCandidates", min: 1, max: 5, step: 1 }
+      },
+      {
+        name: t("settings_bridge_top_k_name"),
+        desc: t("settings_bridge_top_k_desc"),
+        control: { type: "slider", key: "bridgeTopKPerNode", min: 1, max: 5, step: 1, defaultValue: 3 }
+      },
+      {
+        name: t("settings_ai_provider_name"),
+        desc: t("settings_ai_provider_desc"),
+        control: { type: "dropdown", key: "aiProvider", options: providerOptions }
+      },
+      {
+        name: t("settings_claude_api_key_name"),
+        desc: t("settings_claude_api_key_desc"),
+        visible: () => this.plugin.settings.aiProvider === "claude-api",
+        control: { type: "text", key: "claudeApiKey", placeholder: "sk-ant-..." }
+      },
+      {
+        name: t("settings_gemini_api_key_name"),
+        desc: t("settings_gemini_api_key_desc"),
+        visible: () => this.plugin.settings.aiProvider === "gemini",
+        control: { type: "text", key: "geminiApiKey", placeholder: "AIza..." }
+      },
+      {
+        name: t("settings_openai_api_key_name"),
+        desc: t("settings_openai_api_key_desc"),
+        visible: () => this.plugin.settings.aiProvider === "openai",
+        control: { type: "text", key: "openaiApiKey", placeholder: "sk-..." }
       }
-      dropdown.addOption("claude-api", this.plugin.settings.lang === "en" ? "Claude API (API key required)" : "Claude API (API \uD0A4 \uD544\uC694)").addOption("gemini", this.plugin.settings.lang === "en" ? "Gemini (API key required)" : "Gemini (API \uD0A4 \uD544\uC694)").addOption("openai", this.plugin.settings.lang === "en" ? "OpenAI GPT (API key required)" : "OpenAI GPT (API \uD0A4 \uD544\uC694)").setValue(import_obsidian14.Platform.isMobile && this.plugin.settings.aiProvider === "claude-cli" ? "gemini" : this.plugin.settings.aiProvider).onChange(async (value) => {
-        this.plugin.settings.aiProvider = value;
-        await this.plugin.saveSettings();
-        this.display();
-      });
-    });
-    if (this.plugin.settings.aiProvider === "claude-api") {
-      new import_obsidian14.Setting(containerEl).setName(t("settings_claude_api_key_name")).setDesc(t("settings_claude_api_key_desc")).addText(
-        (text) => text.setPlaceholder("sk-ant-...").setValue(this.plugin.settings.claudeApiKey || "").onChange(async (value) => {
-          this.plugin.settings.claudeApiKey = value || "";
-          await this.plugin.saveSettings();
-        })
-      );
+    ];
+  }
+  getControlValue(key) {
+    const s = this.plugin.settings;
+    switch (key) {
+      case "lang":
+        return s.lang ?? "en";
+      case "showCostPreflight":
+        return s.showCostPreflight !== false;
+      case "rootFolder":
+        return s.rootFolder;
+      case "cliBin":
+        return s.cliBin;
+      case "maxEdgeCandidates":
+        return s.maxEdgeCandidates;
+      case "bridgeTopKPerNode":
+        return s.bridgeTopKPerNode ?? 3;
+      case "aiProvider":
+        return import_obsidian14.Platform.isMobile && s.aiProvider === "claude-cli" ? "gemini" : s.aiProvider;
+      case "claudeApiKey":
+        return s.claudeApiKey || "";
+      case "geminiApiKey":
+        return s.geminiApiKey || "";
+      case "openaiApiKey":
+        return s.openaiApiKey || "";
+      default:
+        return super.getControlValue(key);
     }
-    if (this.plugin.settings.aiProvider === "gemini") {
-      new import_obsidian14.Setting(containerEl).setName(t("settings_gemini_api_key_name")).setDesc(t("settings_gemini_api_key_desc")).addText(
-        (text) => text.setPlaceholder("AIza...").setValue(this.plugin.settings.geminiApiKey || "").onChange(async (value) => {
-          this.plugin.settings.geminiApiKey = value || "";
-          await this.plugin.saveSettings();
-        })
-      );
+  }
+  async setControlValue(key, value) {
+    const s = this.plugin.settings;
+    switch (key) {
+      case "lang":
+        s.lang = value;
+        break;
+      case "showCostPreflight":
+        s.showCostPreflight = value;
+        break;
+      case "rootFolder":
+        s.rootFolder = value || "ThirdBrainRoot";
+        break;
+      case "cliBin":
+        s.cliBin = value || "claude";
+        break;
+      case "maxEdgeCandidates":
+        s.maxEdgeCandidates = value;
+        break;
+      case "bridgeTopKPerNode":
+        s.bridgeTopKPerNode = value;
+        break;
+      case "aiProvider":
+        s.aiProvider = value;
+        break;
+      case "claudeApiKey":
+        s.claudeApiKey = value || "";
+        break;
+      case "geminiApiKey":
+        s.geminiApiKey = value || "";
+        break;
+      case "openaiApiKey":
+        s.openaiApiKey = value || "";
+        break;
+      default:
+        await super.setControlValue(key, value);
+        return;
     }
-    if (this.plugin.settings.aiProvider === "openai") {
-      new import_obsidian14.Setting(containerEl).setName(t("settings_openai_api_key_name")).setDesc(t("settings_openai_api_key_desc")).addText(
-        (text) => text.setPlaceholder("sk-...").setValue(this.plugin.settings.openaiApiKey || "").onChange(async (value) => {
-          this.plugin.settings.openaiApiKey = value || "";
-          await this.plugin.saveSettings();
-        })
-      );
-    }
+    await this.plugin.saveSettings();
+    if (key === "lang")
+      void this.plugin.refreshView();
   }
 };
 
@@ -43185,7 +43250,7 @@ var OnboardingModal = class extends import_obsidian15.Modal {
     modalEl.querySelector(".modal-close-button")?.remove();
     const t = getT(this.currentLang);
     const langRow = contentEl.createDiv({ cls: "tb-ob-lang-row" });
-    langRow.createEl("span", { cls: "tb-ob-lang-label", text: t("ob_lang_label") + ":" });
+    langRow.createSpan({ cls: "tb-ob-lang-label", text: t("ob_lang_label") + ":" });
     const chipKo = langRow.createEl("button", { cls: "tb-ob-lang-chip", text: "\u{1F1F0}\u{1F1F7} \uD55C\uAD6D\uC5B4" });
     const chipEn = langRow.createEl("button", { cls: "tb-ob-lang-chip", text: "\u{1F1FA}\u{1F1F8} English" });
     const updateChips = () => {
@@ -43204,7 +43269,7 @@ var OnboardingModal = class extends import_obsidian15.Modal {
       this.onOpen();
     });
     const hdr = contentEl.createDiv({ cls: "tb-ob-header" });
-    hdr.createEl("div", { cls: "tb-ob-logo", text: "\u{1F9E0}" });
+    hdr.createDiv({ cls: "tb-ob-logo", text: "\u{1F9E0}" });
     hdr.createEl("h2", { cls: "tb-ob-title", text: t("ob_title") });
     hdr.createEl("p", { cls: "tb-ob-subtitle", text: t("ob_subtitle") });
     const cards = contentEl.createDiv({ cls: "tb-ob-cards" });
@@ -43216,7 +43281,7 @@ var OnboardingModal = class extends import_obsidian15.Modal {
     this.step2El = contentEl.createDiv({ cls: "tb-ob-step2" });
     this.step2El.hide();
     const footer = contentEl.createDiv({ cls: "tb-ob-footer" });
-    const skipLink = footer.createEl("span", { cls: "tb-ob-skip", text: t("ob_skip") });
+    const skipLink = footer.createSpan({ cls: "tb-ob-skip", text: t("ob_skip") });
     skipLink.addEventListener("click", () => {
       this.plugin.settings.onboardingComplete = true;
       void this.plugin.saveSettings();
@@ -43243,9 +43308,9 @@ var OnboardingModal = class extends import_obsidian15.Modal {
   renderProviderCard(parent, provider, icon, name, desc) {
     const card = parent.createDiv({ cls: "tb-ob-card" });
     card.setAttribute("data-provider", provider);
-    card.createEl("div", { cls: "tb-ob-card-icon", text: icon });
-    card.createEl("div", { cls: "tb-ob-card-name", text: name });
-    const descEl = card.createEl("div", { cls: "tb-ob-card-desc" });
+    card.createDiv({ cls: "tb-ob-card-icon", text: icon });
+    card.createDiv({ cls: "tb-ob-card-name", text: name });
+    const descEl = card.createDiv({ cls: "tb-ob-card-desc" });
     descEl.setText(desc);
     descEl.addClass("tb-ob-card-desc-preline");
     card.addEventListener("click", () => {
@@ -43261,19 +43326,19 @@ var OnboardingModal = class extends import_obsidian15.Modal {
     el.show();
     if (provider === "gemini") {
       el.createEl("label", { cls: "tb-ob-label", text: t("ob_gemini_key_label") });
-      el.createEl("div", { cls: "tb-ob-hint", text: t("ob_gemini_key_hint") });
+      el.createDiv({ cls: "tb-ob-hint", text: t("ob_gemini_key_hint") });
       this.apiKeyInput = el.createEl("input", { cls: "tb-ob-input", attr: { type: "password", placeholder: "AIza..." } });
       this.cliPathInput = null;
     } else if (provider === "claude-api") {
       el.createEl("label", { cls: "tb-ob-label", text: t("ob_claude_api_key_label") });
-      el.createEl("div", { cls: "tb-ob-hint", text: t("ob_claude_api_key_hint") });
+      el.createDiv({ cls: "tb-ob-hint", text: t("ob_claude_api_key_hint") });
       this.apiKeyInput = el.createEl("input", { cls: "tb-ob-input", attr: { type: "password", placeholder: "sk-ant-..." } });
       this.cliPathInput = null;
     } else {
       this.apiKeyInput = null;
-      el.createEl("div", { cls: "tb-ob-hint", text: t("ob_cli_not_found") });
+      el.createDiv({ cls: "tb-ob-hint", text: t("ob_cli_not_found") });
       const dlRow = el.createDiv({ cls: "tb-ob-dl-row" });
-      dlRow.createEl("span", { text: t("ob_cli_install") });
+      dlRow.createSpan({ text: t("ob_cli_install") });
       dlRow.createEl("a", {
         cls: "tb-ob-link",
         text: "claude.ai/code",

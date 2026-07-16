@@ -54,24 +54,24 @@ export class NodeTransplantModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass('tb-popup-content');
 
-		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: '📥 노드 이식' });
+		const titleEl = contentEl.createDiv({ cls: 'tb-popup-title', text: '📥 노드 이식' });
 		makeDraggable(this.modalEl, titleEl);
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: '파일을 선택하면 자동으로 처리 방식을 결정합니다.' });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: '파일을 선택하면 자동으로 처리 방식을 결정합니다.' });
 
 		// ── Step 1: 소스 파일 선택 ───────────────────────
-		const step1 = contentEl.createEl('div', { cls: 'tb-transplant-section' });
-		step1.createEl('div', { cls: 'tb-transplant-label', text: '1. 이식할 파일 선택' });
+		const step1 = contentEl.createDiv({ cls: 'tb-transplant-section' });
+		step1.createDiv({ cls: 'tb-transplant-label', text: '1. 이식할 파일 선택' });
 
 		const fileSearch = step1.createEl('input', {
 			cls: 'tb-transplant-search',
 			attr: { type: 'text', placeholder: '파일명 검색 (비우면 폴더 트리)...' },
 		});
 
-		const fileList = step1.createEl('div', { cls: 'tb-transplant-file-list' });
+		const fileList = step1.createDiv({ cls: 'tb-transplant-file-list' });
 		let selectedFile: TFile | null = null;
 
 		// 파일 선택 시 TB 노드 여부 배지 표시
-		const modeEl = step1.createEl('div', { cls: 'tb-transplant-mode-badge' });
+		const modeEl = step1.createDiv({ cls: 'tb-transplant-mode-badge' });
 		modeEl.hide();
 
 		const allMdFiles = this.app.vault.getMarkdownFiles()
@@ -109,10 +109,10 @@ export class NodeTransplantModal extends Modal {
 			extraCls?: string,
 			indentPx?: number
 		) => {
-			const item = container.createEl('div', { cls: `tb-transplant-file-item${extraCls ? ' ' + extraCls : ''}` });
+			const item = container.createDiv({ cls: `tb-transplant-file-item${extraCls ? ' ' + extraCls : ''}` });
 			if (indentPx !== undefined) item.setCssStyles({ paddingLeft: `${indentPx}px` });
-			item.createEl('span', { cls: 'tb-transplant-file-icon', text: fileIcon(f) });
-			const nameEl = item.createEl('span', { cls: 'tb-transplant-file-name', text: f.basename });
+			item.createSpan({ cls: 'tb-transplant-file-icon', text: fileIcon(f) });
+			const nameEl = item.createSpan({ cls: 'tb-transplant-file-name', text: f.basename });
 			item.addEventListener('click', () => selectFile(f, nameEl));
 		};
 
@@ -133,16 +133,16 @@ export class NodeTransplantModal extends Modal {
 				const files = groups.get(folder)!;
 				const depth = folder.split('/').length - 1;
 
-				const folderRow = fileList.createEl('div', { cls: 'tb-transplant-folder-row' });
+				const folderRow = fileList.createDiv({ cls: 'tb-transplant-folder-row' });
 				folderRow.setCssStyles({ paddingLeft: `${10 + depth * 14}px` });
-				const chevron = folderRow.createEl('span', { cls: 'tb-transplant-folder-chevron', text: '▶' });
-				folderRow.createEl('span', { text: '📁 ' + (folder.split('/').pop() ?? folder) });
-				folderRow.createEl('span', {
+				const chevron = folderRow.createSpan({ cls: 'tb-transplant-folder-chevron', text: '▶' });
+				folderRow.createSpan({ text: '📁 ' + (folder.split('/').pop() ?? folder) });
+				folderRow.createSpan({
 					cls: 'tb-transplant-folder-count',
 					text: ` (${files.length})`,
 				});
 
-				const filesEl = fileList.createEl('div', { cls: 'tb-transplant-folder-files' });
+				const filesEl = fileList.createDiv({ cls: 'tb-transplant-folder-files' });
 				for (const f of files) {
 					makeFileItem(filesEl, f, undefined, 24 + depth * 14);
 				}
@@ -156,7 +156,7 @@ export class NodeTransplantModal extends Modal {
 			}
 
 			if (allMdFiles.length === 0) {
-				fileList.createEl('div', { cls: 'tb-transplant-empty', text: 'vault에 .md 파일이 없습니다.' });
+				fileList.createDiv({ cls: 'tb-transplant-empty', text: 'vault에 .md 파일이 없습니다.' });
 			}
 		};
 
@@ -169,14 +169,14 @@ export class NodeTransplantModal extends Modal {
 			).slice(0, 50);
 
 			for (const f of filtered) {
-				const item = fileList.createEl('div', { cls: 'tb-transplant-file-item tb-transplant-root-file' });
-				item.createEl('span', { cls: 'tb-transplant-file-icon', text: fileIcon(f) });
-				const nameEl = item.createEl('span', { cls: 'tb-transplant-file-name', text: f.basename });
-				item.createEl('span', { cls: 'tb-transplant-file-path', text: f.parent?.path ?? '' });
+				const item = fileList.createDiv({ cls: 'tb-transplant-file-item tb-transplant-root-file' });
+				item.createSpan({ cls: 'tb-transplant-file-icon', text: fileIcon(f) });
+				const nameEl = item.createSpan({ cls: 'tb-transplant-file-name', text: f.basename });
+				item.createSpan({ cls: 'tb-transplant-file-path', text: f.parent?.path ?? '' });
 				item.addEventListener('click', () => selectFile(f, nameEl));
 			}
 			if (filtered.length === 0) {
-				fileList.createEl('div', { cls: 'tb-transplant-empty', text: '검색 결과 없음' });
+				fileList.createDiv({ cls: 'tb-transplant-empty', text: '검색 결과 없음' });
 			}
 		};
 
@@ -188,8 +188,8 @@ export class NodeTransplantModal extends Modal {
 		});
 
 		// ── Step 2: 대상 폴더 선택 ───────────────────────
-		const step2 = contentEl.createEl('div', { cls: 'tb-transplant-section' });
-		step2.createEl('div', { cls: 'tb-transplant-label', text: '2. 대상 폴더 선택' });
+		const step2 = contentEl.createDiv({ cls: 'tb-transplant-section' });
+		step2.createDiv({ cls: 'tb-transplant-label', text: '2. 대상 폴더 선택' });
 
 		const folderSelect = step2.createEl('select', { cls: 'tb-transplant-folder-select' });
 		folderSelect.createEl('option', { value: '', text: '🏠 루트 (최상위)' });
@@ -200,7 +200,7 @@ export class NodeTransplantModal extends Modal {
 		}
 
 		// ── 실행 버튼 ────────────────────────────────────
-		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: '취소' })
 			.addEventListener('click', () => this.close());
 
@@ -225,10 +225,10 @@ export class NodeTransplantModal extends Modal {
 		const isTB = isTBNode(this.app, file);
 		footer.remove();
 
-		const loadingEl = contentEl.createEl('div', { cls: 'tb-loading-overlay' });
-		const sootEl = loadingEl.createEl('div', { cls: 'tb-loading-sootball' });
+		const loadingEl = contentEl.createDiv({ cls: 'tb-loading-overlay' });
+		const sootEl = loadingEl.createDiv({ cls: 'tb-loading-sootball' });
 		sootEl.appendChild(sanitizeHTMLToDom(SOOTBALL_LOGO));
-		const statusEl = loadingEl.createEl('div', { cls: 'tb-loading-status' });
+		const statusEl = loadingEl.createDiv({ cls: 'tb-loading-status' });
 		const setStatus = (msg: string) => { statusEl.textContent = msg; };
 
 		if (isTB) {
@@ -349,28 +349,28 @@ export class NodeTransplantModal extends Modal {
 		movedFile: TFile,
 		result: import('../types').FolderBridgeResult
 	) {
-		const preview = contentEl.createEl('div', { cls: 'tb-transplant-preview' });
+		const preview = contentEl.createDiv({ cls: 'tb-transplant-preview' });
 
 		if (result.insight) {
-			const insightEl = preview.createEl('div', { cls: 'tb-transplant-insight' });
-			insightEl.createEl('span', { cls: 'tb-transplant-insight-label', text: '브릿지 인사이트' });
+			const insightEl = preview.createDiv({ cls: 'tb-transplant-insight' });
+			insightEl.createSpan({ cls: 'tb-transplant-insight-label', text: '브릿지 인사이트' });
 			insightEl.createEl('p', { text: result.insight });
 		}
 
 		const selectedEdges: TBEdge[] = [];
 
 		if (result.edges.length > 0) {
-			preview.createEl('div', { cls: 'tb-transplant-label', text: '연결 추천 (선택 후 확정)' });
-			const chipRow = preview.createEl('div', { cls: 'tb-edge-chips' });
+			preview.createDiv({ cls: 'tb-transplant-label', text: '연결 추천 (선택 후 확정)' });
+			const chipRow = preview.createDiv({ cls: 'tb-edge-chips' });
 
 			for (const e of result.edges) {
-				const chip = chipRow.createEl('div', { cls: 'tb-chip' });
-				const top  = chip.createEl('div', { cls: 'tb-chip-top' });
-				const icon = top.createEl('span', { cls: 'tb-chip-icon', text: '◎' });
+				const chip = chipRow.createDiv({ cls: 'tb-chip' });
+				const top  = chip.createDiv({ cls: 'tb-chip-top' });
+				const icon = top.createSpan({ cls: 'tb-chip-icon', text: '◎' });
 				// source_file = 이식된 노드, target_file = 대상 노드
 				const label = `${e.source_file} ─${e.relation}→ ${e.target_file}`;
-				top.createEl('span', { cls: 'tb-chip-target', text: label });
-				chip.createEl('div', { cls: 'tb-chip-reason', text: e.reason });
+				top.createSpan({ cls: 'tb-chip-target', text: label });
+				chip.createDiv({ cls: 'tb-chip-reason', text: e.reason });
 
 				let on = false;
 				chip.addEventListener('click', () => {
@@ -395,11 +395,11 @@ export class NodeTransplantModal extends Modal {
 				});
 			}
 		} else {
-			preview.createEl('div', { cls: 'tb-transplant-empty',
+			preview.createDiv({ cls: 'tb-transplant-empty',
 				text: '위상학적 유사도가 낮아 연결 후보를 찾지 못했습니다.' });
 		}
 
-		const footer = preview.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = preview.createDiv({ cls: 'tb-popup-footer' });
 		const confirmBtn = footer.createEl('button', {
 			cls: 'tb-btn is-primary',
 			text: result.edges.length > 0 ? '✓ 선택 연결 저장' : '✓ 완료',

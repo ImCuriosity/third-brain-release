@@ -37,7 +37,7 @@ export class OrphanQueueModal extends Modal {
 		contentEl.addClass('tb-popup-content', 'tb-orphan-lint-modal');
 		this.setTitle(this.isKo ? '고립 노드 린팅' : 'Orphan Node Linting');
 
-		contentEl.createEl('div', {
+		contentEl.createDiv({
 			cls: 'tb-popup-sub',
 			text: this.isKo
 				? '린팅할 폴더를 선택하세요. 선택한 폴더 내 고립 명제에서 연결 후보를 탐색합니다.'
@@ -53,14 +53,14 @@ export class OrphanQueueModal extends Modal {
 		);
 
 		if (eligible.length === 0) {
-			contentEl.createEl('div', {
+			contentEl.createDiv({
 				cls: 'tb-manual-conflict-empty',
 				text: this.isKo ? '폴더가 없습니다.' : 'No folders found.',
 			});
 			return;
 		}
 
-		const list = contentEl.createEl('div', { cls: 'tb-popup-folder-list' });
+		const list = contentEl.createDiv({ cls: 'tb-popup-folder-list' });
 		let selected: string | null = null;
 
 		for (const folder of eligible) {
@@ -71,8 +71,8 @@ export class OrphanQueueModal extends Modal {
 			const radio = label.createEl('input', { attr: { type: 'radio', name: 'orphan-folder' } });
 			radio.addClass('tb-popup-cb');
 			radio.addEventListener('change', () => { selected = folder; });
-			label.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-			label.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+			label.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+			label.createSpan({ cls: 'tb-popup-folder-name', text: name });
 		}
 
 		const startBtn = contentEl.createEl('button', {
@@ -95,7 +95,7 @@ export class OrphanQueueModal extends Modal {
 		contentEl.empty();
 		this.setTitle(this.isKo ? `고립 노드 린팅 — ${folderPath}` : `Orphan Linting — ${folderPath}`);
 
-		const loading = contentEl.createEl('div', {
+		const loading = contentEl.createDiv({
 			cls: 'tb-manual-conflict-empty',
 			text: this.isKo ? '스캔 중...' : 'Scanning…',
 		});
@@ -125,7 +125,7 @@ export class OrphanQueueModal extends Modal {
 		});
 
 		if (orphans.length === 0) {
-			contentEl.createEl('div', {
+			contentEl.createDiv({
 				cls: 'tb-manual-conflict-empty',
 				text: this.isKo ? '✓ 이 폴더에 고립 명제 없음' : '✓ No isolated propositions in this folder',
 			});
@@ -146,7 +146,7 @@ export class OrphanQueueModal extends Modal {
 			return;
 		}
 
-		const desc = contentEl.createEl('div', { cls: 'tb-manual-conflict-count' });
+		const desc = contentEl.createDiv({ cls: 'tb-manual-conflict-count' });
 		let descText = this.isKo
 			? `${totalCount}개의 고립 명제를 발견했습니다.`
 			: `Found ${totalCount} isolated propositions.`;
@@ -164,7 +164,7 @@ export class OrphanQueueModal extends Modal {
 		}
 		desc.textContent = descText;
 
-		const listEl = contentEl.createEl('div', { cls: 'tb-manual-conflict-list' });
+		const listEl = contentEl.createDiv({ cls: 'tb-manual-conflict-list' });
 
 		for (const orphan of orphans) {
 			this.renderOrphanCard(listEl, orphan, candidates);
@@ -172,28 +172,28 @@ export class OrphanQueueModal extends Modal {
 	}
 
 	private renderOrphanCard(container: HTMLElement, orphan: TBNode, candidates: TBNode[]) {
-		const card = container.createEl('div', { cls: 'tb-orphan-card' });
+		const card = container.createDiv({ cls: 'tb-orphan-card' });
 
-		const header = card.createEl('div', { cls: 'tb-orphan-card-header' });
-		header.createEl('div', { cls: 'tb-orphan-card-title', text: orphan.title });
+		const header = card.createDiv({ cls: 'tb-orphan-card-header' });
+		header.createDiv({ cls: 'tb-orphan-card-title', text: orphan.title });
 		if (orphan.content) {
-			header.createEl('div', {
+			header.createDiv({
 				cls: 'tb-orphan-card-preview',
 				text: orphan.content.slice(0, 100) + (orphan.content.length > 100 ? '…' : ''),
 			});
 		}
 
-		const suggestArea = card.createEl('div', { cls: 'tb-orphan-suggest-area' });
+		const suggestArea = card.createDiv({ cls: 'tb-orphan-suggest-area' });
 
 		if (candidates.length === 0) {
-			suggestArea.createEl('div', {
+			suggestArea.createDiv({
 				cls: 'tb-orphan-no-result',
 				text: this.isKo ? '연결 가능한 노드 없음' : 'No connectable nodes in this folder',
 			});
 			return;
 		}
 
-		const loadingEl = suggestArea.createEl('div', {
+		const loadingEl = suggestArea.createDiv({
 			cls: 'tb-orphan-loading',
 			text: this.isKo ? 'AI 탐색 중...' : 'Searching…',
 		});
@@ -213,7 +213,7 @@ export class OrphanQueueModal extends Modal {
 			loadingEl.remove();
 
 			if (results.length === 0) {
-				suggestArea.createEl('div', {
+				suggestArea.createDiv({
 					cls: 'tb-orphan-no-result',
 					text: this.isKo ? '연결 후보 없음' : 'No connection candidates found',
 				});
@@ -227,12 +227,12 @@ export class OrphanQueueModal extends Modal {
 	}
 
 	private renderSuggestion(container: HTMLElement, orphan: TBNode, res: OrphanConnectionResult) {
-		const row = container.createEl('div', { cls: 'tb-orphan-suggest-row' });
+		const row = container.createDiv({ cls: 'tb-orphan-suggest-row' });
 
-		const topLine = row.createEl('div', { cls: 'tb-orphan-suggest-top' });
-		topLine.createEl('span', { cls: 'tb-orphan-suggest-target', text: res.targetTitle });
-		topLine.createEl('span', { cls: 'tb-orphan-suggest-relation', text: res.relation });
-		topLine.createEl('span', {
+		const topLine = row.createDiv({ cls: 'tb-orphan-suggest-top' });
+		topLine.createSpan({ cls: 'tb-orphan-suggest-target', text: res.targetTitle });
+		topLine.createSpan({ cls: 'tb-orphan-suggest-relation', text: res.relation });
+		topLine.createSpan({
 			cls: 'tb-orphan-suggest-conf',
 			text: `${Math.round(res.confidence * 100)}%`,
 		});
@@ -240,9 +240,9 @@ export class OrphanQueueModal extends Modal {
 			cls: 'tb-btn tb-orphan-accept-btn',
 			text: this.isKo ? '연결' : 'Connect',
 		});
-		const doneMsg = topLine.createEl('span', { cls: 'tb-orphan-done-msg' });
+		const doneMsg = topLine.createSpan({ cls: 'tb-orphan-done-msg' });
 
-		row.createEl('div', { cls: 'tb-orphan-suggest-reason', text: res.reason });
+		row.createDiv({ cls: 'tb-orphan-suggest-reason', text: res.reason });
 
 		acceptBtn.addEventListener('click', () => {
 			void (async () => {

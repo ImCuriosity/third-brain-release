@@ -41,10 +41,10 @@ export class ContentTypeModal extends Modal {
 	private renderTypeScreen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_title') });
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_sub') });
+		contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_content_type_title') });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_content_type_sub') });
 
-		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
+		const row = contentEl.createDiv({ cls: 'tb-content-type-modal-row' });
 
 		// 정보/문서
 		const btnDoc = row.createEl('button', { cls: 'tb-content-type-btn', text: this.t('modal_content_type_document') });
@@ -72,10 +72,10 @@ export class ContentTypeModal extends Modal {
 	private renderMeetingSubtypeScreen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_subtype_title') });
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_subtype_sub') });
+		contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_content_type_subtype_title') });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_content_type_subtype_sub') });
 
-		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
+		const row = contentEl.createDiv({ cls: 'tb-content-type-modal-row' });
 		const types: Array<{ key: TKey; val: MeetingType }> = [
 			{ key: 'modal_content_type_brainstorm', val: 'brainstorm' },
 			{ key: 'modal_content_type_execution',  val: 'execution' },
@@ -96,10 +96,10 @@ export class ContentTypeModal extends Modal {
 	private renderDialogueSubtypeScreen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_content_type_dialogue') });
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_content_type_dialogue_sub') });
+		contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_content_type_dialogue') });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_content_type_dialogue_sub') });
 
-		const row = contentEl.createEl('div', { cls: 'tb-content-type-modal-row' });
+		const row = contentEl.createDiv({ cls: 'tb-content-type-modal-row' });
 		const types: Array<{ key: TKey; val: DialogueSubtype }> = [
 			{ key: 'modal_content_type_dialogue_english',   val: 'english_conversation' },
 			{ key: 'modal_content_type_dialogue_call',      val: 'phone_call' },
@@ -154,11 +154,11 @@ export class SaveFolderModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass('tb-popup-content');
 
-		const titleEl = contentEl.createEl('div', { cls: 'tb-popup-title', text: this.t('modal_save_folder_title') });
+		const titleEl = contentEl.createDiv({ cls: 'tb-popup-title', text: this.t('modal_save_folder_title') });
 		makeDraggable(this.modalEl, titleEl);
-		contentEl.createEl('div', { cls: 'tb-popup-sub', text: this.t('modal_save_folder_sub') });
+		contentEl.createDiv({ cls: 'tb-popup-sub', text: this.t('modal_save_folder_sub') });
 
-		const list = contentEl.createEl('div', { cls: 'tb-popup-folder-list' });
+		const list = contentEl.createDiv({ cls: 'tb-popup-folder-list' });
 
 		// rootFolder 자체는 선택 불가 — 서브폴더만 선택 가능
 		let selected = (this.rootFolder && this.currentFolder === this.rootFolder) ? '' : this.currentFolder;
@@ -173,9 +173,9 @@ export class SaveFolderModal extends Modal {
 
 		if (this.rootFolder) {
 			// rootFolder 모드: 최상위 루트 아이템은 헤더 표시만 — 선택 불가
-			const rootItem = list.createEl('div', { cls: 'tb-popup-folder-item tb-popup-folder-header' });
-			rootItem.createEl('span', { cls: 'tb-popup-folder-icon', text: '🏠' });
-			rootItem.createEl('span', { cls: 'tb-popup-folder-name', text: this.rootFolder });
+			const rootItem = list.createDiv({ cls: 'tb-popup-folder-item tb-popup-folder-header' });
+			rootItem.createSpan({ cls: 'tb-popup-folder-icon', text: '🏠' });
+			rootItem.createSpan({ cls: 'tb-popup-folder-name', text: this.rootFolder });
 
 			// rootFolder 하위 폴더 표시 (raw/ 제외, depth는 rootFolder 기준 상대 계산)
 			const rootDepth = this.rootFolder.split('/').length;
@@ -185,28 +185,28 @@ export class SaveFolderModal extends Modal {
 				if (folder === rawPath || folder.startsWith(rawPath + '/')) continue; // raw/ 숨김
 				const depth = folder.split('/').length - rootDepth;
 				const name = folder.split('/').pop() ?? folder;
-				const item = list.createEl('div', { cls: 'tb-popup-folder-item' });
+				const item = list.createDiv({ cls: 'tb-popup-folder-item' });
 				item.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
-				item.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-				item.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+				item.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+				item.createSpan({ cls: 'tb-popup-folder-name', text: name });
 				item.addEventListener('click', () => { selected = folder; updateSelected(); });
 				items.push({ el: item, path: folder });
 			}
 		} else {
 			// 레거시 모드: 볼트 루트 포함 전체 폴더 표시
-			const rootItem = list.createEl('div', { cls: 'tb-popup-folder-item' });
-			rootItem.createEl('span', { cls: 'tb-popup-folder-icon', text: '🏠' });
-			rootItem.createEl('span', { cls: 'tb-popup-folder-name', text: this.t('modal_save_folder_root') });
+			const rootItem = list.createDiv({ cls: 'tb-popup-folder-item' });
+			rootItem.createSpan({ cls: 'tb-popup-folder-icon', text: '🏠' });
+			rootItem.createSpan({ cls: 'tb-popup-folder-name', text: this.t('modal_save_folder_root') });
 			rootItem.addEventListener('click', () => { selected = ''; updateSelected(); });
 			items.push({ el: rootItem, path: '' });
 
 			for (const folder of this.folders) {
 				const depth = folder.split('/').length - 1;
 				const name = folder.split('/').pop() ?? folder;
-				const item = list.createEl('div', { cls: 'tb-popup-folder-item' });
+				const item = list.createDiv({ cls: 'tb-popup-folder-item' });
 				item.setCssStyles({ paddingLeft: `${14 + depth * 18}px` });
-				item.createEl('span', { cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
-				item.createEl('span', { cls: 'tb-popup-folder-name', text: name });
+				item.createSpan({ cls: 'tb-popup-folder-icon', text: depth > 0 ? '↳' : '📁' });
+				item.createSpan({ cls: 'tb-popup-folder-name', text: name });
 				item.addEventListener('click', () => { selected = folder; updateSelected(); });
 				items.push({ el: item, path: folder });
 			}
@@ -216,7 +216,7 @@ export class SaveFolderModal extends Modal {
 
 		// 새 폴더 만들기 (rootFolder 모드에서만)
 		if (this.rootFolder) {
-			const newFolderRow = contentEl.createEl('div', { cls: 'tb-popup-new-folder-row' });
+			const newFolderRow = contentEl.createDiv({ cls: 'tb-popup-new-folder-row' });
 			const newFolderInput = newFolderRow.createEl('input', {
 				cls: 'tb-popup-new-folder-input',
 				attr: { type: 'text', placeholder: this.t('modal_save_folder_new_placeholder') },
@@ -232,10 +232,10 @@ export class SaveFolderModal extends Modal {
 				const safeName = raw.replace(/[\\/:*?"<>|#^[\]]/g, '_').replace(/\s+/g, '_');
 				const newPath = `${this.rootFolder}/${safeName}`;
 				// 목록에 추가 + 선택
-				const item = list.createEl('div', { cls: 'tb-popup-folder-item' });
+				const item = list.createDiv({ cls: 'tb-popup-folder-item' });
 				item.setCssStyles({ paddingLeft: '32px' });
-				item.createEl('span', { cls: 'tb-popup-folder-icon', text: '↳' });
-				item.createEl('span', { cls: 'tb-popup-folder-name', text: safeName });
+				item.createSpan({ cls: 'tb-popup-folder-icon', text: '↳' });
+				item.createSpan({ cls: 'tb-popup-folder-name', text: safeName });
 				item.addEventListener('click', () => { selected = newPath; updateSelected(); });
 				items.push({ el: item, path: newPath });
 				selected = newPath;
@@ -247,7 +247,7 @@ export class SaveFolderModal extends Modal {
 			newFolderInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') createNewFolder(); });
 		}
 
-		const footer = contentEl.createEl('div', { cls: 'tb-popup-footer' });
+		const footer = contentEl.createDiv({ cls: 'tb-popup-footer' });
 		footer.createEl('button', { cls: 'tb-btn', text: this.t('btn_cancel') })
 			.addEventListener('click', () => this.close());
 		footer.createEl('button', { cls: 'tb-btn is-primary', text: this.t('btn_save') })

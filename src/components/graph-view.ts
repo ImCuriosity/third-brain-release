@@ -748,11 +748,11 @@ export class GraphView {
 		this.closeNodePopup();
 
 		// document.body에 fixed 팝업 — .tb-canvas-wrap의 overflow:hidden 우회
-		const popup = activeDocument.body.createEl('div', { cls: 'tb-node-popup' });
+		const popup = activeDocument.body.createDiv({ cls: 'tb-node-popup' });
 		this.nodePopupEl = popup;
 
 		// 제목
-		popup.createEl('div', { cls: 'tb-node-popup-title', text: node.title });
+		popup.createDiv({ cls: 'tb-node-popup-title', text: node.title });
 
 		// 타입 뱃지
 		const typeColors: Record<string, string> = {
@@ -760,7 +760,7 @@ export class GraphView {
 			context: '#33aa77', insight: '#cc44cc', action: '#ff7744',
 			problem: '#ff9800',
 		};
-		const badge = popup.createEl('div', { cls: 'tb-node-popup-type', text: node.type });
+		const badge = popup.createDiv({ cls: 'tb-node-popup-type', text: node.type });
 		badge.setCssStyles({ background: typeColors[node.type] ?? '#888' });
 
 		// 연결 목록
@@ -793,28 +793,28 @@ export class GraphView {
 		}
 
 		if (edges.length > 0) {
-			const list = popup.createEl('div', { cls: 'tb-node-popup-edges' });
+			const list = popup.createDiv({ cls: 'tb-node-popup-edges' });
 			for (const e of edges) {
-				const row = list.createEl('div', { cls: 'tb-node-popup-edge-row' });
-				row.createEl('span', { cls: 'tb-node-popup-dir', text: e.dir });
-				row.createEl('span', { cls: 'tb-node-popup-edge-title', text: e.title });
-				const rel = row.createEl('span', { cls: 'tb-node-popup-rel', text: e.relation });
+				const row = list.createDiv({ cls: 'tb-node-popup-edge-row' });
+				row.createSpan({ cls: 'tb-node-popup-dir', text: e.dir });
+				row.createSpan({ cls: 'tb-node-popup-edge-title', text: e.title });
+				const rel = row.createSpan({ cls: 'tb-node-popup-rel', text: e.relation });
 				rel.setCssStyles({ color: e.color });
 			}
 		} else {
-			popup.createEl('div', { cls: 'tb-node-popup-empty', text: '연결 없음' });
+			popup.createDiv({ cls: 'tb-node-popup-empty', text: '연결 없음' });
 		}
 
 		// 원본 위치 링크
 		if (node.raw_path && node.block_id) {
-			const sourceDiv = popup.createEl('div', { cls: 'tb-node-popup-source' });
+			const sourceDiv = popup.createDiv({ cls: 'tb-node-popup-source' });
 			if (node.heading_path) {
-				sourceDiv.createEl('div', { cls: 'tb-node-popup-heading', text: node.heading_path });
+				sourceDiv.createDiv({ cls: 'tb-node-popup-heading', text: node.heading_path });
 			}
 			if (this.openSourceCb) {
 				const rawPath = node.raw_path;
 				const blockId = node.block_id;
-				const link = sourceDiv.createEl('div', { cls: 'tb-node-popup-source-link', text: '↗ 원본 위치로 이동' });
+				const link = sourceDiv.createDiv({ cls: 'tb-node-popup-source-link', text: '↗ 원본 위치로 이동' });
 				link.addEventListener('click', (e) => {
 					e.stopPropagation();
 					this.openSourceCb!(rawPath, blockId);
