@@ -43,6 +43,7 @@ import {
 	SYSTEM_NORMALIZE_SPEAKERS,
 	SYSTEM_CONTEXT,
 	SYSTEM_INSIGHT,
+	SYSTEM_CORE_FLOW,
 	SYSTEM_PROP_BASE,
 	SYSTEM_PROP_DOCUMENT_ADDON,
 	SYSTEM_PROP_LECTURE_ADDON,
@@ -330,6 +331,50 @@ export async function extractInsights(contexts: ContextLayer[], settings: ThirdB
 			}));
 	} catch {
 		return [];
+	}
+}
+
+// ── 1.6차: 핵심 플로우 — 이번 인제스트가 만든 그래프에서 서사 흐름 하나 추출 ──
+
+export async function extractCoreFlow(
+	propositions: Proposition[],
+	edges: LogicEdge[],
+	settings: ThirdBrainSettings
+): Promise<string> {
+	// causes·precedes·precondition_of 엣지가 하나도 없으면 흐름 자체가 성립 불가 — LLM 호출 없이 스킵
+	const flowWorthy = edges.filter(e =>
+		e.relation === 'causes' || e.relation === 'precedes' || e.relation === 'precondition_of');
+	if (propositions.length < 2 || flowWorthy.length === 0) return '';
+
+	const propBlock = propositions.map(p => `${p.id} [${p.role}] ${p.title}: ${p.text}`).join('\n');
+	const edgeBlock = edges.map(e => `${e.source} -[${e.relation}]-> ${e.target} (${e.reason})`).join('\n');
+	const prompt = `${SYSTEM_CORE_FLOW}\n${jsonLangInstr(settings.lang)}\n\n[명제 목록]\n${propBlock}\n\n[엣지 목록]\n${edgeBlock}`;
+
+	try {
+		const raw = await withRetry(() => callClaudeWithModel(
+			prompt, settings.cliBin, 'fast',
+			settings.aiProvider, settings.claudeApiKey, settings.geminiApiKey, settings.openaiApiKey,
+		));
+		const parsed = parseJson<{ has_flow?: boolean; steps?: Array<{ id?: string; via?: string }> }>(raw, {});
+		if (!parsed.has_flow || !Array.isArray(parsed.steps) || parsed.steps.length < 2) return '';
+
+		const propById = new Map(propositions.map(p => [p.id, p]));
+		const resolved: Array<{ prop: Proposition; via?: string }> = [];
+		for (const step of parsed.steps) {
+			const prop = step.id ? propById.get(step.id) : undefined;
+			if (!prop) return ''; // 근거 없는 id가 하나라도 섞이면 흐름 전체를 버린다 — 부분 조작 금지
+			resolved.push({ prop, via: typeof step.via === 'string' ? step.via.trim() : undefined });
+		}
+
+		// 명제 노드는 basename === title로 저장되므로 [[제목]]이 실제 노드 파일로 그대로 해석된다.
+		const lines: string[] = [];
+		resolved.forEach((s, i) => {
+			if (i > 0) lines.push(s.via ? `   ↓ ${s.via}` : '   ↓');
+			lines.push(`${i + 1}. **[[${s.prop.title}]]** — ${s.prop.text}`);
+		});
+		return `## 핵심 플로우\n\n${lines.join('\n')}`;
+	} catch {
+		return '';
 	}
 }
 

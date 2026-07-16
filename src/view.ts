@@ -28,7 +28,7 @@ import { detectConflicts } from './engine/contradiction-engine';
 import { extractPdfText } from './engine/pdf-extractor';
 import { transcribeAudioFile } from './engine/audio-transcriber';
 import { MissionControlModal } from './components/workbench';
-import { extractActions, linkActionsToPropositions, generateNaiveSummary, type TranscriptAnalysisMode } from './engine/serial-pipeline';
+import { extractActions, linkActionsToPropositions, generateNaiveSummary, extractCoreFlow, type TranscriptAnalysisMode } from './engine/serial-pipeline';
 import { confirmAICost } from './components/ai-preflight';
 import { relLabel, progressBar, sanitizeId, shortText, conflictNodeDetail } from './components/modals/shared';
 import { PipelineInfoModal, RequireOpenAIModal } from './components/modals/misc-modals';
@@ -46,6 +46,7 @@ import type {
 	ContextLayer,
 	Insight,
 	Proposition,
+	LogicEdge,
 	LogicLayer,
 	EdgeCandidate,
 	SummaryResult,
@@ -700,6 +701,8 @@ export class ThirdBrainView extends ItemView {
 		const allRawLinks: RawLink[] = [];
 		const allBlockIdSpans: Array<{ blockId: string; spanText: string }> = [];
 		const canonicalParts: string[] = []; // 전사본: 청크별 정규화·재정형 텍스트 (raw 정본 교체용)
+		const allPropositions: Proposition[] = []; // 핵심 플로우 추출용 — 이번 인제스트가 만든 명제 전체
+		const allEdges: LogicEdge[] = [];          // 핵심 플로우 추출용 — 이번 인제스트가 만든 엣지 전체
 
 		try {
 			// 화자 정체성은 청크 경계를 넘어 일관돼야 한다 → 청킹 전에 전체 텍스트로 화자 명단을 1회 확정.
@@ -721,6 +724,8 @@ export class ThirdBrainView extends ItemView {
 						allRawLinks.push(...res.rawLinks);
 						allBlockIdSpans.push(...res.blockIdSpans);
 						if (res.canonicalText) canonicalParts.push(res.canonicalText);
+						if (res.propositions) allPropositions.push(...res.propositions);
+						if (res.edges) allEdges.push(...res.edges);
 					}
 				}
 			} else {
@@ -729,6 +734,8 @@ export class ThirdBrainView extends ItemView {
 					allRawLinks.push(...res.rawLinks);
 					allBlockIdSpans.push(...res.blockIdSpans);
 					if (res.canonicalText) canonicalParts.push(res.canonicalText);
+					if (res.propositions) allPropositions.push(...res.propositions);
+					if (res.edges) allEdges.push(...res.edges);
 				}
 			}
 
@@ -757,7 +764,14 @@ export class ThirdBrainView extends ItemView {
 				try {
 					this.setProgress(10, this.t('progress_naive_summary'));
 					const { title, summary } = await generateNaiveSummary(text, this.plugin.settings);
-					if (summary) await this.store.saveNaiveSummary(title, summary, rawFile);
+					if (summary) {
+						// 핵심 플로우: 이번 인제스트가 만든 명제·엣지에서 causes/precedes/precondition_of
+						// 연쇄 하나를 뽑아 요약 노트에 덧붙인다. 흐름이 없으면 빈 문자열 — 섹션 생략.
+						this.setProgress(10, this.t('progress_core_flow'));
+						const coreFlow = await extractCoreFlow(allPropositions, allEdges, this.plugin.settings)
+							.catch(() => '');
+						await this.store.saveNaiveSummary(title, summary, rawFile, coreFlow || undefined);
+					}
 				} catch {
 					// 나이브 요약 실패는 무시 — 핵심 그래프화 결과에 영향 없음
 				}
@@ -963,7 +977,10 @@ export class ThirdBrainView extends ItemView {
 					}, 300);
 
 					// 전사본은 정규화·재정형된 workingText가 정본 — runIngest가 raw 파일을 이것으로 교체
-					return { rawLinks, blockIdSpans, canonicalText: isTranscript ? workingText : undefined };
+					return {
+						rawLinks, blockIdSpans, canonicalText: isTranscript ? workingText : undefined,
+						propositions: logic.propositions, edges: logic.edges,
+					};
 				} catch (err) {
 					this.hideProgress();
 					new Notice(`${this.t('save_error_ingest_prefix')}${err instanceof Error ? err.message : String(err)}`);

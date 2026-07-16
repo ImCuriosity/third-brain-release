@@ -169,6 +169,7 @@ var KO = {
   progress_save: "\u2467 \uADF8\uB798\uD504 \uC800\uC7A5 \uC911...",
   progress_chunk: "\uCCAD\uD06C \uBD84\uC11D \uC911...",
   progress_naive_summary: "\uB098\uC774\uBE0C \uC694\uC57D \uC0DD\uC131 \uC911...",
+  progress_core_flow: "\uD575\uC2EC \uD50C\uB85C\uC6B0 \uCD94\uCD9C \uC911...",
   // step labels
   step_normalize: "\u3007 \uD654\uC790 \uC815\uADDC\uD654",
   step_context: "\u2460 \uBB38\uB9E5 \uBD84\uC808",
@@ -526,6 +527,7 @@ var EN = {
   progress_edge: "3/3  Extracting edges...",
   progress_save: "\u2467 Saving graph...",
   progress_naive_summary: "Generating naive summary...",
+  progress_core_flow: "Extracting core flow...",
   progress_chunk: "Analyzing chunk...",
   step_normalize: "\u3007 Speaker Normalization",
   step_context: "\u2460 Context Segmentation",
@@ -1549,6 +1551,21 @@ Raw \uD14D\uC2A4\uD2B8\uB97C "\uBB34\uC5C7\uC5D0 \uAD00\uD55C \uB369\uC5B4\uB9AC
 - summary: \uADF8 \uD1A0\uD53D\uC5D0 \uC18D\uD55C \uB0B4\uC6A9\uC758 \uD575\uC2EC \uC694\uC57D (3~10\uC904, \uB9C8\uD06C\uB2E4\uC6B4)
 - tags: \uBD84\uB958 \uD0DC\uADF8 2~6\uAC1C (# \uC5C6\uC774)
 - keywords: \uD575\uC2EC \uD0A4\uC6CC\uB4DC 3~10\uAC1C`;
+var SYSTEM_CORE_FLOW = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uD575\uC2EC \uD50C\uB85C\uC6B0 \uCD94\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
+\uBC29\uAE08 \uC0DD\uC131\uB41C \uBA85\uC81C\xB7\uB17C\uB9AC \uC5E3\uC9C0 \uADF8\uB798\uD504\uC5D0\uC11C, \uAC00\uC7A5 \uAC15\uB825\uD558\uACE0 \uC77C\uAD00\uB41C \uC11C\uC0AC \uD750\uB984 \uD558\uB098\uB97C \uCC3E\uC544 \uC21C\uC11C\uB300\uB85C \uB098\uC5F4\uD569\uB2C8\uB2E4.
+
+\u2605 \uBB34\uC5C7\uC744 \uCC3E\uC744 \uAC83\uC778\uAC00
+- causes\xB7precedes\xB7precondition_of \uC5E3\uC9C0\uB85C \uC774\uC5B4\uC9C0\uB294 \uC5F0\uC1C4\uB97C \uCD5C\uC6B0\uC120\uC73C\uB85C \uCC3E\uB294\uB2E4 (\uC6D0\uC778\u2192\uACB0\uACFC, \uC120\uD6C4, \uC804\uC81C\u2192\uC131\uB9BD).
+- \uADF8\uB7F0 \uC5F0\uC1C4\uAC00 \uBA85\uD655\uD788 \uC874\uC7AC\uD560 \uB54C\uB9CC \uBC18\uD658\uD558\uB77C. \uC874\uC7AC\uD558\uC9C0 \uC54A\uC73C\uBA74(\uACE0\uB9BD \uBA85\uC81C\uBFD0\uC774\uAC70\uB098 causes\xB7precedes\xB7precondition_of \uC5E3\uC9C0\uAC00 \uC5C6\uC73C\uBA74) has_flow: false\uC640 \uBE48 \uBC30\uC5F4\uC744 \uBC18\uD658\uD558\uB77C \u2014 \uC5B5\uC9C0\uB85C \uC21C\uC11C\uB97C \uB9CC\uB4E4\uC9C0 \uB9C8\uB77C.
+- \uD750\uB984\uC740 \uD558\uB098\uB9CC \uACE0\uB978\uB2E4. \uD6C4\uBCF4\uAC00 \uC5EC\uB7FF\uC774\uBA74 \uAC00\uC7A5 \uAE38\uACE0 \uBA85\uD655\uD55C \uC5F0\uC1C4\uB97C \uC120\uD0DD\uD558\uB77C. \uC5EC\uB7EC \uD750\uB984\uC744 \uB098\uC5F4\uD558\uC9C0 \uB9C8\uB77C.
+- supports\uB294 \uBCF4\uC870\uB85C\uB9CC \uC0AC\uC6A9(\uC911\uAC04\uC5D0 \uC778\uACFC\xB7\uC120\uD6C4 \uC0AC\uC2AC\uC774 \uB04A\uAE38 \uB54C \uB2E4\uB9AC\uB97C \uB193\uB294 \uC6A9\uB3C4) \u2014 supports\uB9CC\uC73C\uB85C \uC774\uC5B4\uC9C4 \uC0AC\uC2AC\uC740 \uD750\uB984\uC774 \uC544\uB2C8\uB2E4.
+
+\u2605 \uCD9C\uB825 \uADDC\uCE59
+- \uAC01 \uB2E8\uACC4\uB294 \uBC18\uB4DC\uC2DC \uC8FC\uC5B4\uC9C4 \uBA85\uC81C id(p1, p2...) \uC911 \uD558\uB098\uB97C \uADF8\uB300\uB85C \uC0AC\uC6A9\uD558\uB77C. \uC0C8 \uD14D\uC2A4\uD2B8\uB97C \uC9C0\uC5B4\uB0B4\uC9C0 \uB9C8\uB77C.
+- via: \uC9C1\uC804 \uB2E8\uACC4\uC5D0\uC11C \uC774 \uB2E8\uACC4\uB85C \uC774\uC5B4\uC9C0\uB294 \uC774\uC720 \uD55C \uBB38\uC7A5(\uC5E3\uC9C0\uC758 reason\uC744 \uD65C\uC6A9\uD558\uB77C). \uCCAB \uB2E8\uACC4\uB294 via \uC5C6\uC74C.
+
+JSON\uB9CC \uBC18\uD658(\uCF54\uB4DC\uBE14\uB85D \uC5C6\uC774):
+{"has_flow":true,"steps":[{"id":"p3"},{"id":"p5","via":"..."},{"id":"p7","via":"..."}]}`;
 var SYSTEM_PROP_BASE = `\uB2F9\uC2E0\uC740 'Third-Brain'\uC758 \uBA85\uC81C \uCD94\uCD9C \uC5D4\uC9C4\uC785\uB2C8\uB2E4.
 \uC8FC\uC5B4\uC9C4 \uB2E8\uB77D \uD558\uB098\uC5D0\uC11C \uD575\uC2EC \uBA85\uC81C\uB97C \uCD5C\uB300 3\uAC1C\uAE4C\uC9C0 \uCD94\uCD9C\uD569\uB2C8\uB2E4.
 
@@ -2084,6 +2101,54 @@ function chunkByParagraph(text, today, lang) {
 function assignContextId(c2, index2) {
   const slug = c2.title.replace(/[^\wㄱ-힣]/g, "-").toLowerCase().slice(0, 30);
   return { id: `ctx-${slug}-${Date.now().toString(36)}-${index2}`, ...c2 };
+}
+async function extractCoreFlow(propositions, edges, settings) {
+  const flowWorthy = edges.filter((e) => e.relation === "causes" || e.relation === "precedes" || e.relation === "precondition_of");
+  if (propositions.length < 2 || flowWorthy.length === 0)
+    return "";
+  const propBlock = propositions.map((p) => `${p.id} [${p.role}] ${p.title}: ${p.text}`).join("\n");
+  const edgeBlock = edges.map((e) => `${e.source} -[${e.relation}]-> ${e.target} (${e.reason})`).join("\n");
+  const prompt = `${SYSTEM_CORE_FLOW}
+${jsonLangInstr(settings.lang)}
+
+[\uBA85\uC81C \uBAA9\uB85D]
+${propBlock}
+
+[\uC5E3\uC9C0 \uBAA9\uB85D]
+${edgeBlock}`;
+  try {
+    const raw = await withRetry(() => callClaudeWithModel(
+      prompt,
+      settings.cliBin,
+      "fast",
+      settings.aiProvider,
+      settings.claudeApiKey,
+      settings.geminiApiKey,
+      settings.openaiApiKey
+    ));
+    const parsed = parseJson(raw, {});
+    if (!parsed.has_flow || !Array.isArray(parsed.steps) || parsed.steps.length < 2)
+      return "";
+    const propById = new Map(propositions.map((p) => [p.id, p]));
+    const resolved = [];
+    for (const step of parsed.steps) {
+      const prop = step.id ? propById.get(step.id) : void 0;
+      if (!prop)
+        return "";
+      resolved.push({ prop, via: typeof step.via === "string" ? step.via.trim() : void 0 });
+    }
+    const lines = [];
+    resolved.forEach((s, i) => {
+      if (i > 0)
+        lines.push(s.via ? `   \u2193 ${s.via}` : "   \u2193");
+      lines.push(`${i + 1}. **[[${s.prop.title}]]** \u2014 ${s.prop.text}`);
+    });
+    return `## \uD575\uC2EC \uD50C\uB85C\uC6B0
+
+${lines.join("\n")}`;
+  } catch {
+    return "";
+  }
 }
 var ALLOWED_ROLES = [
   "claim",
@@ -3336,16 +3401,19 @@ ${body}`;
    * 나이브 요약을 summaries/ 폴더에 저장하고 원본(raw) 파일로 위키링크를 건다.
    * 그래프 노드가 아닌 일반 마크다운 — tb_id·tb_edges 없음, 축·공리 게이트 대상 아님.
    */
-  async saveNaiveSummary(title, summary, rawFile) {
+  async saveNaiveSummary(title, summary, rawFile, coreFlow) {
     const summaryFolder = (0, import_obsidian2.normalizePath)(`${this.settings.rootFolder}/summaries`);
     await this.ensureFolder(summaryFolder);
     const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10).replace(/-/g, "");
     const safeTitle = title.replace(/[\\/:*?"<>|#^[\]]/g, " ").replace(/\s+/g, "_").slice(0, 40) || "summary";
     const filePath = await this.resolveConflict((0, import_obsidian2.normalizePath)(`${summaryFolder}/${date}_${safeTitle}.md`));
     const rawWikilink = rawFile.path.replace(/\.md$/, "");
+    const flowSection = coreFlow ? `
+
+${coreFlow}` : "";
     const body = `# ${title}
 
-${summary}
+${summary}${flowSection}
 
 ---
 [[${rawWikilink}]]`;
@@ -41304,6 +41372,8 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
     const allRawLinks = [];
     const allBlockIdSpans = [];
     const canonicalParts = [];
+    const allPropositions = [];
+    const allEdges = [];
     try {
       let speakerRoster;
       if (contentType === "meeting" || contentType === "dialogue") {
@@ -41322,6 +41392,10 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
             allBlockIdSpans.push(...res.blockIdSpans);
             if (res.canonicalText)
               canonicalParts.push(res.canonicalText);
+            if (res.propositions)
+              allPropositions.push(...res.propositions);
+            if (res.edges)
+              allEdges.push(...res.edges);
           }
         }
       } else {
@@ -41331,6 +41405,10 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
           allBlockIdSpans.push(...res.blockIdSpans);
           if (res.canonicalText)
             canonicalParts.push(res.canonicalText);
+          if (res.propositions)
+            allPropositions.push(...res.propositions);
+          if (res.edges)
+            allEdges.push(...res.edges);
         }
       }
       if (rawFile) {
@@ -41351,8 +41429,11 @@ var ThirdBrainView = class extends import_obsidian13.ItemView {
         try {
           this.setProgress(10, this.t("progress_naive_summary"));
           const { title, summary } = await generateNaiveSummary(text, this.plugin.settings);
-          if (summary)
-            await this.store.saveNaiveSummary(title, summary, rawFile);
+          if (summary) {
+            this.setProgress(10, this.t("progress_core_flow"));
+            const coreFlow = await extractCoreFlow(allPropositions, allEdges, this.plugin.settings).catch(() => "");
+            await this.store.saveNaiveSummary(title, summary, rawFile, coreFlow || void 0);
+          }
         } catch {
         }
       }
@@ -41504,7 +41585,13 @@ ${diagMsg}`
           window.setTimeout(() => {
             void this.openNativeGraph([targetFolder]);
           }, 300);
-          return { rawLinks, blockIdSpans, canonicalText: isTranscript ? workingText : void 0 };
+          return {
+            rawLinks,
+            blockIdSpans,
+            canonicalText: isTranscript ? workingText : void 0,
+            propositions: logic.propositions,
+            edges: logic.edges
+          };
         } catch (err) {
           this.hideProgress();
           new import_obsidian13.Notice(`${this.t("save_error_ingest_prefix")}${err instanceof Error ? err.message : String(err)}`);

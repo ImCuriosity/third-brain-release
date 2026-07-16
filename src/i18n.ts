@@ -64,6 +64,7 @@ const KO = {
 	progress_save: '⑧ 그래프 저장 중...',
 	progress_chunk: '청크 분석 중...',
 	progress_naive_summary: '나이브 요약 생성 중...',
+	progress_core_flow: '핵심 플로우 추출 중...',
 	// step labels
 	step_normalize: '〇 화자 정규화',
 	step_context: '① 문맥 분절',
@@ -424,6 +425,7 @@ const EN: Record<TKey, string> = {
 	progress_edge: '3/3  Extracting edges...',
 	progress_save: '⑧ Saving graph...',
 	progress_naive_summary: 'Generating naive summary...',
+	progress_core_flow: 'Extracting core flow...',
 	progress_chunk: 'Analyzing chunk...',
 	step_normalize: '〇 Speaker Normalization',
 	step_context: '① Context Segmentation',

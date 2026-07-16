@@ -305,7 +305,7 @@ export class GraphStore {
 	 * 나이브 요약을 summaries/ 폴더에 저장하고 원본(raw) 파일로 위키링크를 건다.
 	 * 그래프 노드가 아닌 일반 마크다운 — tb_id·tb_edges 없음, 축·공리 게이트 대상 아님.
 	 */
-	async saveNaiveSummary(title: string, summary: string, rawFile: TFile): Promise<TFile> {
+	async saveNaiveSummary(title: string, summary: string, rawFile: TFile, coreFlow?: string): Promise<TFile> {
 		const summaryFolder = normalizePath(`${this.settings.rootFolder}/summaries`);
 		await this.ensureFolder(summaryFolder);
 
@@ -314,7 +314,8 @@ export class GraphStore {
 		const filePath = await this.resolveConflict(normalizePath(`${summaryFolder}/${date}_${safeTitle}.md`));
 
 		const rawWikilink = rawFile.path.replace(/\.md$/, '');
-		const body = `# ${title}\n\n${summary}\n\n---\n[[${rawWikilink}]]`;
+		const flowSection = coreFlow ? `\n\n${coreFlow}` : '';
+		const body = `# ${title}\n\n${summary}${flowSection}\n\n---\n[[${rawWikilink}]]`;
 
 		return this.app.vault.create(filePath, body);
 	}
